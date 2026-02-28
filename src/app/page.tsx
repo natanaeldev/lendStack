@@ -11,6 +11,7 @@ import AmortizationTable from '@/components/AmortizationTable'
 import ComparisonPanel from '@/components/ComparisonPanel'
 import MultiLoanPanel from '@/components/MultiLoanPanel'
 import ClientsPanel from '@/components/ClientsPanel'
+import Dashboard from '@/components/Dashboard'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
@@ -20,10 +21,11 @@ import {
   formatCurrency,
 } from '@/lib/loan'
 
-type Tab = 'calculator' | 'multiloan' | 'comparison' | 'clients'
+type Tab = 'calculator' | 'dashboard' | 'multiloan' | 'comparison' | 'clients'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'calculator',  label: '🧮 Calculadora'          },
+  { id: 'dashboard',   label: '🏠 Dashboard'            },
   { id: 'multiloan',   label: '📋 Multi-préstamo'        },
   { id: 'comparison',  label: '📊 Comparación'           },
   { id: 'clients',     label: '👥 Clientes'              },
@@ -305,6 +307,9 @@ export default function Home() {
             </div>
           </>
         )}
+
+        {/* ═══ DASHBOARD ═══ */}
+        {tab === 'dashboard' && <Dashboard />}
 
         {/* ═══ MULTI-LOAN ═══ */}
         {tab === 'multiloan' && (

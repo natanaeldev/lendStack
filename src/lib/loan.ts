@@ -138,9 +138,14 @@ export function buildAmortization(params: LoanParams): AmortizationRow[] {
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 
+export interface ClientDocument {
+  id: string; name: string; url: string; type: string; size: number; uploadedAt: string
+}
+
 export interface Client {
   id: string; name: string; email: string; phone: string; notes: string
   params: LoanParams; result: LoanResult; savedAt: string
+  documents?: ClientDocument[]
 }
 
 // ─── Multi-Loan ───────────────────────────────────────────────────────────────

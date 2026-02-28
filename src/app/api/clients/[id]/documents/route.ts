@@ -1,0 +1,64 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { runQuery, isNeo4jConfigured } from '@/lib/neo4j'
+import { v4 as uuidv4 } from 'uuid'
+
+// ─── POST /api/clients/[id]/documents ────────────────────────────────────────
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  if (!isNeo4jConfigured())
+    return NextResponse.json({ configured: false }, { status: 503 })
+
+  try {
+    const formData = await req.formData()
+    const file = formData.get('file') as File | null
+    if (!file)
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+
+    if (file.size > 10 * 1024 * 1024)
+      return NextResponse.json({ error: 'Max file size is 10 MB' }, { status: 400 })
+
+    // ── Upload: Vercel Blob (preferred) or base64 fallback ──────────────────
+    let fileUrl: string
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { put } = await import('@vercel/blob')
+      const blob = await put(`jvf-clients/${params.id}/${Date.now()}-${file.name}`, file, {
+        access: 'public',
+      })
+      fileUrl = blob.url
+    } else {
+      // Fallback: store tiny files as base64 data URL (≤ 500 KB)
+      if (file.size > 500 * 1024)
+        return NextResponse.json(
+          { error: 'Add BLOB_READ_WRITE_TOKEN to enable files > 500 KB' },
+          { status: 400 }
+        )
+      const buf = await file.arrayBuffer()
+      fileUrl = `data:${file.type};base64,${Buffer.from(buf).toString('base64')}`
+    }
+
+    const docId      = uuidv4()
+    const uploadedAt = new Date().toISOString()
+
+    await runQuery(
+      `MATCH (c:Client {id: $clientId})
+       CREATE (c)-[:HAS_DOCUMENT]->(:Document {
+         id: $docId, name: $name, url: $url,
+         type: $type, size: $size, uploadedAt: $uploadedAt
+       })`,
+      { clientId: params.id, docId, name: file.name, url: fileUrl,
+        type: file.type, size: file.size, uploadedAt }
+    )
+
+    return NextResponse.json({
+      success: true,
+      document: { id: docId, name: file.name, url: fileUrl,
+                  type: file.type, size: file.size, uploadedAt },
+    })
+  } catch (err: any) {
+    console.error('[POST /api/clients/[id]/documents]', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
