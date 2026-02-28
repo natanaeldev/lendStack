@@ -30,16 +30,30 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 export default function Home() {
-  const [tab,              setTab]              = useState<Tab>('calculator')
-  const [amount,           setAmount]           = useState(100000)
-  const [termYears,        setTermYears]        = useState(5)
-  const [profile,          setProfile]          = useState<RiskProfile>('Medium Risk')
-  const [currency,         setCurrency]         = useState<Currency>('USD')
-  const [rateMode,         setRateMode]         = useState<RateMode>('annual')
-  // 1.5 % per month default (stored as decimal 0.015)
+  const [tab,               setTab]               = useState<Tab>('calculator')
+  const [amount,            setAmount]            = useState(100000)
+  const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
+  const [termValue,         setTermValue]         = useState(5)          // in the selected unit
+  const [profile,           setProfile]           = useState<RiskProfile>('Medium Risk')
+  const [currency,          setCurrency]          = useState<Currency>('USD')
+  const [rateMode,          setRateMode]          = useState<RateMode>('annual')
   const [customMonthlyRate, setCustomMonthlyRate] = useState(0.015)
-  const [showTable, setShowTable] = useState(false)
-  const [emailOpen, setEmailOpen] = useState(false)
+  const [showTable,         setShowTable]         = useState(false)
+  const [emailOpen,         setEmailOpen]         = useState(false)
+
+  // Always pass termYears to the calculation layer (convert months → fractional years)
+  const termYears = termUnit === 'months' ? termValue / 12 : termValue
+
+  const handleTermUnitChange = (unit: 'years' | 'months') => {
+    if (unit === termUnit) return
+    // Convert current value when switching units
+    if (unit === 'months') {
+      setTermValue(Math.round(termValue * 12))   // years → months
+    } else {
+      setTermValue(Math.max(1, Math.round(termValue / 12)))  // months → years
+    }
+    setTermUnit(unit)
+  }
 
   const params: LoanParams = { amount, termYears, profile, currency, rateMode, customMonthlyRate }
   const config = getRiskConfig(profile)
@@ -49,7 +63,8 @@ export default function Home() {
 
   const handleLoadClient = useCallback((p: LoanParams) => {
     setAmount(p.amount)
-    setTermYears(p.termYears)
+    setTermUnit('years')           // clients always saved with termYears in years
+    setTermValue(p.termYears)
     setProfile(p.profile)
     setCurrency(p.currency)
     setTab('calculator')
@@ -129,19 +144,55 @@ export default function Home() {
 
                 {/* Term */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    Plazo (años)
-                  </label>
-                  <input type="number" value={termYears} min={1} max={30}
-                    onChange={e => { const v = parseInt(e.target.value); if (v >= 1 && v <= 30) setTermYears(v) }}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                    style={{ color: '#0D2B5E' }} />
-                  <input type="range" min={1} max={30} step={1} value={termYears}
-                    onChange={e => setTermYears(Number(e.target.value))}
+                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Plazo
+                    </label>
+                    {/* Years / Months unit toggle */}
+                    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 text-xs font-bold">
+                      {(['years', 'months'] as const).map(unit => (
+                        <button key={unit} onClick={() => handleTermUnitChange(unit)}
+                          className="px-2.5 py-1 transition-all"
+                          style={{
+                            background: termUnit === unit ? '#1565C0' : 'transparent',
+                            color:      termUnit === unit ? '#fff' : '#64748b',
+                          }}>
+                          {unit === 'years' ? 'Años' : 'Meses'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input type="number" value={termValue}
+                      min={1} max={termUnit === 'months' ? 360 : 30}
+                      onChange={e => {
+                        const v = parseInt(e.target.value)
+                        const max = termUnit === 'months' ? 360 : 30
+                        if (!isNaN(v) && v >= 1 && v <= max) setTermValue(v)
+                      }}
+                      className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                      style={{ color: '#0D2B5E' }} />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">
+                      {termUnit === 'months' ? 'meses' : 'años'}
+                    </span>
+                  </div>
+                  <input type="range" min={1} max={termUnit === 'months' ? 360 : 30} step={1}
+                    value={termValue}
+                    onChange={e => setTermValue(Number(e.target.value))}
                     className="w-full mt-3 accent-blue-600" style={{ height: 4 }} />
                   <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                    <span>1 año</span><span>30 años</span>
+                    {termUnit === 'months'
+                      ? <><span>1 mes</span><span>180 meses</span><span>360 meses</span></>
+                      : <><span>1 año</span><span>30 años</span></>
+                    }
                   </div>
+                  {/* Show equivalent in the other unit */}
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    {termUnit === 'months'
+                      ? <>≈ <strong style={{ color: '#0D2B5E' }}>{(termValue / 12).toFixed(1)}</strong> años · <strong style={{ color: '#0D2B5E' }}>{termValue}</strong> cuotas</>
+                      : <><strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> meses · <strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> cuotas</>
+                    }
+                  </p>
                 </div>
               </div>
 
@@ -273,7 +324,7 @@ export default function Home() {
               </div>
               <div className="flex gap-6">
                 <div><p className="text-xs text-slate-400">Monto</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{fmt(amount)}</p></div>
-                <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termYears} años</p></div>
+                <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} años`}</p></div>
               </div>
               <p className="text-xs text-slate-400 ml-auto">Ajusta los parámetros en Calculadora</p>
             </div>
