@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy-950: #071a3e;
+  --navy-900: #0D2B5E;
+  --navy-500: #1565C0;
+  --navy-100: #c5d5ea;
+  --navy-50:  #e8eef7;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: 'DM Sans', sans-serif; background: #eef2f9; color: #0D2B5E; min-height: 100vh; }
+
+.font-display { font-family: 'DM Serif Display', serif; }
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #e8eef7; }
+::-webkit-scrollbar-thumb { background: #c5d5ea; border-radius: 3px; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.fade-up   { animation: fadeUp .4s ease both; }
+.fade-up-1 { animation: fadeUp .4s .08s ease both; }
+.fade-up-2 { animation: fadeUp .4s .16s ease both; }
+.fade-up-3 { animation: fadeUp .4s .24s ease both; }
+
+@keyframes slideIn { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: none; } }
+.slide-in { animation: slideIn .3s ease both; }
+
+@keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+.toast-in { animation: toastIn .3s ease both; }
