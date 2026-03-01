@@ -125,7 +125,8 @@ export default function Dashboard() {
       fetch('/api/clients').then(r => r.json()),
     ])
       .then(([s, c]) => {
-        if (s.configured === false) { setNotConf(true); return }
+        // configured is false (503) OR undefined (500 error) → show setup screen
+        if (!s.configured) { setNotConf(true); return }
         setStats(s)
         setClients(c.clients ?? [])
       })
@@ -207,7 +208,7 @@ export default function Dashboard() {
       )}
 
       {/* ── Charts ── */}
-      {stats && stats.byProfile.length > 0 && (
+      {stats && (stats.byProfile?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
           {/* Bar chart — by risk profile */}
