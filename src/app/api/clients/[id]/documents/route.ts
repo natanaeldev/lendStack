@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { runQuery, isNeo4jConfigured } from '@/lib/neo4j'
+import { getDb, isDbConfigured } from '@/lib/mongodb'
 import { v4 as uuidv4 } from 'uuid'
 
 // ─── POST /api/clients/[id]/documents ────────────────────────────────────────
@@ -7,7 +7,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!isNeo4jConfigured())
+  if (!isDbConfigured())
     return NextResponse.json({ configured: false }, { status: 503 })
 
   try {
@@ -42,14 +42,23 @@ export async function POST(
     const docId      = uuidv4()
     const uploadedAt = new Date().toISOString()
 
-    await runQuery(
-      `MATCH (c:Client {id: $clientId})
-       CREATE (c)-[:HAS_DOCUMENT]->(:Document {
-         id: $docId, name: $name, url: $url,
-         type: $type, size: $size, uploadedAt: $uploadedAt
-       })`,
-      { clientId: params.id, docId, name: file.name, url: fileUrl,
-        type: file.type, size: file.size, uploadedAt }
+    const db  = await getDb()
+    const col = db.collection('clients')
+
+    await col.updateOne(
+      { _id: params.id as any },
+      {
+        $push: {
+          documents: {
+            id: docId,
+            name: file.name,
+            url: fileUrl,
+            type: file.type,
+            size: file.size,
+            uploadedAt,
+          },
+        } as any,
+      }
     )
 
     return NextResponse.json({
