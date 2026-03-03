@@ -25,7 +25,7 @@ export async function POST(
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const { put } = await import('@vercel/blob')
       const blob = await put(`jvf-clients/${params.id}/${Date.now()}-${file.name}`, file, {
-        access: 'public',
+        access: 'private',
       })
       fileUrl = blob.url
     } else {

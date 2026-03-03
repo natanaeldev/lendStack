@@ -18,7 +18,7 @@ interface Props {
   onLoadClient:  (params: LoanParams) => void
 }
 
-type StorageMode = 'loading' | 'local' | 'neo4j'
+type StorageMode = 'loading' | 'local' | 'cloud'
 
 const LOCAL_KEY = 'jvf_clients'
 
@@ -50,8 +50,14 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         const res  = await fetch('/api/clients')
         const data = await res.json()
         if (res.ok && data.configured !== false) {
-          setClients(data.clients ?? [])
-          setMode('neo4j')
+          setClients((data.clients ?? []).map((c: Client) => ({
+            ...c,
+            savedAt: c.savedAt
+              ? new Date(c.savedAt).toLocaleDateString('es-AR',
+                  { day: '2-digit', month: 'short', year: 'numeric' })
+              : '',
+          })))
+          setMode('cloud')
           return
         }
       } catch { /* network unavailable */ }
@@ -78,7 +84,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
     if (!name.trim() || saving) return
     setSaving(true)
 
-    if (mode === 'neo4j') {
+    if (mode === 'cloud') {
       try {
         const res = await fetch('/api/clients', {
           method: 'POST',
@@ -102,7 +108,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           setSaved(true); setTimeout(() => setSaved(false), 2500)
         }
       } catch (err) {
-        console.error('Error saving to Neo4j', err)
+        console.error('Error saving client', err)
       }
     } else {
       const client: Client = {
@@ -123,7 +129,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
   // ── Remove client ──────────────────────────────────────────────────────────
   const removeClient = async (id: string) => {
-    if (mode === 'neo4j') {
+    if (mode === 'cloud') {
       await fetch(`/api/clients/${id}`, { method: 'DELETE' }).catch(() => {})
     }
     setClients(prev => prev.filter(c => c.id !== id))
@@ -158,13 +164,13 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
       {mode !== 'loading' && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border"
           style={{
-            background:   mode === 'neo4j' ? '#E8F5E9' : '#FFF8E1',
-            borderColor:  mode === 'neo4j' ? '#2E7D3233' : '#F59E0B33',
-            color:        mode === 'neo4j' ? '#1B5E20'  : '#6D4C00',
+            background:   mode === 'cloud' ? '#E8F5E9' : '#FFF8E1',
+            borderColor:  mode === 'cloud' ? '#2E7D3233' : '#F59E0B33',
+            color:        mode === 'cloud' ? '#1B5E20'  : '#6D4C00',
           }}>
-          {mode === 'neo4j'
-            ? '☁️  Conectado a Neo4j — datos sincronizados en la nube'
-            : '💾  Guardado localmente — configurá Neo4j para sincronización en la nube'}
+          {mode === 'cloud'
+            ? '☁️  Conectado a MongoDB — datos sincronizados en la nube'
+            : '💾  Guardado localmente — configurá MongoDB para sincronización en la nube'}
         </div>
       )}
 
@@ -283,7 +289,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                         style={{ background: '#e8eef7', color: '#0D2B5E' }}>
                         📂 Cargar
                       </button>
-                      {mode === 'neo4j' && (
+                      {mode === 'cloud' && (
                         <button onClick={() => setExpandId(isExpanded ? null : c.id)}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                           style={{ background: isExpanded ? '#0D2B5E' : '#e8eef7',
@@ -299,7 +305,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                   </div>
 
                   {/* Documents panel (Neo4j only) */}
-                  {isExpanded && mode === 'neo4j' && (
+                  {isExpanded && mode === 'cloud' && (
                     <div className="border-t border-slate-100 px-4 pb-4 pt-3 bg-slate-50">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                         Documentos adjuntos
@@ -307,7 +313,11 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                       {c.documents && c.documents.length > 0 ? (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {c.documents.map(doc => (
-                            <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+                            <a key={doc.id}
+                              href={doc.url.startsWith('data:')
+                                ? doc.url
+                                : `/api/blob-download?url=${encodeURIComponent(doc.url)}`}
+                              target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border bg-white hover:border-blue-300 hover:bg-blue-50 transition-all"
                               style={{ color: '#0D2B5E', borderColor: '#e2e8f0' }}>
                               {docIcon(doc.type)} {doc.name}
