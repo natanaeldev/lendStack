@@ -1,9 +1,11 @@
 'use client'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 
 export default function Header() {
   const { data: session } = useSession()
+  const isMaster = session?.user?.role === 'master'
 
   return (
     <header className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #071a3e 0%, #0D2B5E 55%, #1565C0 100%)', boxShadow: '0 4px 32px rgba(7,26,62,.4)' }}>
@@ -22,15 +24,27 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Right side: user info + logout OR feature badge */}
+        {/* Right side */}
         <div className="hidden md:flex flex-col items-end gap-1.5">
           {session?.user ? (
             <>
               <div className="flex items-center gap-2">
+                {/* User name pill */}
                 <span className="text-xs px-2.5 py-1 rounded-full font-medium"
                   style={{ background: 'rgba(255,255,255,.12)', color: '#c5d5ea', border: '1px solid rgba(255,255,255,.2)' }}>
-                  👤 {session.user.name || session.user.email}
+                  {isMaster ? '👑' : '👤'} {session.user.name || session.user.email}
                 </span>
+
+                {/* Manage users — master only */}
+                {isMaster && (
+                  <Link href="/admin/users"
+                    className="text-xs px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"
+                    style={{ background: 'rgba(249,168,37,.2)', color: '#F9A825', border: '1px solid rgba(249,168,37,.35)' }}>
+                    👥 Usuarios
+                  </Link>
+                )}
+
+                {/* Logout */}
                 <button
                   onClick={() => signOut({ callbackUrl: '/login' })}
                   className="text-xs px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"

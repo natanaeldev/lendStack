@@ -27,22 +27,28 @@ export const authOptions: NextAuthOptions = {
         return {
           id:    String(user._id),
           email: user.email,
-          name:  user.name ?? 'Administrador',
+          name:  user.name  ?? 'Usuario',
+          role:  user.role  ?? 'user',
         }
       },
     }),
   ],
   session: { strategy: 'jwt' },
-  pages:   { signIn: '/login'  },
+  pages:   { signIn: '/login' },
   secret:  process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user }) {
-      if (user) { token.id = user.id; token.email = user.email }
+      if (user) {
+        token.id   = user.id
+        token.email = user.email
+        token.role  = (user as any).role ?? 'user'
+      }
       return token
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).id = token.id
+        session.user.id   = token.id   as string
+        session.user.role = token.role as string
         session.user.email = token.email as string
       }
       return session
