@@ -3,17 +3,18 @@ import { useState } from 'react'
 import { LoanParams, LoanResult, RiskConfig, RISK_PROFILES, formatCurrency, formatPercent, Currency, RateMode } from '@/lib/loan'
 
 interface Props {
-  isOpen:  boolean
-  onClose: () => void
-  params:  LoanParams
-  result:  LoanResult
-  config:  RiskConfig
+  isOpen:    boolean
+  onClose:   () => void
+  params:    LoanParams
+  result:    LoanResult
+  config:    RiskConfig
+  defaultTo?: string
 }
 
 type Status = 'idle' | 'sending' | 'sent' | 'error'
 
-export default function EmailModal({ isOpen, onClose, params, result, config }: Props) {
-  const [to,      setTo]      = useState('')
+export default function EmailModal({ isOpen, onClose, params, result, config, defaultTo = '' }: Props) {
+  const [to,      setTo]      = useState(defaultTo)
   const [message, setMessage] = useState('')
   const [status,  setStatus]  = useState<Status>('idle')
 
@@ -31,7 +32,7 @@ export default function EmailModal({ isOpen, onClose, params, result, config }: 
   }
 
   const handleClose = () => {
-    setTo(''); setMessage(''); setStatus('idle'); onClose()
+    setTo(defaultTo); setMessage(''); setStatus('idle'); onClose()
   }
 
   const rows = [

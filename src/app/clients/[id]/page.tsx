@@ -2,8 +2,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatCurrency, formatPercent, RISK_PROFILES, Currency } from '@/lib/loan'
-import LendStackLogo from '@/components/LendStackLogo'
+import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortization, getRiskConfig, LoanParams, RateMode, RiskProfile } from '@/lib/loan'
+import LendStackLogo    from '@/components/LendStackLogo'
+import AmortizationTable from '@/components/AmortizationTable'
+import PdfExportButton  from '@/components/PdfExport'
+import EmailModal       from '@/components/EmailModal'
+import ToastProvider    from '@/components/Toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,6 +89,8 @@ export default function ClientProfilePage() {
   const [error,          setError]         = useState('')
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [uploading,      setUploading]     = useState(false)
+  const [emailOpen,      setEmailOpen]     = useState(false)
+  const [showAmort,      setShowAmort]     = useState(false)
 
   // ── Fetch client ───────────────────────────────────────────────────────────
   const loadClient = useCallback(async () => {
@@ -158,6 +164,18 @@ export default function ClientProfilePage() {
   const cur  = client.params.currency
 
   const fmt  = (v: number) => formatCurrency(v, cur)
+
+  // Build typed loan objects for PDF / email / amortization table
+  const loanParams: LoanParams = {
+    amount:            client.params.amount,
+    termYears:         client.params.termYears,
+    profile:           client.params.profile as RiskProfile,
+    currency:          client.params.currency,
+    rateMode:          (client.params.rateMode as RateMode) ?? 'annual',
+    customMonthlyRate: client.params.customMonthlyRate ?? 0,
+  }
+  const riskCfg   = getRiskConfig(client.params.profile as RiskProfile)
+  const amortRows = buildAmortization(loanParams)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -283,6 +301,48 @@ export default function ClientProfilePage() {
           </div>
         </div>
 
+        {/* ── Action buttons ── */}
+        <div className="flex flex-wrap gap-3">
+          <PdfExportButton params={loanParams} result={client.result} config={riskCfg} />
+          <button
+            onClick={() => setEmailOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
+            style={{ color: '#1565C0', borderColor: '#1565C0', background: '#fff' }}>
+            ✉️ Enviar por email
+          </button>
+        </div>
+
+        {/* ── Amortization table ── */}
+        <div>
+          <button
+            onClick={() => setShowAmort(s => !s)}
+            className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
+            style={{ background: showAmort ? '#0D2B5E' : '#e8eef7', color: showAmort ? '#fff' : '#0D2B5E', border: `1px solid ${showAmort ? '#0D2B5E' : '#c5d5ea'}` }}>
+            {showAmort ? '▲ Ocultar tabla de amortización' : '▼ Ver tabla de amortización'}
+          </button>
+          {showAmort && (
+            <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
+              style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+              <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between"
+                style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📊</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Tabla de amortización — {client.result.totalMonths} cuotas
+                  </span>
+                </div>
+                <span className="text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ background: cfg.colorBg, color: cfg.colorText }}>
+                  {cfg.emoji} {cfg.label}
+                </span>
+              </div>
+              <div className="p-5">
+                <AmortizationTable rows={amortRows} accentColor={riskCfg.colorAccent} currency={cur} />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Info grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
@@ -378,6 +438,17 @@ export default function ClientProfilePage() {
         {/* Bottom padding */}
         <div className="h-6" />
       </div>
+
+      {/* ── Modals ── */}
+      <EmailModal
+        isOpen={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        params={loanParams}
+        result={client.result}
+        config={riskCfg}
+        defaultTo={client.email ?? ''}
+      />
+      <ToastProvider />
     </div>
   )
 }
