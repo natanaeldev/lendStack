@@ -14,6 +14,8 @@ interface StatsData {
   configured: boolean
   totalClients: number; totalLoans: number; totalAmount: number
   avgMonthlyPayment: number; avgAmount: number; totalInterest: number
+  avgTermMonths: number; totalMonthlyPayments: number
+  totalMonthlyIncome: number; approvedCapital: number
   pendingCount: number; approvedCount: number; deniedCount: number
   byProfile:   { profile: string; count: number; totalAmount: number }[]
   byCurrency:  { currency: string; count: number; totalAmount: number }[]
@@ -51,18 +53,58 @@ const SECTION_BAR = (
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({
-  emoji, label, value, sub, color,
-}: { emoji: string; label: string; value: string | number; sub?: string; color?: string }) {
+// ─── KPI card variants ────────────────────────────────────────────────────────
+
+/** Primary KPI — large value, colored accent strip on left */
+function KpiCard({
+  label, value, sub, accent, icon, badge,
+}: {
+  label: string; value: string; sub?: string
+  accent: string; icon: string; badge?: { text: string; color: string; bg: string }
+}) {
   return (
-    <div className="rounded-2xl p-5 bg-white border border-slate-200"
-      style={{ boxShadow: '0 2px 14px rgba(0,0,0,.06)' }}>
-      <p className="text-2xl mb-3">{emoji}</p>
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
-      <p className="font-display text-2xl font-bold leading-none" style={{ color: color ?? '#0D2B5E' }}>
-        {value}
-      </p>
-      {sub && <p className="text-xs text-slate-400 mt-1.5">{sub}</p>}
+    <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
+      style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+      {/* Left accent strip */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accent }} />
+      <div className="pl-6 pr-5 py-5">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">{label}</p>
+          <span className="text-xl flex-shrink-0">{icon}</span>
+        </div>
+        <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>
+          {value}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {sub && <p className="text-xs text-slate-400">{sub}</p>}
+          {badge && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: badge.bg, color: badge.color }}>
+              {badge.text}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Secondary metric — compact, horizontal layout */
+function MetricRow({
+  label, value, sub, icon, accent,
+}: { label: string; value: string; sub?: string; icon: string; accent: string }) {
+  return (
+    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-200"
+      style={{ boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+        style={{ background: accent + '18' }}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
+        <p className="font-display text-lg font-bold leading-none" style={{ color: '#0D2B5E' }}>{value}</p>
+        {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      </div>
     </div>
   )
 }
@@ -195,73 +237,153 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
 
-      {/* ── Stats cards ── */}
-      {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard emoji="👥" label="Total Clientes"
-            value={stats.totalClients} color="#1565C0"
-            sub={`${stats.totalLoans} préstamos registrados`} />
-          <StatCard emoji="💰" label="Capital Total"
-            value={`$${(stats.totalAmount / 1_000).toFixed(0)}K`} color="#2E7D32"
-            sub="suma de todos los préstamos" />
-          <StatCard emoji="💵" label="Cuota Promedio"
-            value={`$${Math.round(stats.avgMonthlyPayment).toLocaleString()}`} color="#0D2B5E"
-            sub="por mes" />
-          <StatCard emoji="📈" label="Interés Total"
-            value={`$${(stats.totalInterest / 1_000).toFixed(0)}K`} color="#F59E0B"
-            sub="generado en todos los préstamos" />
-        </div>
-      )}
+      {/* ══════════════════════════════════════════════════════════════════════
+           KPI SECTION
+         ══════════════════════════════════════════════════════════════════════ */}
+      {stats && (() => {
+        const total    = stats.totalLoans || 1
+        const approvalRate = total > 0
+          ? Math.round((stats.approvedCount / total) * 100)
+          : 0
+        const highRisk = stats.byProfile.find(p => p.profile === 'High Risk')?.count ?? 0
+        const avgTerm  = Math.round(stats.avgTermMonths || 0)
 
-      {/* ── Loan status cards ── */}
-      {stats && (
-        <>
-          <div className="flex items-center gap-2.5">
-            {SECTION_BAR}
-            <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Estado de solicitudes</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Pending */}
-            <div className="rounded-2xl p-5 border"
-              style={{ background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '0 2px 14px rgba(0,0,0,.05)' }}>
-              <p className="text-2xl mb-3">⏳</p>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#92400E' }}>
-                Préstamos Pendientes
-              </p>
-              <p className="font-display text-3xl font-black leading-none" style={{ color: '#92400E' }}>
-                {stats.pendingCount ?? 0}
-              </p>
-              <p className="text-xs mt-1.5" style={{ color: '#B45309' }}>en evaluación</p>
+        // Format helpers
+        const fmtK = (n: number) =>
+          n >= 1_000_000
+            ? `$${(n / 1_000_000).toFixed(2)}M`
+            : n >= 1_000
+            ? `$${(n / 1_000).toFixed(0)}K`
+            : `$${Math.round(n).toLocaleString('es-AR')}`
+
+        return (
+          <>
+            {/* ── Section header ── */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                {SECTION_BAR}
+                <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Resumen de cartera</h3>
+              </div>
+              <span className="text-xs text-slate-400">
+                {stats.totalClients} cliente{stats.totalClients !== 1 ? 's' : ''} · actualizado ahora
+              </span>
             </div>
 
-            {/* Approved */}
-            <div className="rounded-2xl p-5 border"
-              style={{ background: '#F0FDF4', borderColor: '#86EFAC', boxShadow: '0 2px 14px rgba(0,0,0,.05)' }}>
-              <p className="text-2xl mb-3">✅</p>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#14532D' }}>
-                Préstamos Aprobados
-              </p>
-              <p className="font-display text-3xl font-black leading-none" style={{ color: '#14532D' }}>
-                {stats.approvedCount ?? 0}
-              </p>
-              <p className="text-xs mt-1.5" style={{ color: '#16A34A' }}>créditos otorgados</p>
+            {/* ── Primary KPIs (4 large cards) ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <KpiCard
+                label="Cartera total"
+                value={fmtK(stats.totalAmount)}
+                sub="capital otorgado"
+                accent="#1565C0"
+                icon="💼"
+              />
+              <KpiCard
+                label="Tasa de aprobación"
+                value={`${approvalRate}%`}
+                sub={`${stats.approvedCount} de ${total} aprobados`}
+                accent="#2E7D32"
+                icon="✅"
+                badge={
+                  approvalRate >= 70
+                    ? { text: 'Saludable', color: '#14532D', bg: '#F0FDF4' }
+                    : approvalRate >= 40
+                    ? { text: 'Normal', color: '#92400E', bg: '#FFFBEB' }
+                    : { text: 'Bajo', color: '#881337', bg: '#FFF1F2' }
+                }
+              />
+              <KpiCard
+                label="Ticket promedio"
+                value={fmtK(stats.avgAmount)}
+                sub="por préstamo"
+                accent="#7C3AED"
+                icon="🎫"
+              />
+              <KpiCard
+                label="Plazo promedio"
+                value={avgTerm > 0 ? `${avgTerm} meses` : '—'}
+                sub={avgTerm > 0 ? `≈ ${(avgTerm / 12).toFixed(1)} años` : 'sin datos aún'}
+                accent="#0891B2"
+                icon="📅"
+              />
             </div>
 
-            {/* Denied */}
-            <div className="rounded-2xl p-5 border"
-              style={{ background: '#FFF1F2', borderColor: '#FECDD3', boxShadow: '0 2px 14px rgba(0,0,0,.05)' }}>
-              <p className="text-2xl mb-3">❌</p>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#881337' }}>
-                Préstamos Denegados
-              </p>
-              <p className="font-display text-3xl font-black leading-none" style={{ color: '#881337' }}>
-                {stats.deniedCount ?? 0}
-              </p>
-              <p className="text-xs mt-1.5" style={{ color: '#DC2626' }}>solicitudes rechazadas</p>
+            {/* ── Secondary metrics (2×4 grid) ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <MetricRow
+                label="Interés proyectado"
+                value={fmtK(stats.totalInterest)}
+                sub="en toda la cartera"
+                icon="💰"
+                accent="#F59E0B"
+              />
+              <MetricRow
+                label="Cuota prom. mensual"
+                value={`$${Math.round(stats.avgMonthlyPayment).toLocaleString('es-AR')}`}
+                sub="por préstamo"
+                icon="💳"
+                accent="#1565C0"
+              />
+              <MetricRow
+                label="Ingresos mensuales"
+                value={stats.totalMonthlyIncome > 0 ? fmtK(stats.totalMonthlyIncome) : fmtK(stats.totalMonthlyPayments)}
+                sub="suma de cuotas"
+                icon="📥"
+                accent="#2E7D32"
+              />
+              <MetricRow
+                label="Alto riesgo"
+                value={`${highRisk} préstamo${highRisk !== 1 ? 's' : ''}`}
+                sub={highRisk > 0 ? 'requieren seguimiento' : 'sin préstamos críticos'}
+                icon="⚠️"
+                accent="#EF4444"
+              />
             </div>
-          </div>
-        </>
-      )}
+
+            {/* ── Loan status strip ── */}
+            <div className="grid grid-cols-3 gap-4">
+              {/* Pending */}
+              <div className="rounded-2xl p-5 border flex items-center gap-4"
+                style={{ background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <div className="text-3xl font-black leading-none" style={{ color: '#92400E' }}>
+                  {stats.pendingCount}
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#92400E' }}>Pendientes</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#B45309' }}>en evaluación</p>
+                </div>
+                <span className="text-2xl ml-auto">⏳</span>
+              </div>
+
+              {/* Approved */}
+              <div className="rounded-2xl p-5 border flex items-center gap-4"
+                style={{ background: '#F0FDF4', borderColor: '#86EFAC', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <div className="text-3xl font-black leading-none" style={{ color: '#14532D' }}>
+                  {stats.approvedCount}
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#14532D' }}>Aprobados</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>créditos activos</p>
+                </div>
+                <span className="text-2xl ml-auto">✅</span>
+              </div>
+
+              {/* Denied */}
+              <div className="rounded-2xl p-5 border flex items-center gap-4"
+                style={{ background: '#FFF1F2', borderColor: '#FECDD3', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <div className="text-3xl font-black leading-none" style={{ color: '#881337' }}>
+                  {stats.deniedCount}
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#881337' }}>Denegados</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#DC2626' }}>rechazados</p>
+                </div>
+                <span className="text-2xl ml-auto">❌</span>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
       {/* ── Charts ── */}
       {stats && (stats.byProfile?.length ?? 0) > 0 && (

@@ -27,6 +27,20 @@ export async function GET() {
           avgMonthlyPayment:{ $avg: '$loan.monthlyPayment' },
           avgAmount:        { $avg: '$loan.amount' },
           totalInterest:    { $sum: '$loan.totalInterest' },
+          avgTermMonths:    { $avg: '$loan.totalMonths' },
+          totalMonthlyPayments: { $sum: '$loan.monthlyPayment' },
+        },
+      },
+    ]).toArray()
+
+    // ── Approved-loan income ───────────────────────────────────────────────
+    const [approvedStats] = await col.aggregate([
+      { $match: { organizationId: orgId, loanStatus: 'approved' } },
+      {
+        $group: {
+          _id:                null,
+          totalMonthlyIncome: { $sum: '$loan.monthlyPayment' },
+          totalCapital:       { $sum: '$loan.amount' },
         },
       },
     ]).toArray()
@@ -102,13 +116,17 @@ export async function GET() {
     }))
 
     return NextResponse.json({
-      configured:        true,
-      totalClients:      totals?.totalClients      ?? 0,
-      totalLoans:        totals?.totalLoans        ?? 0,
-      totalAmount:       totals?.totalAmount       ?? 0,
-      avgMonthlyPayment: totals?.avgMonthlyPayment ?? 0,
-      avgAmount:         totals?.avgAmount         ?? 0,
-      totalInterest:     totals?.totalInterest     ?? 0,
+      configured:          true,
+      totalClients:        totals?.totalClients         ?? 0,
+      totalLoans:          totals?.totalLoans           ?? 0,
+      totalAmount:         totals?.totalAmount          ?? 0,
+      avgMonthlyPayment:   totals?.avgMonthlyPayment    ?? 0,
+      avgAmount:           totals?.avgAmount            ?? 0,
+      totalInterest:       totals?.totalInterest        ?? 0,
+      avgTermMonths:       totals?.avgTermMonths        ?? 0,
+      totalMonthlyPayments:totals?.totalMonthlyPayments ?? 0,
+      totalMonthlyIncome:  approvedStats?.totalMonthlyIncome ?? 0,
+      approvedCapital:     approvedStats?.totalCapital       ?? 0,
       byProfile,
       byCurrency,
       recentClients,
