@@ -18,21 +18,27 @@ import ToastProvider, { showToast } from '@/components/Toast'
 import {
   calculateLoan, buildAmortization, getRiskConfig,
   RiskProfile, Currency, RateMode, LoanParams,
-  formatCurrency,
+  formatCurrency, CURRENCIES,
 } from '@/lib/loan'
 
-type Tab = 'calculator' | 'dashboard' | 'multiloan' | 'comparison' | 'clients'
+type Tab = 'calculator' | 'dashboard' | 'clients'
+type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'calculator',  label: '🧮 Calculadora'          },
-  { id: 'dashboard',   label: '🏠 Dashboard'            },
-  { id: 'multiloan',   label: '📋 Multi-préstamo'        },
-  { id: 'comparison',  label: '📊 Comparación'           },
-  { id: 'clients',     label: '👥 Clientes'              },
+  { id: 'calculator', label: '🧮 Calculadora' },
+  { id: 'dashboard',  label: '🏠 Dashboard'   },
+  { id: 'clients',    label: '👥 Clientes'    },
+]
+
+const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
+  { id: 'single',     label: 'Simulación'     },
+  { id: 'multiloan',  label: 'Multi-préstamo' },
+  { id: 'comparison', label: 'Comparación'    },
 ]
 
 export default function Home() {
   const [tab,               setTab]               = useState<Tab>('dashboard')
+  const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
   const [termValue,         setTermValue]         = useState(5)          // in the selected unit
@@ -114,6 +120,24 @@ export default function Home() {
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
           <>
+            {/* Sub-nav */}
+            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-100 border border-slate-200 w-fit">
+              {CALC_SUBTABS.map(s => (
+                <button key={s.id} onClick={() => setCalcSubTab(s.id)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+                  style={{
+                    background: calcSubTab === s.id ? '#fff' : 'transparent',
+                    color:      calcSubTab === s.id ? '#0D2B5E' : '#64748b',
+                    boxShadow:  calcSubTab === s.id ? '0 1px 6px rgba(0,0,0,.1)' : 'none',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}>
+                  {s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'} {s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Single loan (Simulación) ── */}
+            {calcSubTab === 'single' && <>
             {/* Inputs */}
             <div className={card} style={cardShadow}>
               <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
@@ -129,7 +153,7 @@ export default function Home() {
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
-                      {currency === 'EUR' ? '€' : '$'}
+                      {CURRENCIES[currency].symbol}
                     </span>
                     <input type="number" value={amount} min={1000} step={1000}
                       onChange={e => setAmount(parseFloat(e.target.value) || 0)}
@@ -305,40 +329,41 @@ export default function Home() {
                 </div>
               )}
             </div>
+            </>}
+
+            {/* ── Multi-préstamo sub-tab ── */}
+            {calcSubTab === 'multiloan' && (
+              <div className={card} style={cardShadow}>
+                {sectionTitle('Comparación de hasta 4 préstamos')}
+                <MultiLoanPanel currency={currency} />
+              </div>
+            )}
+
+            {/* ── Comparación sub-tab ── */}
+            {calcSubTab === 'comparison' && (
+              <>
+                <div className="rounded-2xl p-5 bg-white border border-slate-200 mb-5 flex items-center gap-5 flex-wrap" style={cardShadow}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 rounded-full" style={{ background: '#1565C0' }} />
+                    <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>Préstamo base:</span>
+                  </div>
+                  <div className="flex gap-6">
+                    <div><p className="text-xs text-slate-400">Monto</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{fmt(amount)}</p></div>
+                    <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} años`}</p></div>
+                  </div>
+                  <p className="text-xs text-slate-400 ml-auto">Ajustá los parámetros en Simulación</p>
+                </div>
+                <div className={card} style={cardShadow}>
+                  {sectionTitle('Comparación de perfiles de riesgo')}
+                  <ComparisonPanel amount={amount} termYears={termYears} currency={currency} />
+                </div>
+              </>
+            )}
           </>
         )}
 
         {/* ═══ DASHBOARD ═══ */}
         {tab === 'dashboard' && <Dashboard />}
-
-        {/* ═══ MULTI-LOAN ═══ */}
-        {tab === 'multiloan' && (
-          <div className={card} style={cardShadow}>
-            {sectionTitle('Comparación de hasta 4 préstamos')}
-            <MultiLoanPanel currency={currency} />
-          </div>
-        )}
-
-        {/* ═══ COMPARISON ═══ */}
-        {tab === 'comparison' && (
-          <>
-            <div className="rounded-2xl p-5 bg-white border border-slate-200 mb-5 flex items-center gap-5 flex-wrap" style={cardShadow}>
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 rounded-full" style={{ background: '#1565C0' }} />
-                <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>Préstamo base:</span>
-              </div>
-              <div className="flex gap-6">
-                <div><p className="text-xs text-slate-400">Monto</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{fmt(amount)}</p></div>
-                <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} años`}</p></div>
-              </div>
-              <p className="text-xs text-slate-400 ml-auto">Ajusta los parámetros en Calculadora</p>
-            </div>
-            <div className={card} style={cardShadow}>
-              {sectionTitle('Comparación de perfiles de riesgo')}
-              <ComparisonPanel amount={amount} termYears={termYears} currency={currency} />
-            </div>
-          </>
-        )}
 
         {/* ═══ CLIENTS ═══ */}
         {tab === 'clients' && (
