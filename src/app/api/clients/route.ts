@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getDb, isDbConfigured } from '@/lib/mongodb'
-import { v4 as uuidv4 } from 'uuid'
+import { NextRequest, NextResponse }                    from 'next/server'
+import { getDb, isDbConfigured }                       from '@/lib/mongodb'
+import { requireAuth, unauthorizedResponse }           from '@/lib/orgAuth'
+import { v4 as uuidv4 }                               from 'uuid'
 
 // ─── GET  /api/clients ────────────────────────────────────────────────────────
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return unauthorizedResponse()
+
   if (!isDbConfigured())
     return NextResponse.json({ configured: false, clients: [] }, { status: 503 })
 
@@ -12,7 +16,7 @@ export async function GET() {
     const col = db.collection('clients')
 
     const records = await col
-      .find({})
+      .find({ organizationId: session.user.organizationId })
       .sort({ savedAt: -1 })
       .toArray()
 
@@ -36,13 +40,15 @@ export async function GET() {
       totalDebtValue:  c.totalDebtValue  ?? '',
       paymentCapacity: c.paymentCapacity ?? '',
       // Sección 3 – Garantías y Arraigo
-      collateral:     c.collateral     ?? '',
-      territorialTies:c.territorialTies ?? '',
+      collateral:      c.collateral      ?? '',
+      territorialTies: c.territorialTies ?? '',
       // Sección 4 – Historial y Referencias
       creditHistory: c.creditHistory ?? '',
       reference1:    c.reference1    ?? '',
       reference2:    c.reference2    ?? '',
       notes:         c.notes         ?? '',
+      // Estado del préstamo
+      loanStatus: c.loanStatus ?? 'pending',
       // Préstamo
       params: c.loan ? {
         amount:            c.loan.amount,
@@ -73,6 +79,9 @@ export async function GET() {
 
 // ─── POST /api/clients ────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return unauthorizedResponse()
+
   if (!isDbConfigured())
     return NextResponse.json({ configured: false }, { status: 503 })
 
@@ -104,7 +113,8 @@ export async function POST(req: NextRequest) {
     const col = db.collection('clients')
 
     await col.insertOne({
-      _id: clientId as any,
+      _id:            clientId as any,
+      organizationId: session.user.organizationId,
       savedAt,
       // Section 1
       name:        name.trim(),
@@ -130,22 +140,24 @@ export async function POST(req: NextRequest) {
       reference1:    reference1?.trim()    ?? '',
       reference2:    reference2?.trim()    ?? '',
       notes:         notes?.trim()         ?? '',
+      // Loan status
+      loanStatus: 'pending',
       // Loan
       loan: {
-        id:               loanId,
-        amount:           params.amount,
-        termYears:        params.termYears,
-        profile:          params.profile,
-        currency:         params.currency,
-        rateMode:         params.rateMode         ?? 'annual',
-        customMonthlyRate:params.customMonthlyRate ?? 0,
-        monthlyPayment:   result.monthlyPayment,
-        totalPayment:     result.totalPayment,
-        totalInterest:    result.totalInterest,
-        annualRate:       result.annualRate,
-        monthlyRate:      result.monthlyRate,
-        totalMonths:      result.totalMonths,
-        interestRatio:    result.interestRatio,
+        id:                loanId,
+        amount:            params.amount,
+        termYears:         params.termYears,
+        profile:           params.profile,
+        currency:          params.currency,
+        rateMode:          params.rateMode          ?? 'annual',
+        customMonthlyRate: params.customMonthlyRate ?? 0,
+        monthlyPayment:    result.monthlyPayment,
+        totalPayment:      result.totalPayment,
+        totalInterest:     result.totalInterest,
+        annualRate:        result.annualRate,
+        monthlyRate:       result.monthlyRate,
+        totalMonths:       result.totalMonths,
+        interestRatio:     result.interestRatio,
       },
       documents: [],
     })

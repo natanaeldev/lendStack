@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb, isDbConfigured } from '@/lib/mongodb'
-import bcrypt from 'bcryptjs'
+import { getDb, isDbConfigured }    from '@/lib/mongodb'
+import bcrypt                       from 'bcryptjs'
+
+const DEFAULT_ORG_ID   = 'org_001'
+const DEFAULT_ORG_NAME = 'JVF Inversiones SRL'
 
 // ─── POST /api/auth/signup ────────────────────────────────────────────────────
-// Creates the single master account. Rejected if an account already exists.
+// Creates the single master account + default org. Rejected if already exists.
 export async function POST(req: NextRequest) {
   if (!isDbConfigured())
     return NextResponse.json({ error: 'Base de datos no configurada.' }, { status: 503 })
@@ -19,19 +22,35 @@ export async function POST(req: NextRequest) {
     const db  = await getDb()
     const col = db.collection('users')
 
-    // Only one master account allowed
+    // Only one master account allowed per this setup flow
     const existing = await col.countDocuments({})
     if (existing > 0)
       return NextResponse.json({ error: 'La cuenta maestra ya existe. Iniciá sesión.' }, { status: 409 })
 
     const passwordHash = await bcrypt.hash(password, 12)
+    const now          = new Date().toISOString()
 
+    // ── Create the default org if it doesn't exist ────────────────────────────
+    const orgsCol = db.collection('organizations')
+    const orgExists = await orgsCol.findOne({ _id: DEFAULT_ORG_ID as any })
+    if (!orgExists) {
+      await orgsCol.insertOne({
+        _id:       DEFAULT_ORG_ID as any,
+        name:      DEFAULT_ORG_NAME,
+        plan:      'starter',
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+
+    // ── Create the master user linked to the org ──────────────────────────────
     await col.insertOne({
-      name:         name?.trim() || 'Administrador',
-      email:        email.trim().toLowerCase(),
+      name:           name?.trim() || 'Administrador',
+      email:          email.trim().toLowerCase(),
       passwordHash,
-      role:         'master',
-      createdAt:    new Date().toISOString(),
+      role:           'master',
+      organizationId: DEFAULT_ORG_ID,
+      createdAt:      now,
     })
 
     return NextResponse.json({ success: true })

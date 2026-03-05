@@ -1,27 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { getDb, isDbConfigured } from '@/lib/mongodb'
-import bcrypt from 'bcryptjs'
+import { NextRequest, NextResponse }           from 'next/server'
+import { getDb, isDbConfigured }              from '@/lib/mongodb'
+import { requireMaster, forbiddenResponse }   from '@/lib/orgAuth'
+import bcrypt                                 from 'bcryptjs'
 
-// ── Guard: only master role ───────────────────────────────────────────────────
-async function requireMaster() {
-  const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'master') return null
-  return session
-}
-
-// ─── GET /api/admin/users — list all users ────────────────────────────────────
+// ─── GET /api/admin/users — list users in this org ────────────────────────────
 export async function GET() {
-  if (!await requireMaster())
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const session = await requireMaster()
+  if (!session) return forbiddenResponse()
   if (!isDbConfigured())
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const db   = await getDb()
+    const db    = await getDb()
     const users = await db.collection('users')
-      .find({}, { projection: { passwordHash: 0 } })
+      .find(
+        { organizationId: session.user.organizationId },
+        { projection: { passwordHash: 0 } }
+      )
       .sort({ createdAt: 1 })
       .toArray()
 
@@ -40,10 +35,10 @@ export async function GET() {
   }
 }
 
-// ─── POST /api/admin/users — create sub-user ──────────────────────────────────
+// ─── POST /api/admin/users — create sub-user in this org ──────────────────────
 export async function POST(req: NextRequest) {
-  if (!await requireMaster())
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const session = await requireMaster()
+  if (!session) return forbiddenResponse()
   if (!isDbConfigured())
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
@@ -65,12 +60,13 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12)
 
     const result = await col.insertOne({
-      name:         name?.trim() || 'Usuario',
-      email:        email.trim().toLowerCase(),
+      name:           name?.trim() || 'Usuario',
+      email:          email.trim().toLowerCase(),
       passwordHash,
-      role:         'user',          // sub-users are never 'master'
-      createdAt:    new Date().toISOString(),
-      createdBy:    'master',
+      role:           'user',          // sub-users are never 'master'
+      organizationId: session.user.organizationId,
+      createdAt:      new Date().toISOString(),
+      createdBy:      session.user.id,
     })
 
     return NextResponse.json({

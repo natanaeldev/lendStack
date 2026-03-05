@@ -1,13 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { getDb, isDbConfigured } from '@/lib/mongodb'
-
-async function requireMaster() {
-  const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'master') return null
-  return session
-}
+import { NextRequest, NextResponse }           from 'next/server'
+import { ObjectId }                           from 'mongodb'
+import { getDb, isDbConfigured }              from '@/lib/mongodb'
+import { requireMaster, forbiddenResponse }   from '@/lib/orgAuth'
 
 // ─── DELETE /api/admin/users/[id] — remove a sub-user ────────────────────────
 export async function DELETE(
@@ -15,8 +9,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const session = await requireMaster()
-  if (!session)
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!session) return forbiddenResponse()
   if (!isDbConfigured())
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
@@ -24,14 +17,21 @@ export async function DELETE(
     const db  = await getDb()
     const col = db.collection('users')
 
-    // Safety: never allow deleting the master account
-    const target = await col.findOne({ _id: params.id as any })
+    // Resolve _id — users use MongoDB ObjectId
+    let targetId: any
+    try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
+
+    // Verify target belongs to this org and is not master
+    const target = await col.findOne({
+      _id:            targetId,
+      organizationId: session.user.organizationId,
+    })
     if (!target)
       return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 })
     if (target.role === 'master')
       return NextResponse.json({ error: 'No se puede eliminar la cuenta maestra.' }, { status: 403 })
 
-    await col.deleteOne({ _id: params.id as any })
+    await col.deleteOne({ _id: targetId })
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('[DELETE /api/admin/users]', err)
@@ -45,8 +45,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   const session = await requireMaster()
-  if (!session)
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!session) return forbiddenResponse()
   if (!isDbConfigured())
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
@@ -55,12 +54,16 @@ export async function PATCH(
     if (!password || password.length < 8)
       return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
 
-    const bcrypt = (await import('bcryptjs')).default
+    // Resolve _id — users use MongoDB ObjectId
+    let targetId: any
+    try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
+
+    const bcrypt       = (await import('bcryptjs')).default
     const passwordHash = await bcrypt.hash(password, 12)
 
     const db  = await getDb()
     const res = await db.collection('users').updateOne(
-      { _id: params.id as any },
+      { _id: targetId, organizationId: session.user.organizationId },
       { $set: { passwordHash } }
     )
     if (res.matchedCount === 0)
