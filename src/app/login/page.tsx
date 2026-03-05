@@ -32,7 +32,7 @@ export default function LoginPage() {
     })
 
     if (res?.ok) {
-      router.push('/')
+      router.push('/app')
       router.refresh()
     } else {
       setError('Email o contraseña incorrectos.')

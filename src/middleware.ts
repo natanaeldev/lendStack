@@ -1,13 +1,20 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
+// Paths that are publicly accessible without a session
+const PUBLIC_PATHS = new Set(['/', '/register'])
+
 export default withAuth(
   function middleware() {
     return NextResponse.next()
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        const { pathname } = req.nextUrl
+        if (PUBLIC_PATHS.has(pathname)) return true
+        return !!token
+      },
     },
     pages: {
       signIn: '/login',

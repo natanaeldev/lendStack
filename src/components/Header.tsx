@@ -14,7 +14,7 @@ export default function Header() {
 
       <div className="relative max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-5">
         {/* Logo + title */}
-        <div className="flex items-center gap-4">
+        <Link href="/app" className="flex items-center gap-4">
           <div className="rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,.95)', padding: '6px 12px', boxShadow: '0 2px 16px rgba(0,0,0,.25)' }}>
             <Image src="/logo.png" alt="LendStack" width={130} height={44} style={{ objectFit: 'contain', display: 'block' }} priority />
           </div>
@@ -22,7 +22,7 @@ export default function Header() {
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9eb8da', letterSpacing: '0.18em' }}>Plataforma de Gestión de Préstamos</p>
             <h1 className="font-display text-2xl text-white leading-tight">LendStack</h1>
           </div>
-        </div>
+        </Link>
 
         {/* Right side */}
         <div className="hidden md:flex flex-col items-end gap-1.5">
