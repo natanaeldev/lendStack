@@ -25,8 +25,8 @@ type Tab = 'calculator' | 'dashboard' | 'clients'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'calculator', label: '🧮 Calculadora' },
   { id: 'dashboard',  label: '🏠 Dashboard'   },
+  { id: 'calculator', label: '🧮 Calculadora' },
   { id: 'clients',    label: '👥 Clientes'    },
 ]
 
