@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatCurrency, formatPercent, RISK_PROFILES, Currency } from '@/lib/loan'
+import LendStackLogo from '@/components/LendStackLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,16 +170,8 @@ export default function ClientProfilePage() {
           ← Volver
         </button>
         <div className="flex-1" />
-        {/* JVF brand */}
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-black"
-            style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-            J
-          </div>
-          <span className="text-xs font-bold hidden sm:block" style={{ color: '#0D2B5E' }}>
-            LendStack
-          </span>
-        </div>
+        {/* LendStack brand */}
+        <LendStackLogo variant="dark" size={30} />
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">

@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
+import LendStackLogo from '@/components/LendStackLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,10 +121,8 @@ export default function AdminUsersPage() {
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '38px 38px' }} />
         <div className="relative max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,.95)', padding: '6px 12px', boxShadow: '0 2px 16px rgba(0,0,0,.25)' }}>
-              <Image src="/logo.png" alt="JVF Inversiones" width={110} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
-            </div>
-            <div>
+            <LendStackLogo variant="light" size={38} />
+            <div className="pl-2 border-l border-white/20">
               <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9eb8da' }}>Administración</p>
               <h1 className="font-display text-xl text-white leading-tight">Gestión de Usuarios</h1>
             </div>
