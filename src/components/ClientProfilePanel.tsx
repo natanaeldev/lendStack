@@ -4,7 +4,7 @@ import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortizati
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
 import EmailModal       from '@/components/EmailModal'
-import ToastProvider    from '@/components/Toast'
+import ToastProvider, { showToast } from '@/components/Toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +27,16 @@ interface ClientProfile {
   documents: ClientDoc[]
 }
 
+type EditForm = {
+  name: string; email: string; phone: string
+  idType: string; idNumber: string; birthDate: string
+  nationality: string; address: string
+  occupation: string; monthlyIncome: string; hasIncomeProof: boolean
+  currentDebts: string; totalDebtValue: string; paymentCapacity: string
+  collateral: string; territorialTies: string
+  creditHistory: string; reference1: string; reference2: string; notes: string
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string; color: string; border: string; btnBg: string }> = {
@@ -43,9 +53,20 @@ function docIcon(type: string) {
 }
 function formatDate(iso: string) {
   if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
-  } catch { return iso }
+  try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }) }
+  catch { return iso }
+}
+
+function clientToForm(c: ClientProfile): EditForm {
+  return {
+    name: c.name, email: c.email, phone: c.phone,
+    idType: c.idType, idNumber: c.idNumber, birthDate: c.birthDate,
+    nationality: c.nationality, address: c.address,
+    occupation: c.occupation, monthlyIncome: c.monthlyIncome, hasIncomeProof: c.hasIncomeProof,
+    currentDebts: c.currentDebts, totalDebtValue: c.totalDebtValue, paymentCapacity: c.paymentCapacity,
+    collateral: c.collateral, territorialTies: c.territorialTies,
+    creditHistory: c.creditHistory, reference1: c.reference1, reference2: c.reference2, notes: c.notes,
+  }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -75,6 +96,28 @@ function SectionCard({ emoji, title, children }: { emoji: string; title: string;
   )
 }
 
+// Edit form shared input style
+const inputCls = 'w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white'
+
+function EditSectionHeader({ emoji, title }: { emoji: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2 mt-6 mb-4">
+      <span className="text-base">{emoji}</span>
+      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{title}</span>
+      <div className="flex-1 h-px bg-slate-200 ml-1" />
+    </div>
+  )
+}
+
+function EditField({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+  return (
+    <div className={full ? 'sm:col-span-2' : ''}>
+      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{label}</label>
+      {children}
+    </div>
+  )
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -92,6 +135,14 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const [uploading,      setUploading]     = useState(false)
   const [emailOpen,      setEmailOpen]     = useState(false)
   const [showAmort,      setShowAmort]     = useState(false)
+
+  // ── Edit mode ──────────────────────────────────────────────────────────────
+  const [editMode,  setEditMode]  = useState(false)
+  const [editForm,  setEditForm]  = useState<EditForm | null>(null)
+  const [saving,    setSaving]    = useState(false)
+
+  const sf = (k: keyof EditForm) => (v: string | boolean) =>
+    setEditForm(prev => prev ? { ...prev, [k]: v } : prev)
 
   // ── Fetch client ───────────────────────────────────────────────────────────
   const loadClient = useCallback(async () => {
@@ -125,6 +176,46 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
       setClient(prev => prev ? { ...prev, loanStatus: target } : prev)
     } catch { /* silent */ }
     setUpdatingStatus(false)
+  }
+
+  // ── Open edit mode ─────────────────────────────────────────────────────────
+  const openEdit = () => {
+    if (!client) return
+    setEditForm(clientToForm(client))
+    setEditMode(true)
+  }
+
+  const cancelEdit = () => {
+    setEditMode(false)
+    setEditForm(null)
+  }
+
+  // ── Save edits ─────────────────────────────────────────────────────────────
+  const saveEdit = async () => {
+    if (!editForm || saving) return
+    if (!editForm.name.trim()) { showToast('⚠️', 'El nombre es obligatorio'); return }
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(editForm),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        showToast('❌', data.error ?? 'Error al guardar')
+        return
+      }
+      // Apply locally
+      setClient(prev => prev ? { ...prev, ...editForm } : prev)
+      setEditMode(false)
+      setEditForm(null)
+      showToast('✅', 'Datos del cliente actualizados')
+    } catch {
+      showToast('❌', 'No se pudo conectar')
+    } finally {
+      setSaving(false)
+    }
   }
 
   // ── Upload document ────────────────────────────────────────────────────────
@@ -167,7 +258,6 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const cur  = client.params.currency
   const fmt  = (v: number) => formatCurrency(v, cur)
 
-  // Build typed loan objects for PDF / email / amortization table
   const loanParams: LoanParams = {
     amount:            client.params.amount,
     termYears:         client.params.termYears,
@@ -179,27 +269,219 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const riskCfg   = getRiskConfig(client.params.profile as RiskProfile)
   const amortRows = buildAmortization(loanParams)
 
+  // ════════════════════════════════════════════════════════════════
+  // EDIT MODE
+  // ════════════════════════════════════════════════════════════════
+  if (editMode && editForm) {
+    return (
+      <div className="space-y-5">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={cancelEdit}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+            style={{ background: '#e8eef7', color: '#0D2B5E' }}>
+            ← Cancelar
+          </button>
+          <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>
+            ✏️ Editando: {client.name}
+          </span>
+          <div className="ml-auto flex gap-3">
+            <button onClick={cancelEdit}
+              className="px-5 py-2.5 rounded-xl text-sm font-bold border-2 border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors">
+              Cancelar
+            </button>
+            <button onClick={saveEdit} disabled={saving}
+              className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
+              {saving ? '⏳ Guardando...' : '💾 Guardar cambios'}
+            </button>
+          </div>
+        </div>
+
+        {/* Edit form card */}
+        <div className="rounded-2xl p-6 bg-white border border-slate-200"
+          style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
+
+          {/* Sección 1 — Personal */}
+          <EditSectionHeader emoji="👤" title="Sección 1 — Información Personal" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <EditField label="Nombre completo *">
+              <input type="text" value={editForm.name} onChange={e => sf('name')(e.target.value)}
+                className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Correo electrónico">
+              <input type="email" value={editForm.email} onChange={e => sf('email')(e.target.value)}
+                className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Teléfono">
+              <input type="text" value={editForm.phone} onChange={e => sf('phone')(e.target.value)}
+                placeholder="+54 11 1234-5678" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Tipo y número de identificación">
+              <div className="flex gap-2">
+                <select value={editForm.idType} onChange={e => sf('idType')(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                  style={{ color: '#374151', minWidth: '80px' }}>
+                  {['DNI','CUIT','CUIL','Pasaporte','RUT','RUC','CC','NIT','Cédula'].map(t =>
+                    <option key={t}>{t}</option>)}
+                </select>
+                <input type="text" value={editForm.idNumber} onChange={e => sf('idNumber')(e.target.value)}
+                  placeholder="Número de documento" className={inputCls} style={{ color: '#374151' }} />
+              </div>
+            </EditField>
+
+            <EditField label="Fecha de nacimiento">
+              <input type="date" value={editForm.birthDate} onChange={e => sf('birthDate')(e.target.value)}
+                className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Nacionalidad">
+              <input type="text" value={editForm.nationality} onChange={e => sf('nationality')(e.target.value)}
+                placeholder="Ej: Argentina" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Dirección actual" full>
+              <input type="text" value={editForm.address} onChange={e => sf('address')(e.target.value)}
+                placeholder="Calle, número, ciudad, provincia" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+          </div>
+
+          {/* Sección 2 — Financiera */}
+          <EditSectionHeader emoji="💰" title="Sección 2 — Información Financiera" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <EditField label="Ocupación / Empleador">
+              <input type="text" value={editForm.occupation} onChange={e => sf('occupation')(e.target.value)}
+                className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Ingresos mensuales">
+              <input type="text" value={editForm.monthlyIncome} onChange={e => sf('monthlyIncome')(e.target.value)}
+                placeholder="Ej: ARS 450.000 / USD 2.000" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Adjunta comprobantes de ingresos">
+              <div className="flex items-center gap-3 h-[46px] px-4 rounded-xl border-2 border-slate-200">
+                {[true, false].map(val => (
+                  <label key={String(val)} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" checked={editForm.hasIncomeProof === val}
+                      onChange={() => sf('hasIncomeProof')(val)}
+                      className="accent-blue-600" />
+                    <span className="text-sm text-slate-700">{val ? 'Sí' : 'No'}</span>
+                  </label>
+                ))}
+              </div>
+            </EditField>
+
+            <EditField label="Valor total de deudas">
+              <input type="text" value={editForm.totalDebtValue} onChange={e => sf('totalDebtValue')(e.target.value)}
+                placeholder="Ej: ARS 200.000" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Detalle de deudas actuales" full>
+              <input type="text" value={editForm.currentDebts} onChange={e => sf('currentDebts')(e.target.value)}
+                className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Capacidad de pago mensual estimada" full>
+              <input type="text" value={editForm.paymentCapacity} onChange={e => sf('paymentCapacity')(e.target.value)}
+                placeholder="Ej: ARS 150.000 / mes" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+          </div>
+
+          {/* Sección 3 — Garantías */}
+          <EditSectionHeader emoji="🏠" title="Sección 3 — Garantías y Arraigo" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <EditField label="Colateral disponible" full>
+              <input type="text" value={editForm.collateral} onChange={e => sf('collateral')(e.target.value)}
+                placeholder="Ej: Inmueble valuado en USD 120.000" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Arraigo territorial" full>
+              <input type="text" value={editForm.territorialTies} onChange={e => sf('territorialTies')(e.target.value)}
+                placeholder="Ej: 15 años de residencia, propietario, empleo estable" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+          </div>
+
+          {/* Sección 4 — Historial */}
+          <EditSectionHeader emoji="📋" title="Sección 4 — Historial y Referencias" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <EditField label="Historial crediticio" full>
+              <input type="text" value={editForm.creditHistory} onChange={e => sf('creditHistory')(e.target.value)}
+                placeholder="Ej: Sin incumplimientos / Mora en 2023 saldada" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Referencia 1">
+              <input type="text" value={editForm.reference1} onChange={e => sf('reference1')(e.target.value)}
+                placeholder="Nombre y teléfono" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Referencia 2">
+              <input type="text" value={editForm.reference2} onChange={e => sf('reference2')(e.target.value)}
+                placeholder="Nombre y teléfono" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+            <EditField label="Notas del asesor" full>
+              <input type="text" value={editForm.notes} onChange={e => sf('notes')(e.target.value)}
+                placeholder="Observaciones adicionales" className={inputCls} style={{ color: '#374151' }} />
+            </EditField>
+
+          </div>
+
+          {/* Bottom save row */}
+          <div className="flex items-center gap-3 mt-8 pt-6 border-t border-slate-100">
+            <button onClick={saveEdit} disabled={saving}
+              className="px-8 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
+              {saving ? '⏳ Guardando...' : '💾 Guardar cambios'}
+            </button>
+            <button onClick={cancelEdit}
+              className="px-5 py-3 rounded-xl text-sm font-bold border-2 border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+
+        <ToastProvider />
+      </div>
+    )
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // VIEW MODE
+  // ════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-5">
 
-      {/* ── Back button ── */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
+      {/* ── Back + Edit buttons ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={onBack}
           className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
           style={{ background: '#e8eef7', color: '#0D2B5E' }}>
           ← Volver a clientes
         </button>
         <span className="text-xs text-slate-400">Perfil del cliente</span>
+        <button onClick={openEdit}
+          className="ml-auto flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
+          style={{ background: '#fff', color: '#1565C0', borderColor: '#1565C0' }}>
+          ✏️ Editar cliente
+        </button>
       </div>
 
       {/* ── Hero card ── */}
       <div className="rounded-2xl overflow-hidden"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,.08)', border: `2px solid ${sCfg.border}` }}>
-
-        {/* Status accent stripe */}
         <div className="h-1.5" style={{ background: `linear-gradient(90deg,${sCfg.btnBg},${sCfg.border})` }} />
-
         <div className="bg-white px-6 py-5">
           <div className="flex items-start gap-5 flex-wrap">
 
@@ -213,12 +495,10 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap mb-1">
                 <h1 className="text-2xl font-black" style={{ color: '#0D2B5E' }}>{client.name}</h1>
-                {/* Risk badge */}
                 <span className="text-xs font-bold px-3 py-1 rounded-full"
                   style={{ background: cfg.colorBg, color: cfg.colorText }}>
                   {cfg.emoji} {cfg.label}
                 </span>
-                {/* Status badge */}
                 <span className="text-sm font-bold px-3 py-1.5 rounded-full"
                   style={{ background: sCfg.bg, color: sCfg.color, border: `1.5px solid ${sCfg.border}` }}>
                   {sCfg.emoji} {sCfg.label}
@@ -237,9 +517,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
 
             {/* Approve / Deny buttons */}
             <div className="flex flex-col gap-2 flex-shrink-0">
-              <button
-                onClick={() => updateStatus('approved')}
-                disabled={updatingStatus}
+              <button onClick={() => updateStatus('approved')} disabled={updatingStatus}
                 className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
                 style={{
                   background: client.loanStatus === 'approved' ? '#16A34A' : '#F0FDF4',
@@ -248,9 +526,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
                 }}>
                 ✅ {client.loanStatus === 'approved' ? 'Aprobado ✓' : 'Aprobar'}
               </button>
-              <button
-                onClick={() => updateStatus('denied')}
-                disabled={updatingStatus}
+              <button onClick={() => updateStatus('denied')} disabled={updatingStatus}
                 className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
                 style={{
                   background: client.loanStatus === 'denied' ? '#DC2626' : '#FFF1F2',
@@ -271,24 +547,21 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
       </div>
 
       {/* ── Loan summary ── */}
-      <div className="rounded-2xl overflow-hidden"
-        style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+      <div className="rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
         <div className="px-5 py-3 flex items-center gap-2"
           style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
           <span className="text-base">💳</span>
-          <span className="text-xs font-bold uppercase tracking-widest text-blue-100">
-            Simulación del Préstamo
-          </span>
+          <span className="text-xs font-bold uppercase tracking-widest text-blue-100">Simulación del Préstamo</span>
         </div>
         <div className="bg-white px-5 py-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
-              { label: 'Monto solicitado',  big: fmt(client.params.amount) },
-              { label: 'Cuota mensual',     big: fmt(client.result.monthlyPayment) },
-              { label: 'Plazo',             big: `${client.params.termYears} años` },
-              { label: 'Tasa anual',        big: formatPercent(client.result.annualRate) },
-              { label: 'Total a pagar',     big: fmt(client.result.totalPayment) },
-              { label: 'Total intereses',   big: fmt(client.result.totalInterest) },
+              { label: 'Monto solicitado', big: fmt(client.params.amount) },
+              { label: 'Cuota mensual',    big: fmt(client.result.monthlyPayment) },
+              { label: 'Plazo',            big: `${client.params.termYears} años` },
+              { label: 'Tasa anual',       big: formatPercent(client.result.annualRate) },
+              { label: 'Total a pagar',    big: fmt(client.result.totalPayment) },
+              { label: 'Total intereses',  big: fmt(client.result.totalInterest) },
             ].map(({ label, big }) => (
               <div key={label} className="text-center p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <p className="text-xs text-slate-400 mb-1">{label}</p>
@@ -302,8 +575,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
       {/* ── Action buttons ── */}
       <div className="flex flex-wrap gap-3">
         <PdfExportButton params={loanParams} result={client.result} config={riskCfg} />
-        <button
-          onClick={() => setEmailOpen(true)}
+        <button onClick={() => setEmailOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
           style={{ color: '#1565C0', borderColor: '#1565C0', background: '#fff' }}>
           ✉️ Enviar por email
@@ -312,8 +584,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
 
       {/* ── Amortization table ── */}
       <div>
-        <button
-          onClick={() => setShowAmort(s => !s)}
+        <button onClick={() => setShowAmort(s => !s)}
           className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
           style={{ background: showAmort ? '#0D2B5E' : '#e8eef7', color: showAmort ? '#fff' : '#0D2B5E', border: `1px solid ${showAmort ? '#0D2B5E' : '#c5d5ea'}` }}>
           {showAmort ? '▲ Ocultar tabla de amortización' : '▼ Ver tabla de amortización'}
@@ -343,40 +614,31 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
 
       {/* ── Info grid ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        {/* Personal */}
         <SectionCard emoji="👤" title="Información Personal">
-          <InfoBlock label="Fecha de nacimiento"  value={client.birthDate} />
-          <InfoBlock label="Nacionalidad"         value={client.nationality} />
-          <InfoBlock label="Dirección"            value={client.address} />
-          <InfoBlock label="Tipo de ID"           value={client.idType} />
-          <InfoBlock label="Número de ID"         value={client.idNumber} />
+          <InfoBlock label="Fecha de nacimiento" value={client.birthDate} />
+          <InfoBlock label="Nacionalidad"        value={client.nationality} />
+          <InfoBlock label="Dirección"           value={client.address} />
+          <InfoBlock label="Tipo de ID"          value={client.idType} />
+          <InfoBlock label="Número de ID"        value={client.idNumber} />
         </SectionCard>
-
-        {/* Financial */}
         <SectionCard emoji="💰" title="Información Financiera">
-          <InfoBlock label="Ocupación / Empleador"       value={client.occupation} />
-          <InfoBlock label="Ingresos mensuales"          value={client.monthlyIncome} />
-          <InfoBlock label="Adjunta comprobantes"        value={client.hasIncomeProof} />
-          <InfoBlock label="Detalle de deudas actuales"  value={client.currentDebts} />
-          <InfoBlock label="Valor total de deudas"       value={client.totalDebtValue} />
-          <InfoBlock label="Capacidad de pago mensual"   value={client.paymentCapacity} />
+          <InfoBlock label="Ocupación / Empleador"      value={client.occupation} />
+          <InfoBlock label="Ingresos mensuales"         value={client.monthlyIncome} />
+          <InfoBlock label="Adjunta comprobantes"       value={client.hasIncomeProof} />
+          <InfoBlock label="Detalle de deudas actuales" value={client.currentDebts} />
+          <InfoBlock label="Valor total de deudas"      value={client.totalDebtValue} />
+          <InfoBlock label="Capacidad de pago mensual"  value={client.paymentCapacity} />
         </SectionCard>
-
-        {/* Collateral */}
         <SectionCard emoji="🏠" title="Garantías y Arraigo">
           <InfoBlock label="Colateral disponible" value={client.collateral} />
           <InfoBlock label="Arraigo territorial"  value={client.territorialTies} />
         </SectionCard>
-
-        {/* History */}
         <SectionCard emoji="📋" title="Historial y Referencias">
           <InfoBlock label="Historial crediticio" value={client.creditHistory} />
           <InfoBlock label="Referencia 1"         value={client.reference1} />
           <InfoBlock label="Referencia 2"         value={client.reference2} />
           <InfoBlock label="Notas del asesor"     value={client.notes} />
         </SectionCard>
-
       </div>
 
       {/* ── Documents ── */}
@@ -385,9 +647,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
         <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2"
           style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
           <span className="text-base">📎</span>
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-            Documentos adjuntos
-          </span>
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Documentos adjuntos</span>
           <span className="ml-auto text-xs text-slate-400">
             {client.documents.length} archivo{client.documents.length !== 1 ? 's' : ''}
           </span>
@@ -404,36 +664,25 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
                   className="group inline-flex flex-col gap-1 px-4 py-3 rounded-xl border bg-slate-50 hover:border-blue-300 hover:bg-blue-50 transition-all"
                   style={{ borderColor: '#e2e8f0', minWidth: '140px' }}>
                   <span className="text-2xl">{docIcon(doc.type)}</span>
-                  <span className="text-xs font-semibold text-slate-700 group-hover:text-blue-700 leading-tight">
-                    {doc.name}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {(doc.size / 1024).toFixed(0)} KB · {formatDate(doc.uploadedAt)}
-                  </span>
+                  <span className="text-xs font-semibold text-slate-700 group-hover:text-blue-700 leading-tight">{doc.name}</span>
+                  <span className="text-xs text-slate-400">{(doc.size / 1024).toFixed(0)} KB · {formatDate(doc.uploadedAt)}</span>
                 </a>
               ))}
             </div>
           ) : (
             <p className="text-sm text-slate-400 mb-4">Sin documentos adjuntos todavía.</p>
           )}
-
-          {/* Upload */}
           <label className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-2 border-dashed transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'}`}
             style={{ borderColor: '#c5d5ea', color: '#64748b' }}>
             <input type="file" className="hidden" disabled={uploading}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx"
-              onChange={e => {
-                const f = e.target.files?.[0]
-                if (f) uploadDoc(f)
-                e.target.value = ''
-              }} />
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc(f); e.target.value = '' }} />
             {uploading ? '⏳ Subiendo…' : '+ Adjuntar documento'}
           </label>
           <p className="text-xs text-slate-400 mt-1.5">PDF, Word, Excel, imágenes · Máx. 10 MB</p>
         </div>
       </div>
 
-      {/* Bottom padding */}
       <div className="h-4" />
 
       {/* ── Modals ── */}

@@ -95,7 +95,7 @@ export async function DELETE(
   }
 }
 
-// ─── PATCH /api/clients/[id] — update loan status ────────────────────────────
+// ─── PATCH /api/clients/[id] — update status or client info ─────────────────
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -108,23 +108,41 @@ export async function PATCH(
 
   try {
     const body = await req.json()
-    const { loanStatus } = body
+    const $set: Record<string, any> = {}
 
-    if (!['pending', 'approved', 'denied'].includes(loanStatus))
-      return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
+    // ── Loan status ────────────────────────────────────────────────────────────
+    if (body.loanStatus !== undefined) {
+      if (!['pending', 'approved', 'denied'].includes(body.loanStatus))
+        return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
+      $set.loanStatus = body.loanStatus
+    }
+
+    // ── Client info fields ─────────────────────────────────────────────────────
+    const ALLOWED: (keyof typeof body)[] = [
+      'name', 'email', 'phone', 'idType', 'idNumber', 'birthDate',
+      'nationality', 'address', 'occupation', 'monthlyIncome', 'hasIncomeProof',
+      'currentDebts', 'totalDebtValue', 'paymentCapacity', 'collateral',
+      'territorialTies', 'creditHistory', 'reference1', 'reference2', 'notes',
+    ]
+    for (const field of ALLOWED) {
+      if (body[field] !== undefined) $set[field] = body[field]
+    }
+
+    if (Object.keys($set).length === 0)
+      return NextResponse.json({ error: 'Sin cambios' }, { status: 400 })
 
     const db  = await getDb()
     const col = db.collection('clients')
 
     const result = await col.updateOne(
       { _id: params.id as any, organizationId: session.user.organizationId },
-      { $set: { loanStatus } }
+      { $set }
     )
 
     if (result.matchedCount === 0)
       return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
 
-    return NextResponse.json({ success: true, loanStatus })
+    return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('[PATCH /api/clients/[id]]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
