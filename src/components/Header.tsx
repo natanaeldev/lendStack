@@ -1,7 +1,7 @@
 'use client'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
+import LendStackLogo from './LendStackLogo'
 
 export default function Header() {
   const { data: session } = useSession()
@@ -13,15 +13,9 @@ export default function Header() {
       <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg, transparent, #1565C0, #B0BEC5, #1565C0, transparent)' }} />
 
       <div className="relative max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-5">
-        {/* Logo + title */}
-        <Link href="/app" className="flex items-center gap-4">
-          <div className="rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,.95)', padding: '6px 12px', boxShadow: '0 2px 16px rgba(0,0,0,.25)' }}>
-            <Image src="/logo.png" alt="LendStack" width={130} height={44} style={{ objectFit: 'contain', display: 'block' }} priority />
-          </div>
-          <div>
-            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9eb8da', letterSpacing: '0.18em' }}>Plataforma de Gestión de Préstamos</p>
-            <h1 className="font-display text-2xl text-white leading-tight">LendStack</h1>
-          </div>
+        {/* Logo */}
+        <Link href="/app" className="flex items-center">
+          <LendStackLogo variant="light" size={42} />
         </Link>
 
         {/* Right side */}

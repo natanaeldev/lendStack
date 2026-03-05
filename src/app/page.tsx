@@ -1,7 +1,7 @@
 import Link          from 'next/link'
-import Image         from 'next/image'
 import { getServerSession } from 'next-auth'
 import { authOptions }      from '@/lib/auth'
+import LendStackLogo        from '@/components/LendStackLogo'
 
 // ─── Icons (inline SVGs — no extra deps) ──────────────────────────────────────
 const IconCalc = () => (
@@ -109,11 +109,7 @@ export default async function LandingPage() {
       <nav className="relative z-50 sticky top-0" style={{ background: 'rgba(7,26,62,.85)', borderBottom: '1px solid rgba(255,255,255,.08)', backdropFilter: 'blur(16px)' }}>
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,.95)', padding: '5px 11px' }}>
-              <Image src="/logo.png" alt="LendStack" width={110} height={38} style={{ objectFit: 'contain', display: 'block' }} priority />
-            </div>
-          </div>
+          <LendStackLogo variant="light" size={38} />
 
           {/* Nav links (desktop) */}
           <div className="hidden md:flex items-center gap-6">

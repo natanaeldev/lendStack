@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
+import LendStackLogo from '@/components/LendStackLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -53,10 +53,7 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <div className="rounded-2xl flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,.95)', padding: '10px 20px', boxShadow: '0 4px 32px rgba(0,0,0,.3)' }}>
-              <Image src="/logo.png" alt="LendStack" width={140} height={48} style={{ objectFit: 'contain', display: 'block' }} priority />
-            </div>
+            <LendStackLogo variant="light" size={48} />
           </div>
 
           {/* Card */}
