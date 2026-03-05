@@ -32,7 +32,7 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 export default function Home() {
-  const [tab,               setTab]               = useState<Tab>('calculator')
+  const [tab,               setTab]               = useState<Tab>('dashboard')
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
   const [termValue,         setTermValue]         = useState(5)          // in the selected unit
@@ -349,7 +349,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 text-center py-5 text-xs text-slate-400 mt-4">
-        <strong style={{ color: '#0D2B5E' }}>JVF Inversiones SRL</strong> · Herramienta de análisis financiero ·
+        <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero ·
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 

@@ -16,11 +16,11 @@ export default function Header() {
         {/* Logo + title */}
         <div className="flex items-center gap-4">
           <div className="rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,.95)', padding: '6px 12px', boxShadow: '0 2px 16px rgba(0,0,0,.25)' }}>
-            <Image src="/logo.png" alt="JVF Inversiones" width={130} height={44} style={{ objectFit: 'contain', display: 'block' }} priority />
+            <Image src="/logo.png" alt="LendStack" width={130} height={44} style={{ objectFit: 'contain', display: 'block' }} priority />
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9eb8da', letterSpacing: '0.18em' }}>Herramientas Financieras Pro</p>
-            <h1 className="font-display text-2xl text-white leading-tight">Calculadora de Préstamos</h1>
+            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9eb8da', letterSpacing: '0.18em' }}>Plataforma de Gestión de Préstamos</p>
+            <h1 className="font-display text-2xl text-white leading-tight">LendStack</h1>
           </div>
         </div>
 

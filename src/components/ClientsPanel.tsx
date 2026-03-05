@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { LoanParams, LoanResult, RiskProfile, Currency, RISK_PROFILES, formatCurrency } from '@/lib/loan'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -7,6 +8,8 @@ import { LoanParams, LoanResult, RiskProfile, Currency, RISK_PROFILES, formatCur
 interface ClientDoc {
   id: string; name: string; url: string; type: string; size: number; uploadedAt: string
 }
+type LoanStatus = 'pending' | 'approved' | 'denied'
+
 interface Client {
   id: string; savedAt: string
   // Sección 1 – Información Personal
@@ -20,6 +23,8 @@ interface Client {
   collateral: string; territorialTies: string
   // Sección 4 – Historial y Referencias
   creditHistory: string; reference1: string; reference2: string; notes: string
+  // Estado del préstamo
+  loanStatus: LoanStatus
   // Préstamo
   params: LoanParams; result: LoanResult
   documents?: ClientDoc[]
@@ -51,6 +56,12 @@ function initials(name: string) {
 }
 function docIcon(type: string) {
   return type.includes('pdf') ? '📄' : type.includes('image') ? '🖼️' : type.includes('word') ? '📝' : '📁'
+}
+
+const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string; color: string; border: string }> = {
+  pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
+  approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC' },
+  denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337', border: '#FECDD3' },
 }
 
 // ─── Section header ───────────────────────────────────────────────────────────
@@ -89,7 +100,15 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
   const [saved,     setSaved]    = useState(false)
   const [saving,    setSaving]   = useState(false)
   const [expandId,  setExpandId] = useState<string | null>(null)
-  const [uploading, setUploading]= useState<string | null>(null)
+  const [search,    setSearch]   = useState('')
+  const [uploading,       setUploading]      = useState<string | null>(null)
+  const [updatingStatus,  setUpdatingStatus] = useState<string | null>(null)
+
+  const filteredClients = useMemo(() =>
+    clients.filter(c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.email ?? '').toLowerCase().includes(search.toLowerCase())
+    ), [clients, search])
 
   // Handy setter: sf('name')('María')
   const sf = (k: keyof FormData) => (v: string | boolean) =>
@@ -146,12 +165,13 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           const data   = await res.json()
           const client: Client = {
             ...form,
-            id:      data.id,
-            savedAt: new Date(data.savedAt).toLocaleDateString('es-AR',
+            id:         data.id,
+            savedAt:    new Date(data.savedAt).toLocaleDateString('es-AR',
               { day: '2-digit', month: 'short', year: 'numeric' }),
-            params:    currentParams,
-            result:    currentResult,
-            documents: [],
+            loanStatus: 'pending',
+            params:     currentParams,
+            result:     currentResult,
+            documents:  [],
           }
           setClients(prev => [client, ...prev])
           setForm(EMPTY_FORM)
@@ -161,12 +181,13 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
     } else {
       const client: Client = {
         ...form,
-        id:      String(Date.now()),
-        savedAt: new Date().toLocaleDateString('es-AR',
+        id:         String(Date.now()),
+        savedAt:    new Date().toLocaleDateString('es-AR',
           { day: '2-digit', month: 'short', year: 'numeric' }),
-        params:    currentParams,
-        result:    currentResult,
-        documents: [],
+        loanStatus: 'pending',
+        params:     currentParams,
+        result:     currentResult,
+        documents:  [],
       }
       setClients(prev => [client, ...prev])
       setForm(EMPTY_FORM)
@@ -197,6 +218,24 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         ))
       }
     } finally { setUploading(null) }
+  }
+
+  // ── Update loan status ─────────────────────────────────────────────────────
+  const updateStatus = async (id: string, next: LoanStatus) => {
+    // Toggle back to pending if clicking the already-active status
+    const target = clients.find(c => c.id === id)?.loanStatus === next ? 'pending' : next
+    setUpdatingStatus(id)
+    if (mode === 'cloud') {
+      try {
+        await fetch(`/api/clients/${id}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ loanStatus: target }),
+        })
+      } catch (err) { console.error('Error updating status', err) }
+    }
+    setClients(prev => prev.map(c => c.id === id ? { ...c, loanStatus: target } : c))
+    setUpdatingStatus(null)
   }
 
   const fmt = (v: number, cur: Currency) => formatCurrency(v, cur)
@@ -398,15 +437,43 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         </div>
       </div>
 
+      {/* ── Search bar above client list ── */}
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none select-none">🔍</span>
+        <input
+          type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar cliente por nombre o email..."
+          className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
+          style={{ color: '#374151', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }} />
+      </div>
+
       {/* ── Client list ── */}
       <div className="rounded-2xl p-6 bg-white border border-slate-200"
         style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
-        <div className="flex items-center gap-2.5 mb-5">
+        <div className="flex items-center gap-2.5 mb-4">
           <div className="w-1 h-6 rounded-full"
             style={{ background: 'linear-gradient(180deg,#1565C0,#0D2B5E)' }} />
           <h2 className="font-display text-base" style={{ color: '#0D2B5E' }}>Clientes guardados</h2>
-          <span className="ml-auto text-xs text-slate-400">{clients.length} clientes</span>
+          <span className="ml-auto text-xs text-slate-400">
+            {search ? `${filteredClients.length} de ${clients.length}` : `${clients.length}`} clientes
+          </span>
         </div>
+
+        {/* Status summary pills */}
+        {clients.length > 0 && (() => {
+          const counts = { pending: 0, approved: 0, denied: 0 }
+          clients.forEach(c => { counts[c.loanStatus ?? 'pending']++ })
+          return (
+            <div className="flex gap-2 flex-wrap mb-4">
+              {(['pending', 'approved', 'denied'] as LoanStatus[]).map(s => (
+                <span key={s} className="text-xs font-semibold px-3 py-1 rounded-full"
+                  style={{ background: STATUS_CFG[s].bg, color: STATUS_CFG[s].color, border: `1px solid ${STATUS_CFG[s].border}` }}>
+                  {STATUS_CFG[s].emoji} {STATUS_CFG[s].label}: {counts[s]}
+                </span>
+              ))}
+            </div>
+          )
+        })()}
 
         {clients.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
@@ -414,18 +481,34 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
             <p className="text-sm">No hay clientes guardados aún.</p>
             <p className="text-xs mt-1">Completa el formulario arriba para comenzar.</p>
           </div>
+        ) : filteredClients.length === 0 ? (
+          <div className="text-center py-10 text-slate-400">
+            <p className="text-4xl mb-3">🔍</p>
+            <p className="text-sm">Sin resultados para <strong>&ldquo;{search}&rdquo;</strong></p>
+            <button onClick={() => setSearch('')}
+              className="text-xs mt-2 underline hover:text-blue-500 transition-colors">
+              Limpiar búsqueda
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
-            {clients.map(c => {
+            {filteredClients.map(c => {
               const cfg = RISK_PROFILES.find(r => r.label === c.params.profile)!
               const cur: Currency = c.params.currency
               const isExpanded = expandId === c.id
 
+              const sCfg = STATUS_CFG[c.loanStatus ?? 'pending']
+              const isBusy = updatingStatus === c.id
+
               return (
-                <div key={c.id} className="rounded-xl border border-slate-200 overflow-hidden hover:border-slate-300 transition-all">
+                <div key={c.id} className="rounded-xl overflow-hidden transition-all"
+                  style={{ border: `1.5px solid ${sCfg.border}` }}>
+
+                  {/* Status accent bar */}
+                  <div className="h-1 w-full" style={{ background: sCfg.border }} />
 
                   {/* Main row */}
-                  <div className="flex items-center gap-4 p-4">
+                  <div className="flex items-center gap-4 p-4 bg-white">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
                       style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
                       {initials(c.name)}
@@ -461,7 +544,44 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                       {cfg.emoji} {cfg.label}
                     </span>
 
+                    {/* Loan status badge */}
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+                      style={{ background: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}` }}>
+                      {sCfg.emoji} {sCfg.label}
+                    </span>
+
                     <div className="flex gap-2 flex-shrink-0">
+                      {/* Approve */}
+                      <button
+                        onClick={() => updateStatus(c.id, 'approved')}
+                        disabled={isBusy}
+                        title="Aprobar préstamo"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40"
+                        style={{
+                          background: c.loanStatus === 'approved' ? '#16A34A' : '#F0FDF4',
+                          color:      c.loanStatus === 'approved' ? '#fff'    : '#15803D',
+                          border:     `1.5px solid ${c.loanStatus === 'approved' ? '#16A34A' : '#86EFAC'}`,
+                        }}>
+                        ✅ Aprobar
+                      </button>
+                      {/* Deny */}
+                      <button
+                        onClick={() => updateStatus(c.id, 'denied')}
+                        disabled={isBusy}
+                        title="Denegar préstamo"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40"
+                        style={{
+                          background: c.loanStatus === 'denied' ? '#DC2626' : '#FFF1F2',
+                          color:      c.loanStatus === 'denied' ? '#fff'    : '#DC2626',
+                          border:     `1.5px solid ${c.loanStatus === 'denied' ? '#DC2626' : '#FECDD3'}`,
+                        }}>
+                        ❌ Denegar
+                      </button>
+                      <Link href={`/clients/${c.id}`}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        style={{ background: '#0D2B5E', color: '#fff' }}>
+                        👤 Perfil
+                      </Link>
                       <button onClick={() => onLoadClient(c.params)}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                         style={{ background: '#e8eef7', color: '#0D2B5E' }}>
@@ -484,7 +604,27 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
                   {/* Expanded panel: details + documents */}
                   {isExpanded && mode === 'cloud' && (
-                    <div className="border-t border-slate-100 px-4 pb-5 pt-4 bg-slate-50 space-y-4">
+                    <div className="border-t px-4 pb-5 pt-4 space-y-4"
+                      style={{ background: sCfg.bg, borderColor: sCfg.border }}>
+
+                      {/* Status decision row */}
+                      <div className="flex items-center gap-3 pb-3 border-b flex-wrap" style={{ borderColor: sCfg.border }}>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Decisión de crédito:
+                        </span>
+                        <span className="text-sm font-bold px-3 py-1 rounded-full"
+                          style={{ background: sCfg.border, color: sCfg.color }}>
+                          {sCfg.emoji} {sCfg.label}
+                        </span>
+                        {c.loanStatus !== 'pending' && (
+                          <button
+                            onClick={() => updateStatus(c.id, 'pending')}
+                            disabled={isBusy}
+                            className="text-xs text-slate-400 hover:text-slate-600 underline disabled:opacity-40 transition-colors">
+                            ↩ Restablecer a pendiente
+                          </button>
+                        )}
+                      </div>
 
                       {/* Client details grid */}
                       <div>

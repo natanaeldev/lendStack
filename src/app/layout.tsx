@@ -3,8 +3,8 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'JVF Inversiones SRL — Calculadora de Préstamos Pro',
-  description: 'Herramienta profesional de análisis, amortización y gestión de préstamos con perfiles de riesgo',
+  title: 'LendStack — Plataforma de Gestión de Préstamos',
+  description: 'Plataforma profesional de análisis, amortización y gestión de créditos con perfiles de riesgo',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -55,7 +55,7 @@ export default function LoginPage() {
           <div className="flex justify-center mb-8">
             <div className="rounded-2xl flex-shrink-0"
               style={{ background: 'rgba(255,255,255,.95)', padding: '10px 20px', boxShadow: '0 4px 32px rgba(0,0,0,.3)' }}>
-              <Image src="/logo.png" alt="JVF Inversiones" width={140} height={48} style={{ objectFit: 'contain', display: 'block' }} priority />
+              <Image src="/logo.png" alt="LendStack" width={140} height={48} style={{ objectFit: 'contain', display: 'block' }} priority />
             </div>
           </div>
 
@@ -64,7 +64,7 @@ export default function LoginPage() {
             <h2 className="text-2xl font-bold mb-1" style={{ color: '#0D2B5E', fontFamily: "'DM Sans', sans-serif" }}>
               Iniciar sesión
             </h2>
-            <p className="text-sm text-slate-400 mb-6">Accedé a tu cuenta de JVF Inversiones SRL</p>
+            <p className="text-sm text-slate-400 mb-6">Accedé a tu cuenta de LendStack</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -73,7 +73,7 @@ export default function LoginPage() {
                 </label>
                 <input
                   type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@jvfinversiones.com" required autoComplete="email"
+                  placeholder="admin@lendstack.app" required autoComplete="email"
                   className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{ color: '#374151' }}
                 />
@@ -115,7 +115,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,.35)' }}>
-            JVF Inversiones SRL · Sistema de gestión de préstamos
+            LendStack · Sistema de gestión de préstamos
           </p>
         </div>
       </div>

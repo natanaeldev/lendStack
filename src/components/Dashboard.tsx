@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,6 +14,7 @@ interface StatsData {
   configured: boolean
   totalClients: number; totalLoans: number; totalAmount: number
   avgMonthlyPayment: number; avgAmount: number; totalInterest: number
+  pendingCount: number; approvedCount: number; deniedCount: number
   byProfile:   { profile: string; count: number; totalAmount: number }[]
   byCurrency:  { currency: string; count: number; totalAmount: number }[]
   recentClients: RecentClient[]
@@ -26,7 +28,7 @@ interface ClientDoc {
 }
 interface ClientRow {
   id: string; name: string; email: string; phone: string; notes: string; savedAt: string
-  params: any; result: any; documents: ClientDoc[]
+  params: any; result: any; documents: ClientDoc[]; loanStatus?: string
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -35,6 +37,12 @@ const PROFILE_COLOR: Record<string, string> = {
   'Low Risk': '#2E7D32', 'Medium Risk': '#F59E0B', 'High Risk': '#EF4444',
 }
 const CURRENCY_COLORS = ['#1565C0', '#0D2B5E', '#2E7D32', '#F59E0B']
+
+const STATUS_CFG: Record<string, { label: string; emoji: string; bg: string; color: string }> = {
+  pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E' },
+  approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D' },
+  denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337' },
+}
 
 const SECTION_BAR = (
   <div className="w-1 h-6 rounded-full flex-shrink-0"
@@ -64,10 +72,10 @@ function SetupScreen() {
     <div className="rounded-2xl p-10 bg-white border border-slate-200 text-center"
       style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
       <p className="text-5xl mb-4">🗄️</p>
-      <h2 className="font-display text-2xl mb-2" style={{ color: '#0D2B5E' }}>Conectar Neo4j</h2>
+      <h2 className="font-display text-2xl mb-2" style={{ color: '#0D2B5E' }}>Conectar MongoDB</h2>
       <p className="text-slate-500 mb-6 text-sm max-w-md mx-auto">
-        El dashboard usa <strong>Neo4j Aura</strong> como base de datos en la nube.
-        Creá una instancia gratuita y configurá las variables de entorno.
+        LendStack usa <strong>MongoDB Atlas</strong> como base de datos en la nube.
+        Configurá la variable de entorno para habilitar el dashboard.
       </p>
 
       <div className="rounded-xl p-5 bg-slate-50 border border-slate-200 text-left max-w-lg mx-auto mb-6 font-mono text-xs space-y-1.5">
@@ -75,10 +83,8 @@ function SetupScreen() {
           Variables requeridas — .env.local
         </p>
         {[
-          ['NEO4J_URI',              'neo4j+s://xxxx.databases.neo4j.io'],
-          ['NEO4J_USER',             'neo4j'],
-          ['NEO4J_PASSWORD',         'tu_contraseña'],
-          ['BLOB_READ_WRITE_TOKEN',  'vercel_blob_xxxx  ← para subir documentos'],
+          ['MONGODB_URI',           'mongodb+srv://user:pass@cluster.mongodb.net/jvf'],
+          ['BLOB_READ_WRITE_TOKEN', 'vercel_blob_xxxx  ← para subir documentos'],
         ].map(([k, v]) => (
           <div key={k} className="flex gap-2">
             <span className="text-blue-600 font-bold">{k}</span>
@@ -89,11 +95,11 @@ function SetupScreen() {
       </div>
 
       <div className="flex justify-center gap-3 flex-wrap">
-        <a href="https://neo4j.com/cloud/platform/aura-graph-database/"
+        <a href="https://www.mongodb.com/cloud/atlas/register"
           target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
           style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-          🚀 Crear cuenta Neo4j Aura (gratis)
+          🚀 Crear cuenta MongoDB Atlas (gratis)
         </a>
         <a href="https://vercel.com/docs/storage/vercel-blob"
           target="_blank" rel="noopener noreferrer"
@@ -207,6 +213,56 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ── Loan status cards ── */}
+      {stats && (
+        <>
+          <div className="flex items-center gap-2.5">
+            {SECTION_BAR}
+            <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Estado de solicitudes</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Pending */}
+            <div className="rounded-2xl p-5 border"
+              style={{ background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '0 2px 14px rgba(0,0,0,.05)' }}>
+              <p className="text-2xl mb-3">⏳</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#92400E' }}>
+                Préstamos Pendientes
+              </p>
+              <p className="font-display text-3xl font-black leading-none" style={{ color: '#92400E' }}>
+                {stats.pendingCount ?? 0}
+              </p>
+              <p className="text-xs mt-1.5" style={{ color: '#B45309' }}>en evaluación</p>
+            </div>
+
+            {/* Approved */}
+            <div className="rounded-2xl p-5 border"
+              style={{ background: '#F0FDF4', borderColor: '#86EFAC', boxShadow: '0 2px 14px rgba(0,0,0,.05)' }}>
+              <p className="text-2xl mb-3">✅</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#14532D' }}>
+                Préstamos Aprobados
+              </p>
+              <p className="font-display text-3xl font-black leading-none" style={{ color: '#14532D' }}>
+                {stats.approvedCount ?? 0}
+              </p>
+              <p className="text-xs mt-1.5" style={{ color: '#16A34A' }}>créditos otorgados</p>
+            </div>
+
+            {/* Denied */}
+            <div className="rounded-2xl p-5 border"
+              style={{ background: '#FFF1F2', borderColor: '#FECDD3', boxShadow: '0 2px 14px rgba(0,0,0,.05)' }}>
+              <p className="text-2xl mb-3">❌</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#881337' }}>
+                Préstamos Denegados
+              </p>
+              <p className="font-display text-3xl font-black leading-none" style={{ color: '#881337' }}>
+                {stats.deniedCount ?? 0}
+              </p>
+              <p className="text-xs mt-1.5" style={{ color: '#DC2626' }}>solicitudes rechazadas</p>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Charts ── */}
       {stats && (stats.byProfile?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -282,24 +338,27 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ── Search bar above client table ── */}
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none select-none">🔍</span>
+        <input
+          type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar cliente por nombre o email..."
+          className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
+          style={{ color: '#374151', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }} />
+      </div>
+
       {/* ── Client Table ── */}
       <div className="rounded-2xl bg-white border border-slate-200"
         style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
 
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2.5">
-            {SECTION_BAR}
-            <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>
-              Todos los clientes
-            </h3>
-            <span className="text-xs text-slate-400 ml-1">({filtered.length})</span>
-          </div>
-          <input
-            type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="🔍 Buscar por nombre o email..."
-            className="px-4 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors w-full sm:w-72"
-            style={{ color: '#374151' }} />
+        <div className="p-6 border-b border-slate-100 flex items-center gap-2.5">
+          {SECTION_BAR}
+          <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>
+            Todos los clientes
+          </h3>
+          <span className="text-xs text-slate-400 ml-1">({filtered.length})</span>
         </div>
 
         {/* Empty state */}
@@ -324,6 +383,9 @@ export default function Dashboard() {
             const cur: Currency = c.params?.currency ?? 'USD'
             const isExpanded = expandDoc === c.id
 
+            const statusKey = (c.loanStatus ?? 'pending') as keyof typeof STATUS_CFG
+            const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.pending
+
             return (
               <div key={c.id} className="px-6 py-4">
 
@@ -345,6 +407,11 @@ export default function Dashboard() {
                           {profile.emoji} {profile.label}
                         </span>
                       )}
+                      {/* Loan status badge */}
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: statusCfg.bg, color: statusCfg.color }}>
+                        {statusCfg.emoji} {statusCfg.label}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500">
                       {c.email && <span className="mr-2">{c.email}</span>}
@@ -371,7 +438,13 @@ export default function Dashboard() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Upload button */}
+                    {/* Perfil link */}
+                    <Link href={`/clients/${c.id}`}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                      style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)', color: '#fff' }}>
+                      👤 Perfil
+                    </Link>
+                    {/* Docs toggle */}
                     <button
                       onClick={() => setExpandDoc(isExpanded ? null : c.id)}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
