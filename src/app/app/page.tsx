@@ -11,6 +11,7 @@ import AmortizationTable from '@/components/AmortizationTable'
 import ComparisonPanel from '@/components/ComparisonPanel'
 import MultiLoanPanel from '@/components/MultiLoanPanel'
 import ClientsPanel from '@/components/ClientsPanel'
+import ClientProfilePanel from '@/components/ClientProfilePanel'
 import Dashboard from '@/components/Dashboard'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
@@ -39,6 +40,7 @@ const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
 export default function Home() {
   const [tab,               setTab]               = useState<Tab>('dashboard')
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
+  const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
   const [termValue,         setTermValue]         = useState(5)          // in the selected unit
@@ -106,7 +108,7 @@ export default function Home() {
       <div className="sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex overflow-x-auto">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
               className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
               style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
               {t.label}
@@ -363,11 +365,30 @@ export default function Home() {
         )}
 
         {/* ═══ DASHBOARD ═══ */}
-        {tab === 'dashboard' && <Dashboard />}
+        {tab === 'dashboard' && (
+          <Dashboard
+            onViewProfile={(id) => {
+              setSelectedClientId(id)
+              setTab('clients')
+            }}
+          />
+        )}
 
         {/* ═══ CLIENTS ═══ */}
         {tab === 'clients' && (
-          <ClientsPanel currentParams={params} currentResult={result} onLoadClient={handleLoadClient} />
+          selectedClientId ? (
+            <ClientProfilePanel
+              clientId={selectedClientId}
+              onBack={() => setSelectedClientId(null)}
+            />
+          ) : (
+            <ClientsPanel
+              currentParams={params}
+              currentResult={result}
+              onLoadClient={handleLoadClient}
+              onViewProfile={(id) => setSelectedClientId(id)}
+            />
+          )
         )}
 
       </main>

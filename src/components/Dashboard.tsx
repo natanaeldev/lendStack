@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import Link from 'next/link'
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -156,7 +155,11 @@ function SetupScreen() {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
-export default function Dashboard() {
+interface DashboardProps {
+  onViewProfile?: (id: string) => void
+}
+
+export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [stats,    setStats]    = useState<StatsData | null>(null)
   const [clients,  setClients]  = useState<ClientRow[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -560,12 +563,13 @@ export default function Dashboard() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Perfil link */}
-                    <Link href={`/clients/${c.id}`}
+                    {/* Perfil button */}
+                    <button
+                      onClick={() => onViewProfile?.(c.id)}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                       style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)', color: '#fff' }}>
                       👤 Perfil
-                    </Link>
+                    </button>
                     {/* Docs toggle */}
                     <button
                       onClick={() => setExpandDoc(isExpanded ? null : c.id)}

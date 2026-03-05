@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import Link from 'next/link'
 import { LoanParams, LoanResult, RiskProfile, Currency, RISK_PROFILES, formatCurrency } from '@/lib/loan'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -30,9 +29,10 @@ interface Client {
   documents?: ClientDoc[]
 }
 interface Props {
-  currentParams: LoanParams
-  currentResult: LoanResult
-  onLoadClient:  (params: LoanParams) => void
+  currentParams:  LoanParams
+  currentResult:  LoanResult
+  onLoadClient:   (params: LoanParams) => void
+  onViewProfile?: (id: string) => void
 }
 
 type StorageMode = 'loading' | 'local' | 'cloud'
@@ -93,7 +93,7 @@ const inputCls = 'w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 text-s
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ClientsPanel({ currentParams, currentResult, onLoadClient }: Props) {
+export default function ClientsPanel({ currentParams, currentResult, onLoadClient, onViewProfile }: Props) {
   const [clients,   setClients]  = useState<Client[]>([])
   const [mode,      setMode]     = useState<StorageMode>('loading')
   const [form,      setForm]     = useState<FormData>(EMPTY_FORM)
@@ -577,11 +577,11 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                         }}>
                         ❌ Denegar
                       </button>
-                      <Link href={`/clients/${c.id}`}
+                      <button onClick={() => onViewProfile?.(c.id)}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                         style={{ background: '#0D2B5E', color: '#fff' }}>
                         👤 Perfil
-                      </Link>
+                      </button>
                       <button onClick={() => onLoadClient(c.params)}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                         style={{ background: '#e8eef7', color: '#0D2B5E' }}>
