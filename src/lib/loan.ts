@@ -48,16 +48,17 @@ export type RateMode = 'annual' | 'monthly'
 
 // ─── Currency ─────────────────────────────────────────────────────────────────
 
-export type Currency = 'USD' | 'ARS' | 'EUR'
+export type Currency = 'USD' | 'ARS' | 'EUR' | 'DOP'
 
 export interface CurrencyConfig {
   code: Currency; symbol: string; label: string; locale: string; flag: string
 }
 
 export const CURRENCIES: Record<Currency, CurrencyConfig> = {
-  USD: { code: 'USD', symbol: '$', label: 'USD', locale: 'en-US', flag: '🇺🇸' },
-  ARS: { code: 'ARS', symbol: '$', label: 'ARS', locale: 'es-AR', flag: '🇦🇷' },
-  EUR: { code: 'EUR', symbol: '€', label: 'EUR', locale: 'de-DE', flag: '🇪🇺' },
+  USD: { code: 'USD', symbol: '$',   label: 'USD', locale: 'en-US', flag: '🇺🇸' },
+  ARS: { code: 'ARS', symbol: '$',   label: 'ARS', locale: 'es-AR', flag: '🇦🇷' },
+  EUR: { code: 'EUR', symbol: '€',   label: 'EUR', locale: 'de-DE', flag: '🇪🇺' },
+  DOP: { code: 'DOP', symbol: 'RD$', label: 'DOP', locale: 'es-DO', flag: '🇩🇴' },
 }
 
 export function formatCurrency(value: number, currency: Currency): string {
