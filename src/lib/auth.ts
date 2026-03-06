@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: 'jwt' },
   pages:   { signIn: '/login' },
-  secret:  process.env.NEXTAUTH_SECRET,
+  secret:  process.env.NEXTAUTH_SECRET ?? 'dev-only-fallback-secret-not-for-production',
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
