@@ -81,7 +81,7 @@ function SectionHeader({ emoji, title }: { emoji: string; title: string }) {
 
 function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
   return (
-    <div className={full ? 'sm:col-span-2' : ''}>
+    <div className={`min-w-0 overflow-hidden${full ? ' sm:col-span-2' : ''}`}>
       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
         {label}
       </label>
@@ -429,7 +429,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
           <Field label="Fecha de inicio del préstamo">
             <input type="date" value={form.loanStartDate} onChange={e => sf('loanStartDate')(e.target.value)}
-              className={inputCls} style={{ color: '#374151' }} />
+              className={inputCls + ' max-w-full'} style={{ color: '#374151' }} />
             {form.loanStartDate && (
               <p className="text-xs text-slate-400 mt-1.5">
                 Primer cuota:{' '}
@@ -480,7 +480,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
           <Field label="Fecha de nacimiento">
             <input type="date" value={form.birthDate} onChange={e => sf('birthDate')(e.target.value)}
-              className={inputCls} style={{ color: '#374151' }} />
+              className={inputCls + ' max-w-full'} style={{ color: '#374151' }} />
           </Field>
 
           <Field label="Nacionalidad">
