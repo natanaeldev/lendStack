@@ -51,6 +51,7 @@ export async function GET(
           amount: c.loan.amount, termYears: c.loan.termYears,
           profile: c.loan.profile, currency: c.loan.currency,
           rateMode: c.loan.rateMode, customMonthlyRate: c.loan.customMonthlyRate,
+          startDate: c.loan.startDate ?? '',
         } : null,
         result: c.loan ? {
           monthlyPayment: c.loan.monthlyPayment, totalPayment: c.loan.totalPayment,
@@ -127,6 +128,7 @@ export async function PATCH(
     for (const field of ALLOWED) {
       if (body[field] !== undefined) $set[field] = body[field]
     }
+    if (body.loanStartDate !== undefined) $set['loan.startDate'] = body.loanStartDate
 
     if (Object.keys($set).length === 0)
       return NextResponse.json({ error: 'Sin cambios' }, { status: 400 })

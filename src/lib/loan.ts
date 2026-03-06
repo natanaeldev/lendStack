@@ -81,6 +81,8 @@ export interface LoanParams {
   rateMode?: RateMode
   /** Monthly rate as a decimal, e.g. 0.015 for 1.5% — used only when rateMode === 'monthly' */
   customMonthlyRate?: number
+  /** Loan disbursement date — ISO string e.g. '2025-01-15' */
+  startDate?: string
 }
 
 export interface LoanResult {

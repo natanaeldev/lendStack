@@ -57,6 +57,7 @@ export async function GET() {
         currency:          c.loan.currency,
         rateMode:          c.loan.rateMode,
         customMonthlyRate: c.loan.customMonthlyRate,
+        startDate:         c.loan.startDate ?? '',
       } : null,
       result: c.loan ? {
         monthlyPayment: c.loan.monthlyPayment,
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
         currency:          params.currency,
         rateMode:          params.rateMode          ?? 'annual',
         customMonthlyRate: params.customMonthlyRate ?? 0,
+        startDate:         params.startDate         ?? '',
         monthlyPayment:    result.monthlyPayment,
         totalPayment:      result.totalPayment,
         totalInterest:     result.totalInterest,

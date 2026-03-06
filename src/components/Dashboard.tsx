@@ -376,6 +376,130 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         )
       })()}
 
+      {/* ── Payment status section ── */}
+      {clients.length > 0 && (() => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        type PayStatus = 'overdue' | 'due-today' | 'upcoming' | 'active' | 'no-date'
+
+        function getPayStatus(c: ClientRow): PayStatus {
+          const startDateStr = c.params?.startDate
+          if (!startDateStr) return 'no-date'
+          if (c.loanStatus === 'denied') return 'no-date'
+
+          const start = new Date(startDateStr + 'T12:00:00')
+          const totalMonths: number = c.result?.totalMonths ?? (c.params?.termYears ?? 0) * 12
+          const end = new Date(start)
+          end.setMonth(end.getMonth() + totalMonths)
+
+          if (today > end) return 'overdue'
+
+          const payDay = start.getDate()
+          const thisMonth = new Date(today.getFullYear(), today.getMonth(), payDay)
+          // Clamp to last day of month if payDay overflows
+          const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+          const clampedDay = Math.min(payDay, lastDay)
+          const thisMonthPayment = new Date(today.getFullYear(), today.getMonth(), clampedDay)
+
+          if (thisMonthPayment.getTime() === today.getTime()) return 'due-today'
+          if (thisMonthPayment < today) return 'overdue'
+          const sevenDays = new Date(today); sevenDays.setDate(today.getDate() + 7)
+          if (thisMonthPayment <= sevenDays) return 'upcoming'
+          return 'active'
+        }
+
+        const withDate = clients.filter(c => c.params?.startDate && c.loanStatus !== 'denied')
+        if (withDate.length === 0) return null
+
+        const overdue  = withDate.filter(c => getPayStatus(c) === 'overdue')
+        const dueToday = withDate.filter(c => getPayStatus(c) === 'due-today')
+        const upcoming = withDate.filter(c => getPayStatus(c) === 'upcoming')
+        const alertClients = [...dueToday, ...overdue, ...upcoming]
+
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5">
+              {SECTION_BAR}
+              <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Estado de vencimientos</h3>
+            </div>
+
+            {/* 3 KPI pills */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Vencidos / atrasados', count: overdue.length,  emoji: '🔴', bg: '#FFF1F2', border: '#FECDD3', color: '#881337' },
+                { label: 'Cuota hoy',            count: dueToday.length, emoji: '🟡', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E' },
+                { label: 'Próximos 7 días',      count: upcoming.length, emoji: '🟢', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D' },
+              ].map(s => (
+                <div key={s.label} className="rounded-2xl p-3 sm:p-4 border text-center sm:text-left"
+                  style={{ background: s.bg, borderColor: s.border }}>
+                  <div className="sm:flex sm:items-center sm:gap-3">
+                    <span className="text-2xl sm:text-3xl leading-none">{s.emoji}</span>
+                    <div>
+                      <p className="font-black text-2xl sm:text-3xl leading-none mt-1 sm:mt-0"
+                        style={{ color: s.color }}>{s.count}</p>
+                      <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider mt-0.5"
+                        style={{ color: s.color }}>{s.label}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Alert client list */}
+            {alertClients.length > 0 && (
+              <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+                <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Clientes con cuotas próximas o vencidas
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {alertClients.map(c => {
+                    const status = getPayStatus(c)
+                    const startD  = new Date(c.params.startDate + 'T12:00:00')
+                    const payDay  = startD.getDate()
+                    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+                    const clampedDay = Math.min(payDay, lastDay)
+                    const payDate = new Date(today.getFullYear(), today.getMonth(), clampedDay)
+                    const payDateStr = payDate.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+                    const pill = status === 'overdue'
+                      ? { label: 'Vencido', bg: '#FFF1F2', color: '#881337', border: '#FECDD3' }
+                      : status === 'due-today'
+                      ? { label: 'Hoy',     bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' }
+                      : { label: '7 días',  bg: '#F0FDF4', color: '#14532D', border: '#86EFAC' }
+
+                    return (
+                      <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+                        {/* Avatar */}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                          style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
+                          {c.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate" style={{ color: '#0D2B5E' }}>{c.name}</p>
+                          <p className="text-xs text-slate-400">Cuota: {fmt(c.result?.monthlyPayment ?? 0, c.params.currency)} · vence {payDateStr}</p>
+                        </div>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+                          style={{ background: pill.bg, color: pill.color, border: `1px solid ${pill.border}` }}>
+                          {pill.label}
+                        </span>
+                        {onViewProfile && (
+                          <button onClick={() => onViewProfile(c.id)}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100 text-slate-500 flex-shrink-0">
+                            Ver →
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Charts ── */}
       {stats && (stats.byProfile?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

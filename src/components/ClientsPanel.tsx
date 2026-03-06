@@ -46,6 +46,7 @@ const EMPTY_FORM = {
   currentDebts: '', totalDebtValue: '', paymentCapacity: '',
   collateral: '', territorialTies: '',
   creditHistory: '', reference1: '', reference2: '', notes: '',
+  loanStartDate: '',
 }
 type FormData = typeof EMPTY_FORM
 
@@ -121,7 +122,10 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
   const manualResult: LoanResult = useMemo(() => calculateLoan(manualParams), [manualParams])
 
-  const activeParams = loanSource === 'calculator' ? currentParams : manualParams
+  const activeParams = {
+    ...(loanSource === 'calculator' ? currentParams : manualParams),
+    startDate: form.loanStartDate || undefined,
+  }
   const activeResult = loanSource === 'calculator' ? currentResult : manualResult
 
   const filteredClients = useMemo(() =>
@@ -419,6 +423,31 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
             </div>
           </div>
         )}
+
+        {/* ── Fecha de inicio del préstamo ── */}
+        <div className="flex items-center gap-4 mt-2 mb-1 p-4 rounded-xl border-2 border-blue-100 bg-blue-50">
+          <span className="text-xl">📅</span>
+          <div className="flex-1">
+            <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#1565C0' }}>
+              Fecha de inicio del préstamo
+            </label>
+            <input type="date" value={form.loanStartDate} onChange={e => sf('loanStartDate')(e.target.value)}
+              className="w-full sm:w-auto px-3 py-2 rounded-xl border-2 border-blue-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
+              style={{ color: '#374151' }} />
+          </div>
+          {form.loanStartDate && (
+            <div className="text-right text-xs text-slate-500 hidden sm:block">
+              <p>Primer cuota:</p>
+              <p className="font-bold" style={{ color: '#0D2B5E' }}>
+                {(() => {
+                  const d = new Date(form.loanStartDate + 'T12:00:00')
+                  d.setMonth(d.getMonth() + 1)
+                  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+                })()}
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* ── Sección 1: Información Personal ── */}
         <SectionHeader emoji="👤" title="Sección 1 — Información Personal" />
