@@ -350,14 +350,25 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 { count: stats.approvedCount, label: 'Aprobados',  sub: 'créditos activos', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', sub2: '#16A34A', emoji: '✅' },
                 { count: stats.deniedCount,   label: 'Denegados',  sub: 'rechazados', bg: '#FFF1F2', border: '#FECDD3', color: '#881337', sub2: '#DC2626', emoji: '❌' },
               ].map(s => (
-                <div key={s.label} className="rounded-2xl p-3 sm:p-5 border flex items-center gap-2 sm:gap-4"
+                <div key={s.label} className="rounded-2xl p-3 sm:p-5 border"
                   style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
-                  <div className="text-2xl sm:text-3xl font-black leading-none" style={{ color: s.color }}>{s.count}</div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
-                    <p className="text-[10px] sm:text-xs mt-0.5 hidden sm:block" style={{ color: s.sub2 }}>{s.sub}</p>
+
+                  {/* Mobile: vertical stack — avoids overflow in narrow 3-col grid */}
+                  <div className="flex flex-col items-center gap-0.5 sm:hidden">
+                    <span className="text-xl leading-none mb-0.5">{s.emoji}</span>
+                    <div className="text-2xl font-black leading-none" style={{ color: s.color }}>{s.count}</div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-center mt-0.5" style={{ color: s.color }}>{s.label}</p>
                   </div>
-                  <span className="text-xl sm:text-2xl ml-auto">{s.emoji}</span>
+
+                  {/* Desktop: horizontal layout */}
+                  <div className="hidden sm:flex items-center gap-4">
+                    <div className="text-3xl font-black leading-none" style={{ color: s.color }}>{s.count}</div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
+                      <p className="text-xs mt-0.5" style={{ color: s.sub2 }}>{s.sub}</p>
+                    </div>
+                    <span className="text-2xl ml-auto">{s.emoji}</span>
+                  </div>
                 </div>
               ))}
             </div>
