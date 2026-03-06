@@ -13,6 +13,10 @@ type LoanStatus = 'pending' | 'approved' | 'denied'
 interface ClientDoc {
   id: string; name: string; url: string; type: string; size: number; uploadedAt: string
 }
+interface Payment {
+  id: string; date: string; amount: number; registeredAt: string
+  cuotaNumber?: number; notes?: string
+}
 interface ClientProfile {
   id: string; savedAt: string; loanStatus: LoanStatus
   name: string; email: string; phone: string
@@ -25,6 +29,7 @@ interface ClientProfile {
   params: { amount: number; termYears: number; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number }
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
+  payments: Payment[]
 }
 
 type EditForm = {
@@ -141,6 +146,11 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
 
+  // ── Payment registration ────────────────────────────────────────────────────
+  const [payForm,    setPayForm]    = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
+  const [payLoading, setPayLoading] = useState(false)
+  const [deletingPayId, setDeletingPayId] = useState<string | null>(null)
+
   const sf = (k: keyof EditForm) => (v: string | boolean) =>
     setEditForm(prev => prev ? { ...prev, [k]: v } : prev)
 
@@ -216,6 +226,45 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  // ── Register payment ───────────────────────────────────────────────────────
+  const registerPayment = async () => {
+    const amount = parseFloat(payForm.amount)
+    if (!payForm.date || isNaN(amount) || amount <= 0) {
+      showToast('⚠️', 'Completá la fecha y un monto válido')
+      return
+    }
+    setPayLoading(true)
+    try {
+      const body: Record<string, any> = { date: payForm.date, amount }
+      if (payForm.cuotaNumber) body.cuotaNumber = parseInt(payForm.cuotaNumber)
+      if (payForm.notes.trim()) body.notes = payForm.notes.trim()
+      const res  = await fetch(`/api/clients/${clientId}/payments`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      })
+      if (!res.ok) { const d = await res.json(); showToast('❌', d.error ?? 'Error'); return }
+      const { payment } = await res.json()
+      setClient(prev => prev ? { ...prev, payments: [...prev.payments, payment] } : prev)
+      setPayForm({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
+      showToast('✅', 'Pago registrado correctamente')
+    } catch { showToast('❌', 'No se pudo conectar') }
+    finally  { setPayLoading(false) }
+  }
+
+  const deletePayment = async (paymentId: string) => {
+    setDeletingPayId(paymentId)
+    try {
+      await fetch(`/api/clients/${clientId}/payments`, {
+        method:  'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ paymentId }),
+      })
+      setClient(prev => prev ? { ...prev, payments: prev.payments.filter(p => p.id !== paymentId) } : prev)
+    } catch { /* silent */ }
+    setDeletingPayId(null)
   }
 
   // ── Upload document ────────────────────────────────────────────────────────
@@ -673,6 +722,121 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
           <InfoBlock label="Notas del asesor"     value={client.notes} />
         </SectionCard>
       </div>
+
+      {/* ── Pagos de cuotas ── */}
+      {(() => {
+        const payments = client.payments ?? []
+        const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
+        const totalMonths = client.result.totalMonths
+        const paidCount   = payments.length
+        const progress    = Math.min(100, Math.round((totalPaid / client.result.totalPayment) * 100))
+        return (
+          <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
+            style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2"
+              style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
+              <span className="text-base">💵</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Pagos de cuotas</span>
+              <span className="ml-auto text-xs text-slate-400">
+                {paidCount} pago{paidCount !== 1 ? 's' : ''} registrado{paidCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+
+              {/* Progress bar */}
+              <div>
+                <div className="flex justify-between text-xs text-slate-500 mb-1.5">
+                  <span>Total pagado: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(totalPaid)}</span></span>
+                  <span>Total préstamo: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(client.result.totalPayment)}</span></span>
+                </div>
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${progress}%`, background: progress >= 100 ? '#16A34A' : 'linear-gradient(90deg,#1565C0,#0D2B5E)' }} />
+                </div>
+                <p className="text-xs text-slate-400 mt-1">{progress}% cubierto · {totalMonths} cuotas totales</p>
+              </div>
+
+              {/* Payment list */}
+              {payments.length > 0 ? (
+                <div className="space-y-2">
+                  {[...payments].reverse().map(p => (
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{fmt(p.amount)}</span>
+                          {p.cuotaNumber && (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                              style={{ background: '#e8eef7', color: '#1565C0' }}>
+                              Cuota #{p.cuotaNumber}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 flex-wrap">
+                          <span>📅 {formatDate(p.date)}</span>
+                          {p.notes && <span>· {p.notes}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deletePayment(p.id)}
+                        disabled={deletingPayId === p.id}
+                        className="text-xs text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40 flex-shrink-0"
+                        title="Eliminar pago">
+                        {deletingPayId === p.id ? '⏳' : '✕'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">Sin pagos registrados todavía.</p>
+              )}
+
+              {/* Register new payment form */}
+              <div className="rounded-xl border-2 border-dashed border-slate-200 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Registrar nuevo pago</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="min-w-0">
+                    <label className="block text-xs text-slate-500 mb-1">Fecha *</label>
+                    <input type="date" value={payForm.date}
+                      onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))}
+                      className="w-full max-w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                      style={{ color: '#374151' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs text-slate-500 mb-1">Monto *</label>
+                    <input type="number" min="0" step="0.01" value={payForm.amount}
+                      onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
+                      placeholder={`Ej: ${client.result.monthlyPayment.toFixed(2)}`}
+                      className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                      style={{ color: '#374151' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs text-slate-500 mb-1">N.º de cuota (opcional)</label>
+                    <input type="number" min="1" max={totalMonths} value={payForm.cuotaNumber}
+                      onChange={e => setPayForm(f => ({ ...f, cuotaNumber: e.target.value }))}
+                      placeholder={`1 – ${totalMonths}`}
+                      className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                      style={{ color: '#374151' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs text-slate-500 mb-1">Notas (opcional)</label>
+                    <input type="text" value={payForm.notes}
+                      onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder="Ej: pago parcial, en efectivo…"
+                      className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                      style={{ color: '#374151' }} />
+                  </div>
+                </div>
+                <button onClick={registerPayment} disabled={payLoading}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
+                  {payLoading ? '⏳ Registrando…' : '+ Registrar pago'}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Documents ── */}
       <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
