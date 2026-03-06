@@ -9,6 +9,7 @@ export default withAuth(
     return NextResponse.next()
   },
   {
+    secret: process.env.NEXTAUTH_SECRET ?? 'dev-only-fallback-secret-not-for-production',
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl
