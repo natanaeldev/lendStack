@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { LoanParams, LoanResult, RiskProfile, Currency, RISK_PROFILES, formatCurrency } from '@/lib/loan'
+import { LoanParams, LoanResult, RiskProfile, Currency, RateMode, RISK_PROFILES, CURRENCIES, formatCurrency, formatPercent, calculateLoan } from '@/lib/loan'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +104,26 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
   const [uploading,       setUploading]      = useState<string | null>(null)
   const [updatingStatus,  setUpdatingStatus] = useState<string | null>(null)
 
+  // ── Loan source ─────────────────────────────────────────────────────────────
+  const [loanSource,        setLoanSource]        = useState<'calculator' | 'manual'>('calculator')
+  const [manualAmount,      setManualAmount]      = useState(currentParams.amount)
+  const [manualTermYears,   setManualTermYears]   = useState(currentParams.termYears)
+  const [manualProfile,     setManualProfile]     = useState<RiskProfile>(currentParams.profile)
+  const [manualCurrency,    setManualCurrency]    = useState<Currency>(currentParams.currency)
+  const [manualRateMode,    setManualRateMode]    = useState<RateMode>(currentParams.rateMode ?? 'annual')
+  const [manualCustomRate,  setManualCustomRate]  = useState(currentParams.customMonthlyRate ?? 0.05)
+
+  const manualParams: LoanParams = useMemo(() => ({
+    amount: manualAmount, termYears: manualTermYears, profile: manualProfile,
+    currency: manualCurrency, rateMode: manualRateMode,
+    customMonthlyRate: manualRateMode === 'monthly' ? manualCustomRate : undefined,
+  }), [manualAmount, manualTermYears, manualProfile, manualCurrency, manualRateMode, manualCustomRate])
+
+  const manualResult: LoanResult = useMemo(() => calculateLoan(manualParams), [manualParams])
+
+  const activeParams = loanSource === 'calculator' ? currentParams : manualParams
+  const activeResult = loanSource === 'calculator' ? currentResult : manualResult
+
   const filteredClients = useMemo(() =>
     clients.filter(c =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -159,7 +179,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         const res = await fetch('/api/clients', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ ...form, params: currentParams, result: currentResult }),
+          body:    JSON.stringify({ ...form, params: activeParams, result: activeResult }),
         })
         if (res.ok) {
           const data   = await res.json()
@@ -169,8 +189,8 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
             savedAt:    new Date(data.savedAt).toLocaleDateString('es-AR',
               { day: '2-digit', month: 'short', year: 'numeric' }),
             loanStatus: 'pending',
-            params:     currentParams,
-            result:     currentResult,
+            params:     activeParams,
+            result:     activeResult,
             documents:  [],
           }
           setClients(prev => [client, ...prev])
@@ -185,8 +205,8 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         savedAt:    new Date().toLocaleDateString('es-AR',
           { day: '2-digit', month: 'short', year: 'numeric' }),
         loanStatus: 'pending',
-        params:     currentParams,
-        result:     currentResult,
+        params:     activeParams,
+        result:     activeResult,
         documents:  [],
       }
       setClients(prev => [client, ...prev])
@@ -270,20 +290,135 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           </h2>
         </div>
 
-        {/* Current simulation summary */}
-        <div className="rounded-xl p-4 mb-2 border border-slate-200 bg-slate-50 text-xs flex flex-wrap gap-4">
-          {[
-            ['Monto',     fmt(currentParams.amount, currentParams.currency)],
-            ['Plazo',     `${currentParams.termYears} años`],
-            ['Perfil',    `${RISK_PROFILES.find(r => r.label === currentParams.profile)?.emoji} ${currentParams.profile}`],
-            ['Cuota/mes', fmt(currentResult.monthlyPayment, currentParams.currency)],
-          ].map(([l, v]) => (
-            <div key={l}>
-              <span className="text-slate-400 mr-1">{l}:</span>
-              <span className="font-bold" style={{ color: '#0D2B5E' }}>{v}</span>
-            </div>
+        {/* Loan source toggle */}
+        <div className="flex gap-2 mb-4">
+          {(['calculator', 'manual'] as const).map(src => (
+            <button key={src} onClick={() => setLoanSource(src)}
+              className="flex-1 py-2 rounded-xl text-xs font-bold transition-all border-2"
+              style={{
+                background:   loanSource === src ? '#0D2B5E' : '#f8fafc',
+                color:        loanSource === src ? '#fff'     : '#64748b',
+                borderColor:  loanSource === src ? '#0D2B5E' : '#e2e8f0',
+              }}>
+              {src === 'calculator' ? '🧮 Usar datos de calculadora' : '✏️ Configurar manualmente'}
+            </button>
           ))}
         </div>
+
+        {/* Calculator summary */}
+        {loanSource === 'calculator' && (
+          <div className="rounded-xl p-4 mb-4 border border-slate-200 bg-slate-50 text-xs flex flex-wrap gap-4">
+            {[
+              ['Monto',     fmt(currentParams.amount, currentParams.currency)],
+              ['Plazo',     `${currentParams.termYears} años`],
+              ['Perfil',    `${RISK_PROFILES.find(r => r.label === currentParams.profile)?.emoji} ${currentParams.profile}`],
+              ['Cuota/mes', fmt(currentResult.monthlyPayment, currentParams.currency)],
+            ].map(([l, v]) => (
+              <div key={l}>
+                <span className="text-slate-400 mr-1">{l}:</span>
+                <span className="font-bold" style={{ color: '#0D2B5E' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Manual loan config */}
+        {loanSource === 'manual' && (
+          <div className="rounded-xl p-4 mb-4 border-2 border-slate-200 bg-slate-50 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Monto</label>
+                <input type="number" min={0} value={manualAmount}
+                  onChange={e => setManualAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
+                  style={{ color: '#374151' }} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Plazo (años)</label>
+                <input type="number" min={1} max={30} value={manualTermYears}
+                  onChange={e => setManualTermYears(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
+                  style={{ color: '#374151' }} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Moneda</label>
+              <div className="flex gap-2 flex-wrap">
+                {(Object.values(CURRENCIES)).map(c => (
+                  <button key={c.code} onClick={() => setManualCurrency(c.code)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-all"
+                    style={{
+                      background:  manualCurrency === c.code ? '#0D2B5E' : '#fff',
+                      color:       manualCurrency === c.code ? '#fff'     : '#64748b',
+                      borderColor: manualCurrency === c.code ? '#0D2B5E' : '#e2e8f0',
+                    }}>
+                    {c.flag} {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Perfil de riesgo</label>
+              <div className="flex gap-2 flex-wrap">
+                {RISK_PROFILES.map(r => (
+                  <button key={r.label} onClick={() => setManualProfile(r.label as RiskProfile)}
+                    className="flex-1 min-w-[90px] px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-all"
+                    style={{
+                      background:  manualProfile === r.label ? r.colorBg   : '#fff',
+                      color:       manualProfile === r.label ? r.colorText  : '#64748b',
+                      borderColor: manualProfile === r.label ? r.colorAccent : '#e2e8f0',
+                    }}>
+                    {r.emoji} {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Modo de tasa</label>
+              <div className="flex gap-2 mb-2">
+                {(['annual', 'monthly'] as RateMode[]).map(m => (
+                  <button key={m} onClick={() => setManualRateMode(m)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-all"
+                    style={{
+                      background:  manualRateMode === m ? '#0D2B5E' : '#fff',
+                      color:       manualRateMode === m ? '#fff'     : '#64748b',
+                      borderColor: manualRateMode === m ? '#0D2B5E' : '#e2e8f0',
+                    }}>
+                    {m === 'annual' ? 'Tasa anual (perfil)' : 'Tasa mensual personalizada'}
+                  </button>
+                ))}
+              </div>
+              {manualRateMode === 'monthly' && (
+                <div className="flex items-center gap-2">
+                  <input type="number" min={0.1} max={100} step={0.1}
+                    value={(manualCustomRate * 100).toFixed(2)}
+                    onChange={e => setManualCustomRate(Number(e.target.value) / 100)}
+                    className="w-28 px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                    style={{ color: '#374151' }} />
+                  <span className="text-xs text-slate-500">% mensual</span>
+                </div>
+              )}
+            </div>
+
+            {/* Live computed preview */}
+            <div className="flex flex-wrap gap-4 pt-3 border-t border-slate-200 text-xs">
+              {[
+                ['Cuota/mes', fmt(manualResult.monthlyPayment, manualCurrency)],
+                ['Total',     fmt(manualResult.totalPayment, manualCurrency)],
+                ['Intereses', fmt(manualResult.totalInterest, manualCurrency)],
+                ['Tasa anual', formatPercent(manualResult.annualRate)],
+              ].map(([l, v]) => (
+                <div key={l}>
+                  <span className="text-slate-400 mr-1">{l}:</span>
+                  <span className="font-bold" style={{ color: '#0D2B5E' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Sección 1: Información Personal ── */}
         <SectionHeader emoji="👤" title="Sección 1 — Información Personal" />
