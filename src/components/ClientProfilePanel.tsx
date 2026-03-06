@@ -482,41 +482,45 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
       <div className="rounded-2xl overflow-hidden"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,.08)', border: `2px solid ${sCfg.border}` }}>
         <div className="h-1.5" style={{ background: `linear-gradient(90deg,${sCfg.btnBg},${sCfg.border})` }} />
-        <div className="bg-white px-6 py-5">
-          <div className="flex items-start gap-5 flex-wrap">
+        <div className="bg-white px-4 sm:px-6 py-4 sm:py-5">
+
+          {/* Top row: avatar + name (always) + approve/deny on desktop only */}
+          <div className="flex items-start gap-3 sm:gap-5">
 
             {/* Avatar */}
-            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-black text-white flex-shrink-0"
+            <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl font-black text-white flex-shrink-0"
               style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
               {initials(client.name)}
             </div>
 
-            {/* Name + meta */}
+            {/* Name + badges + contact */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="text-2xl font-black" style={{ color: '#0D2B5E' }}>{client.name}</h1>
-                <span className="text-xs font-bold px-3 py-1 rounded-full"
+              <h1 className="text-lg sm:text-2xl font-black leading-tight mb-1" style={{ color: '#0D2B5E' }}>
+                {client.name}
+              </h1>
+              <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
                   style={{ background: cfg.colorBg, color: cfg.colorText }}>
                   {cfg.emoji} {cfg.label}
                 </span>
-                <span className="text-sm font-bold px-3 py-1.5 rounded-full"
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
                   style={{ background: sCfg.bg, color: sCfg.color, border: `1.5px solid ${sCfg.border}` }}>
                   {sCfg.emoji} {sCfg.label}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 mt-1">
-                {client.email && <span>✉️ {client.email}</span>}
-                {client.phone && <span>📞 {client.phone}</span>}
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs sm:text-sm text-slate-500">
+                {client.email    && <span>✉️ {client.email}</span>}
+                {client.phone    && <span>📞 {client.phone}</span>}
                 {client.idNumber && <span>🪪 {client.idType}: {client.idNumber}</span>}
                 {client.nationality && <span>🌍 {client.nationality}</span>}
               </div>
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-slate-400 mt-1.5">
                 Solicitud registrada el {formatDate(client.savedAt)}
               </p>
             </div>
 
-            {/* Approve / Deny buttons */}
-            <div className="flex flex-col gap-2 flex-shrink-0">
+            {/* Approve / Deny — desktop only (vertical column) */}
+            <div className="hidden sm:flex flex-col gap-2 flex-shrink-0">
               <button onClick={() => updateStatus('approved')} disabled={updatingStatus}
                 className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
                 style={{
@@ -543,6 +547,35 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
               )}
             </div>
           </div>
+
+          {/* Approve / Deny — mobile only (full-width row below name) */}
+          <div className="sm:hidden flex gap-2 mt-3">
+            <button onClick={() => updateStatus('approved')} disabled={updatingStatus}
+              className="flex-1 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+              style={{
+                background: client.loanStatus === 'approved' ? '#16A34A' : '#F0FDF4',
+                color:      client.loanStatus === 'approved' ? '#fff'    : '#15803D',
+                border:     `2px solid ${client.loanStatus === 'approved' ? '#16A34A' : '#86EFAC'}`,
+              }}>
+              ✅ {client.loanStatus === 'approved' ? 'Aprobado ✓' : 'Aprobar'}
+            </button>
+            <button onClick={() => updateStatus('denied')} disabled={updatingStatus}
+              className="flex-1 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+              style={{
+                background: client.loanStatus === 'denied' ? '#DC2626' : '#FFF1F2',
+                color:      client.loanStatus === 'denied' ? '#fff'    : '#DC2626',
+                border:     `2px solid ${client.loanStatus === 'denied' ? '#DC2626' : '#FECDD3'}`,
+              }}>
+              ❌ {client.loanStatus === 'denied' ? 'Denegado ✓' : 'Denegar'}
+            </button>
+            {client.loanStatus !== 'pending' && (
+              <button onClick={() => updateStatus('pending')} disabled={updatingStatus}
+                className="px-3 py-2 rounded-xl text-xs text-slate-500 border border-slate-200 bg-slate-50 disabled:opacity-40 transition-colors flex-shrink-0">
+                ↩
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
 
