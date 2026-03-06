@@ -145,17 +145,20 @@ export default function Home() {
         {tab === 'calculator' && (
           <>
             {/* Sub-nav */}
-            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-100 border border-slate-200 w-fit">
+            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-100 border border-slate-200 w-full sm:w-fit">
               {CALC_SUBTABS.map(s => (
                 <button key={s.id} onClick={() => setCalcSubTab(s.id)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all text-center"
                   style={{
                     background: calcSubTab === s.id ? '#fff' : 'transparent',
                     color:      calcSubTab === s.id ? '#0D2B5E' : '#64748b',
                     boxShadow:  calcSubTab === s.id ? '0 1px 6px rgba(0,0,0,.1)' : 'none',
                     fontFamily: "'DM Sans', sans-serif",
                   }}>
-                  {s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'} {s.label}
+                  <span className="hidden sm:inline">{s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'} </span>
+                  <span className="sm:hidden text-base leading-none block mb-0.5">{s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'}</span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                  <span className="sm:hidden">{s.id === 'single' ? 'Simular' : s.id === 'multiloan' ? 'Multi' : 'Comparar'}</span>
                 </button>
               ))}
             </div>
