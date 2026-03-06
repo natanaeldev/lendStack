@@ -494,6 +494,18 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
+                <div className="flex gap-3 flex-wrap mb-5 fade-up-2">
+                  <PdfExportButton params={params} result={result} config={config} />
+                  <button onClick={() => setEmailOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
+                    style={{ color: '#1565C0', borderColor: '#1565C0' }}>
+                    ✉️ Enviar por email
+                  </button>
+                  <button onClick={() => { setTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
+                    👤 Guardar como cliente
+                  </button>
+                </div>
                 <div className="fade-up-2">
                   <button onClick={() => setShowTable(s => !s)}
                     className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
@@ -540,6 +552,18 @@ export default function Home() {
                       <p className="text-xs text-slate-400 mt-1.5">{s.sub}</p>
                     </div>
                   ))}
+                </div>
+                <div className="flex gap-3 flex-wrap mb-5 fade-up-2">
+                  <PdfExportButton params={params} result={result} config={config} />
+                  <button onClick={() => setEmailOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
+                    style={{ color: '#1565C0', borderColor: '#1565C0' }}>
+                    ✉️ Enviar por email
+                  </button>
+                  <button onClick={() => { setTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
+                    👤 Guardar como cliente
+                  </button>
                 </div>
                 <div className="fade-up-2">
                   <button onClick={() => setShowTable(s => !s)}
