@@ -556,7 +556,6 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                       🗑️
                     </button>
                   </div>
-                </div>
 
                 {/* Documents panel (collapsible) */}
                 {isExpanded && (

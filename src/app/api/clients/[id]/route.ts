@@ -118,7 +118,7 @@ export async function PATCH(
     }
 
     // ── Client info fields ─────────────────────────────────────────────────────
-    const ALLOWED: (keyof typeof body)[] = [
+    const ALLOWED: string[] = [
       'name', 'email', 'phone', 'idType', 'idNumber', 'birthDate',
       'nationality', 'address', 'occupation', 'monthlyIncome', 'hasIncomeProof',
       'currentDebts', 'totalDebtValue', 'paymentCapacity', 'collateral',
