@@ -486,7 +486,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
           <div className="flex items-start gap-5 flex-wrap">
 
             {/* Avatar */}
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-black text-white flex-shrink-0"
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-black text-white flex-shrink-0"
               style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
               {initials(client.name)}
             </div>
@@ -554,18 +554,18 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
           <span className="text-xs font-bold uppercase tracking-widest text-blue-100">Simulación del Préstamo</span>
         </div>
         <div className="bg-white px-5 py-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
             {[
-              { label: 'Monto solicitado', big: fmt(client.params.amount) },
-              { label: 'Cuota mensual',    big: fmt(client.result.monthlyPayment) },
-              { label: 'Plazo',            big: `${client.params.termYears} años` },
-              { label: 'Tasa anual',       big: formatPercent(client.result.annualRate) },
-              { label: 'Total a pagar',    big: fmt(client.result.totalPayment) },
-              { label: 'Total intereses',  big: fmt(client.result.totalInterest) },
+              { label: 'Monto',     big: fmt(client.params.amount) },
+              { label: 'Cuota/mes', big: fmt(client.result.monthlyPayment) },
+              { label: 'Plazo',     big: `${client.params.termYears} años` },
+              { label: 'Tasa',      big: formatPercent(client.result.annualRate) },
+              { label: 'Total',     big: fmt(client.result.totalPayment) },
+              { label: 'Intereses', big: fmt(client.result.totalInterest) },
             ].map(({ label, big }) => (
-              <div key={label} className="text-center p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <p className="text-xs text-slate-400 mb-1">{label}</p>
-                <p className="text-sm font-black" style={{ color: '#0D2B5E' }}>{big}</p>
+              <div key={label} className="text-center p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <p className="text-[10px] sm:text-xs text-slate-400 mb-1">{label}</p>
+                <p className="text-xs sm:text-sm font-black" style={{ color: '#0D2B5E' }}>{big}</p>
               </div>
             ))}
           </div>

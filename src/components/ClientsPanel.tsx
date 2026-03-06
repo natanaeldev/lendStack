@@ -260,7 +260,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
       )}
 
       {/* ── New-client form ── */}
-      <div className="rounded-2xl p-6 bg-white border border-slate-200"
+      <div className="rounded-2xl p-4 sm:p-6 bg-white border border-slate-200"
         style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
         <div className="flex items-center gap-2.5 mb-5">
           <div className="w-1 h-6 rounded-full"
@@ -448,7 +448,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
       </div>
 
       {/* ── Client list ── */}
-      <div className="rounded-2xl p-6 bg-white border border-slate-200"
+      <div className="rounded-2xl p-4 sm:p-6 bg-white border border-slate-200"
         style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
         <div className="flex items-center gap-2.5 mb-4">
           <div className="w-1 h-6 rounded-full"
@@ -507,55 +507,50 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                   {/* Status accent bar */}
                   <div className="h-1 w-full" style={{ background: sCfg.border }} />
 
-                  {/* Main row */}
-                  <div className="flex items-center gap-4 p-4 bg-white">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
-                      {initials(c.name)}
-                    </div>
+                  {/* Card body */}
+                  <div className="p-3 sm:p-4 bg-white">
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{c.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {c.email && <span>{c.email} · </span>}
-                        <strong>{fmt(c.params.amount, cur)}</strong> · {c.params.termYears} años ·
-                        Cuota: <strong>{fmt(c.result.monthlyPayment, cur)}/mes</strong>
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {c.savedAt}
-                        {c.occupation && <span> · {c.occupation}</span>}
-                        {c.monthlyIncome && <span> · Ingresos: {c.monthlyIncome}</span>}
-                        {c.documents && c.documents.length > 0 && (
-                          <span className="ml-2 text-blue-500 font-semibold">
-                            📎 {c.documents.length} doc{c.documents.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </p>
-                      {(c.nationality || c.idNumber) && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {c.idType && c.idNumber && <span>{c.idType}: {c.idNumber}</span>}
-                          {c.nationality && <span> · {c.nationality}</span>}
+                    {/* Top: avatar + info + badges */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-white flex-shrink-0"
+                        style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
+                        {initials(c.name)}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold leading-tight" style={{ color: '#0D2B5E' }}>{c.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          <strong>{fmt(c.params.amount, cur)}</strong> · {c.params.termYears} años ·
+                          <strong> {fmt(c.result.monthlyPayment, cur)}/mes</strong>
                         </p>
-                      )}
+                        {c.email && <p className="text-xs text-slate-400 mt-0.5 truncate">{c.email}</p>}
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {c.savedAt}
+                          {c.documents && c.documents.length > 0 && (
+                            <span className="ml-1.5 text-blue-500 font-semibold">
+                              📎 {c.documents.length}
+                            </span>
+                          )}
+                        </p>
+                        {/* Badges */}
+                        <div className="flex gap-1.5 flex-wrap mt-1.5">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: cfg.colorBg, color: cfg.colorText }}>
+                            {cfg.emoji} {cfg.label}
+                          </span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}` }}>
+                            {sCfg.emoji} {sCfg.label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
-                      style={{ background: cfg.colorBg, color: cfg.colorText }}>
-                      {cfg.emoji} {cfg.label}
-                    </span>
-
-                    {/* Loan status badge */}
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
-                      style={{ background: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}` }}>
-                      {sCfg.emoji} {sCfg.label}
-                    </span>
-
-                    <div className="flex gap-2 flex-shrink-0">
-                      {/* Approve */}
+                    {/* Action buttons row */}
+                    <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => updateStatus(c.id, 'approved')}
                         disabled={isBusy}
-                        title="Aprobar préstamo"
                         className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40"
                         style={{
                           background: c.loanStatus === 'approved' ? '#16A34A' : '#F0FDF4',
@@ -564,11 +559,9 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                         }}>
                         ✅ Aprobar
                       </button>
-                      {/* Deny */}
                       <button
                         onClick={() => updateStatus(c.id, 'denied')}
                         disabled={isBusy}
-                        title="Denegar préstamo"
                         className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40"
                         style={{
                           background: c.loanStatus === 'denied' ? '#DC2626' : '#FFF1F2',
@@ -592,7 +585,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                           style={{ background: isExpanded ? '#0D2B5E' : '#e8eef7',
                                    color:      isExpanded ? '#fff'    : '#1565C0' }}>
-                          📎
+                          📎 Docs
                         </button>
                       )}
                       <button onClick={() => removeClient(c.id)}

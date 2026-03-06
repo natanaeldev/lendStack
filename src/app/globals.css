@@ -37,3 +37,9 @@ input[type=number] { -moz-appearance: textfield; }
 
 @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 .toast-in { animation: toastIn .3s ease both; }
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: none; } }
+.slide-up { animation: slideUp .3s ease both; }
+
+/* iOS safe-area support for bottom tab bar */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }

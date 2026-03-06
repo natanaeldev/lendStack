@@ -25,10 +25,10 @@ import {
 type Tab = 'calculator' | 'dashboard' | 'clients'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'dashboard',  label: '🏠 Dashboard'   },
-  { id: 'calculator', label: '🧮 Calculadora' },
-  { id: 'clients',    label: '👥 Clientes'    },
+const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
+  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'   },
+  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular' },
+  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes' },
 ]
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
@@ -91,7 +91,7 @@ export default function Home() {
     showToast(m === 'monthly' ? '🗓️' : '📅', m === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
   }
 
-  const card = 'rounded-2xl p-6 bg-white border border-slate-200 mb-5'
+  const card = 'rounded-2xl p-4 sm:p-6 bg-white border border-slate-200 mb-5'
   const cardShadow = { boxShadow: '0 2px 18px rgba(0,0,0,.06)' }
   const sectionTitle = (text: string) => (
     <div className="flex items-center gap-2.5 mb-5">
@@ -104,8 +104,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      {/* Tab bar */}
-      <div className="sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
+      {/* ── Desktop tab bar (sm+) ── */}
+      <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
@@ -117,7 +117,7 @@ export default function Home() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
+      <main className="max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
 
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
@@ -393,11 +393,33 @@ export default function Home() {
 
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 text-center py-5 text-xs text-slate-400 mt-4">
+      {/* Footer — hidden on mobile (bottom nav takes the space) */}
+      <footer className="hidden sm:block bg-white border-t border-slate-200 text-center py-5 text-xs text-slate-400 mt-4">
         <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero ·
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
+
+      {/* ── Mobile bottom tab bar (below sm) ── */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
+        style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
+        <div className="flex">
+          {TABS.map(t => {
+            const active = tab === t.id
+            return (
+              <button key={t.id}
+                onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all"
+                style={{ color: active ? '#1565C0' : '#94a3b8' }}>
+                <span className="text-2xl leading-none">{t.emoji}</span>
+                <span className="text-[10px] font-bold tracking-wide">{t.mobileLabel}</span>
+                {active && (
+                  <span className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ background: '#1565C0' }} />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </nav>
 
       {/* Modals & notifications */}
       <EmailModal isOpen={emailOpen} onClose={() => setEmailOpen(false)} params={params} result={result} config={config} />

@@ -344,45 +344,22 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Loan status strip ── */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* Pending */}
-              <div className="rounded-2xl p-5 border flex items-center gap-4"
-                style={{ background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
-                <div className="text-3xl font-black leading-none" style={{ color: '#92400E' }}>
-                  {stats.pendingCount}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              {[
+                { count: stats.pendingCount,  label: 'Pendientes', sub: 'en evaluación', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', sub2: '#B45309', emoji: '⏳' },
+                { count: stats.approvedCount, label: 'Aprobados',  sub: 'créditos activos', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', sub2: '#16A34A', emoji: '✅' },
+                { count: stats.deniedCount,   label: 'Denegados',  sub: 'rechazados', bg: '#FFF1F2', border: '#FECDD3', color: '#881337', sub2: '#DC2626', emoji: '❌' },
+              ].map(s => (
+                <div key={s.label} className="rounded-2xl p-3 sm:p-5 border flex items-center gap-2 sm:gap-4"
+                  style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                  <div className="text-2xl sm:text-3xl font-black leading-none" style={{ color: s.color }}>{s.count}</div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
+                    <p className="text-[10px] sm:text-xs mt-0.5 hidden sm:block" style={{ color: s.sub2 }}>{s.sub}</p>
+                  </div>
+                  <span className="text-xl sm:text-2xl ml-auto">{s.emoji}</span>
                 </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#92400E' }}>Pendientes</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#B45309' }}>en evaluación</p>
-                </div>
-                <span className="text-2xl ml-auto">⏳</span>
-              </div>
-
-              {/* Approved */}
-              <div className="rounded-2xl p-5 border flex items-center gap-4"
-                style={{ background: '#F0FDF4', borderColor: '#86EFAC', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
-                <div className="text-3xl font-black leading-none" style={{ color: '#14532D' }}>
-                  {stats.approvedCount}
-                </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#14532D' }}>Aprobados</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>créditos activos</p>
-                </div>
-                <span className="text-2xl ml-auto">✅</span>
-              </div>
-
-              {/* Denied */}
-              <div className="rounded-2xl p-5 border flex items-center gap-4"
-                style={{ background: '#FFF1F2', borderColor: '#FECDD3', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
-                <div className="text-3xl font-black leading-none" style={{ color: '#881337' }}>
-                  {stats.deniedCount}
-                </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#881337' }}>Denegados</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#DC2626' }}>rechazados</p>
-                </div>
-                <span className="text-2xl ml-auto">❌</span>
-              </div>
+              ))}
             </div>
           </>
         )
@@ -478,7 +455,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
 
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center gap-2.5">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center gap-2.5">
           {SECTION_BAR}
           <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>
             Todos los clientes
@@ -512,19 +489,19 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.pending
 
             return (
-              <div key={c.id} className="px-6 py-4">
+              <div key={c.id} className="px-3 py-3 sm:px-6 sm:py-4">
 
-                {/* Row */}
-                <div className="flex items-center gap-4 flex-wrap">
+                {/* Top row: avatar + info */}
+                <div className="flex items-start gap-3 mb-2.5">
                   {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-white flex-shrink-0"
                     style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
                     {c.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                       <p className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{c.name}</p>
                       {profile && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -532,37 +509,33 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                           {profile.emoji} {profile.label}
                         </span>
                       )}
-                      {/* Loan status badge */}
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                         style={{ background: statusCfg.bg, color: statusCfg.color }}>
                         {statusCfg.emoji} {statusCfg.label}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500">
-                      {c.email && <span className="mr-2">{c.email}</span>}
                       <strong>{fmt(c.params?.amount ?? 0, cur)}</strong>
-                      {' · '}
-                      {c.params?.termYears} años
-                      {c.result && (
-                        <> · Cuota: <strong>{fmt(c.result.monthlyPayment, cur)}/mes</strong></>
-                      )}
+                      {' · '}{c.params?.termYears} años
+                      {c.result && <> · <strong>{fmt(c.result.monthlyPayment, cur)}/mes</strong></>}
                     </p>
                     {c.savedAt && (
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {new Date(c.savedAt).toLocaleDateString('es-AR',
-                          { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(c.savedAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {c.email && <span className="ml-1.5 hidden sm:inline">{c.email}</span>}
                         {c.documents?.length > 0 && (
-                          <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-semibold"
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded text-xs font-semibold"
                             style={{ background: '#e8eef7', color: '#1565C0' }}>
-                            📎 {c.documents.length} doc{c.documents.length > 1 ? 's' : ''}
+                            📎 {c.documents.length}
                           </span>
                         )}
                       </p>
                     )}
                   </div>
+                </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {/* Perfil button */}
                     <button
                       onClick={() => onViewProfile?.(c.id)}

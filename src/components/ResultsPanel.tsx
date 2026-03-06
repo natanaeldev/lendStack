@@ -18,27 +18,28 @@ export default function ResultsPanel({ result, config, currency, rateMode = 'ann
   const isMonthly = rateMode === 'monthly'
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-4 px-5 py-4 rounded-xl border" style={{ background: config.colorBg, borderColor: config.colorAccent + '44' }}>
-        <span className="text-3xl">{config.emoji}</span>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: config.colorAccent }}>
-            {config.label} — {isMonthly ? 'Tasa mensual aplicada' : 'Tasa anual aplicada'}
+      <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 rounded-xl border"
+        style={{ background: config.colorBg, borderColor: config.colorAccent + '44' }}>
+        <span className="text-2xl sm:text-3xl flex-shrink-0">{config.emoji}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wider mb-0.5 leading-tight" style={{ color: config.colorAccent }}>
+            {config.label} — {isMonthly ? 'Tasa mensual' : 'Tasa anual'}
           </p>
-          <p className="font-display text-3xl" style={{ color: config.colorText }}>
+          <p className="font-display text-2xl sm:text-3xl" style={{ color: config.colorText }}>
             {isMonthly ? formatPercent(result.monthlyRate, 3) : formatPercent(result.annualRate)}
-            <span className="text-base ml-1 font-normal">{isMonthly ? '/ mes' : '/ año'}</span>
+            <span className="text-sm sm:text-base ml-1 font-normal">{isMonthly ? '/ mes' : '/ año'}</span>
           </p>
         </div>
-        <div className="ml-auto text-right">
+        <div className="text-right flex-shrink-0">
           {isMonthly ? (
             <>
-              <p className="text-xs mb-0.5" style={{ color: config.colorText }}>Tasa anual equiv.</p>
-              <p className="text-xl font-bold" style={{ color: config.colorText }}>{formatPercent(result.annualRate)}</p>
+              <p className="text-xs mb-0.5" style={{ color: config.colorText }}>Anual equiv.</p>
+              <p className="text-lg sm:text-xl font-bold" style={{ color: config.colorText }}>{formatPercent(result.annualRate)}</p>
             </>
           ) : (
             <>
-              <p className="text-xs mb-0.5" style={{ color: config.colorText }}>Tasa mensual</p>
-              <p className="text-xl font-bold" style={{ color: config.colorText }}>{formatPercent(result.monthlyRate, 3)}</p>
+              <p className="text-xs mb-0.5" style={{ color: config.colorText }}>Mensual</p>
+              <p className="text-lg sm:text-xl font-bold" style={{ color: config.colorText }}>{formatPercent(result.monthlyRate, 3)}</p>
             </>
           )}
         </div>

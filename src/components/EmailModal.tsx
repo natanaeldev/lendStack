@@ -49,8 +49,10 @@ export default function EmailModal({ isOpen, onClose, params, result, config, de
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(7,26,62,.55)', backdropFilter: 'blur(4px)' }} onClick={handleClose}>
-      <div className="bg-white rounded-2xl p-7 max-w-md w-full shadow-2xl slide-in" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+      style={{ background: 'rgba(7,26,62,.55)', backdropFilter: 'blur(4px)' }} onClick={handleClose}>
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-7 w-full sm:max-w-md shadow-2xl slide-up sm:slide-in max-h-[92vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-display text-xl" style={{ color: '#0D2B5E' }}>✉️ Enviar cotización</h3>
           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
