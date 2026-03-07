@@ -662,7 +662,7 @@ export default function Home() {
       {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
       <button
         className="sm:hidden fixed z-50 w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
-        style={{ bottom: '64px', right: '20px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 4px 16px rgba(21,101,192,.5)' }}
+        style={{ bottom: '88px', right: '20px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 4px 16px rgba(21,101,192,.5)' }}
         onClick={() => setShowPayment(true)}
         title="Registrar pago de cuota">
         +
