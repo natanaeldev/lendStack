@@ -14,6 +14,7 @@ import MultiLoanPanel from '@/components/MultiLoanPanel'
 import ClientsPanel from '@/components/ClientsPanel'
 import ClientProfilePanel from '@/components/ClientProfilePanel'
 import Dashboard from '@/components/Dashboard'
+import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
@@ -45,6 +46,7 @@ export default function Home() {
   const [tab,               setTab]               = useState<Tab>('dashboard')
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
+  const [showPayment,       setShowPayment]        = useState(false)
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
   const [termValue,         setTermValue]         = useState(5)          // in the selected unit
@@ -128,7 +130,7 @@ export default function Home() {
 
       {/* ── Desktop tab bar (sm+) ── */}
       <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-        <div className="max-w-6xl mx-auto px-6 flex overflow-x-auto">
+        <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
               className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
@@ -136,6 +138,15 @@ export default function Home() {
               {t.label}
             </button>
           ))}
+          <div className="ml-auto pl-4 flex-shrink-0">
+            <button
+              onClick={() => setShowPayment(true)}
+              title="Registrar pago de cuota"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
+              style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
+              +
+            </button>
+          </div>
         </div>
       </div>
 
@@ -648,6 +659,15 @@ export default function Home() {
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
+      {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
+      <button
+        className="sm:hidden fixed z-50 w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
+        style={{ bottom: '64px', right: '20px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 4px 16px rgba(21,101,192,.5)' }}
+        onClick={() => setShowPayment(true)}
+        title="Registrar pago de cuota">
+        +
+      </button>
+
       {/* ── Mobile bottom tab bar (below sm) ── */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
         style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
@@ -672,6 +692,7 @@ export default function Home() {
 
       {/* Modals & notifications */}
       <EmailModal isOpen={emailOpen} onClose={() => setEmailOpen(false)} params={params} result={result} config={config} />
+      <QuickPaymentModal isOpen={showPayment} onClose={() => setShowPayment(false)} />
       <ToastProvider />
     </div>
   )
