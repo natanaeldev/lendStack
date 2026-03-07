@@ -69,6 +69,7 @@ export async function GET() {
         interestRatio:  c.loan.interestRatio,
       } : null,
       documents: c.documents ?? [],
+      payments:  c.payments  ?? [],
     }))
 
     return NextResponse.json({ clients })

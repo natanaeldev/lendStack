@@ -9,6 +9,9 @@ interface ClientDoc {
 }
 type LoanStatus = 'pending' | 'approved' | 'denied'
 
+interface Payment {
+  id: string; date: string; amount: number; cuotaNumber?: number; notes?: string
+}
 interface Client {
   id: string; savedAt: string
   // Sección 1 – Información Personal
@@ -27,6 +30,7 @@ interface Client {
   // Préstamo
   params: LoanParams; result: LoanResult
   documents?: ClientDoc[]
+  payments?: Payment[]
 }
 interface Props {
   currentParams:  LoanParams
@@ -54,6 +58,15 @@ const LOCAL_KEY = 'jvf_clients'
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+}
+
+const CURRENT_YEAR_MONTH = (() => {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
+})()
+
+function isPaidThisMonth(payments?: Payment[]): boolean {
+  return (payments ?? []).some(p => p.date?.startsWith(CURRENT_YEAR_MONTH))
 }
 function docIcon(type: string) {
   return type.includes('pdf') ? '📄' : type.includes('image') ? '🖼️' : type.includes('word') ? '📝' : '📁'
@@ -702,6 +715,12 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                             style={{ background: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}` }}>
                             {sCfg.emoji} {sCfg.label}
                           </span>
+                          {isPaidThisMonth(c.payments) && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                              style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' }}>
+                              ✅ Pagado
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

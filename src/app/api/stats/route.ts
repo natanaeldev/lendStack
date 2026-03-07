@@ -88,6 +88,34 @@ export async function GET() {
     const approvedCount = byStatus.find(s => s.status === 'approved')?.count ?? 0
     const deniedCount   = byStatus.find(s => s.status === 'denied')?.count   ?? 0
 
+    // ── Payment collection stats (today / week / month) ────────────────────
+    const now          = new Date()
+    const todayStr     = now.toISOString().slice(0, 10)
+    const daysToMon    = now.getDay() === 0 ? 6 : now.getDay() - 1
+    const weekStart    = new Date(now)
+    weekStart.setDate(now.getDate() - daysToMon)
+    const weekStartStr  = weekStart.toISOString().slice(0, 10)
+    const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+    const [paymentStats] = await col.aggregate([
+      { $match: { organizationId: orgId } },
+      { $unwind: { path: '$payments', preserveNullAndEmptyArrays: false } },
+      {
+        $group: {
+          _id: null,
+          collectedToday: {
+            $sum: { $cond: [{ $eq: ['$payments.date', todayStr] }, '$payments.amount', 0] },
+          },
+          collectedWeek: {
+            $sum: { $cond: [{ $gte: ['$payments.date', weekStartStr] }, '$payments.amount', 0] },
+          },
+          collectedMonth: {
+            $sum: { $cond: [{ $gte: ['$payments.date', monthStartStr] }, '$payments.amount', 0] },
+          },
+        },
+      },
+    ]).toArray()
+
     // ── 5 most-recent clients ──────────────────────────────────────────────
     const recentRaw = await col
       .find(
@@ -133,6 +161,9 @@ export async function GET() {
       pendingCount,
       approvedCount,
       deniedCount,
+      collectedToday: paymentStats?.collectedToday ?? 0,
+      collectedWeek:  paymentStats?.collectedWeek  ?? 0,
+      collectedMonth: paymentStats?.collectedMonth ?? 0,
     })
   } catch (err: any) {
     console.error('[GET /api/stats]', err)

@@ -16,6 +16,7 @@ interface StatsData {
   avgTermMonths: number; totalMonthlyPayments: number
   totalMonthlyIncome: number; approvedCapital: number
   pendingCount: number; approvedCount: number; deniedCount: number
+  collectedToday: number; collectedWeek: number; collectedMonth: number
   byProfile:   { profile: string; count: number; totalAmount: number }[]
   byCurrency:  { currency: string; count: number; totalAmount: number }[]
   recentClients: RecentClient[]
@@ -30,6 +31,7 @@ interface ClientDoc {
 interface ClientRow {
   id: string; name: string; email: string; phone: string; notes: string; savedAt: string
   params: any; result: any; documents: ClientDoc[]; loanStatus?: string
+  payments?: { id: string; date: string; amount: number; cuotaNumber?: number; notes?: string }[]
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -220,6 +222,14 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
   const fmt = (v: number, cur: Currency = 'USD') => formatCurrency(v, cur)
 
+  // ── Paid this month helper ──────────────────────────────────────────────────
+  const yearMonth = (() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
+  })()
+  const isPaidThisMonth = (c: ClientRow) =>
+    (c.payments ?? []).some(p => p.date?.startsWith(yearMonth))
+
   // ── Render helpers ──────────────────────────────────────────────────────────
   const docIcon = (type: string) =>
     type.includes('pdf') ? '📄' : type.includes('image') ? '🖼️' : type.includes('word') ? '📝' : '📁'
@@ -341,6 +351,38 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 icon="⚠️"
                 accent="#EF4444"
               />
+            </div>
+
+            {/* ── Collection stats strip (today / week / month) ── */}
+            <div>
+              <div className="flex items-center gap-2.5 mb-3">
+                {SECTION_BAR}
+                <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Recaudación</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                {[
+                  { label: 'Hoy',       value: fmtK(stats.collectedToday), sub: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }),    bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', emoji: '📅' },
+                  { label: 'Esta semana', value: fmtK(stats.collectedWeek),  sub: 'lunes → hoy', bg: '#EEF4FF', border: '#BFDBFE', color: '#1E40AF', emoji: '📆' },
+                  { label: 'Este mes',  value: fmtK(stats.collectedMonth), sub: new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }), bg: '#FAF5FF', border: '#DDD6FE', color: '#6D28D9', emoji: '🗓️' },
+                ].map(s => (
+                  <div key={s.label} className="rounded-2xl p-3 sm:p-5 border"
+                    style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                    <div className="flex flex-col items-center gap-0.5 sm:hidden">
+                      <span className="text-xl leading-none mb-0.5">{s.emoji}</span>
+                      <div className="text-lg font-black leading-none text-center" style={{ color: s.color }}>{s.value}</div>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-center mt-0.5" style={{ color: s.color }}>{s.label}</p>
+                    </div>
+                    <div className="hidden sm:block">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xl">{s.emoji}</span>
+                        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
+                      </div>
+                      <p className="font-display text-2xl font-black leading-none" style={{ color: s.color }}>{s.value}</p>
+                      <p className="text-xs mt-1 capitalize" style={{ color: s.color, opacity: 0.7 }}>{s.sub}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ── Loan status strip ── */}
@@ -648,6 +690,12 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                         style={{ background: statusCfg.bg, color: statusCfg.color }}>
                         {statusCfg.emoji} {statusCfg.label}
                       </span>
+                      {isPaidThisMonth(c) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC' }}>
+                          ✅ Pagado
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500">
                       <strong>{fmt(c.params?.amount ?? 0, cur)}</strong>
