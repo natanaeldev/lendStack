@@ -31,10 +31,13 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
   const [date,       setDate]       = useState(new Date().toISOString().slice(0, 10))
   const [cuotaNum,   setCuotaNum]   = useState('')
   const [notes,      setNotes]      = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [success,    setSuccess]    = useState(false)
-  const [error,      setError]      = useState('')
-  const amountRef = useRef<HTMLInputElement>(null)
+  const [submitting,          setSubmitting]          = useState(false)
+  const [success,             setSuccess]             = useState(false)
+  const [error,               setError]               = useState('')
+  const [comprobanteFile,     setComprobanteFile]     = useState<File | null>(null)
+  const [comprobantePreview,  setComprobantePreview]  = useState<string | null>(null)
+  const amountRef      = useRef<HTMLInputElement>(null)
+  const comprobanteRef = useRef<HTMLInputElement>(null)
 
   // Fetch clients when modal opens
   useEffect(() => {
@@ -78,9 +81,24 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
     setDate(new Date().toISOString().slice(0, 10))
     setCuotaNum('')
     setNotes('')
+    setComprobanteFile(null)
+    setComprobantePreview(null)
     setSuccess(false)
     setError('')
     onClose()
+  }
+
+  const handleComprobanteChange = (file: File) => {
+    setComprobanteFile(file)
+    const reader = new FileReader()
+    reader.onload = ev => setComprobantePreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const clearComprobante = () => {
+    setComprobanteFile(null)
+    setComprobantePreview(null)
+    if (comprobanteRef.current) comprobanteRef.current.value = ''
   }
 
   const handleSubmit = async () => {
@@ -93,14 +111,17 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
     setSubmitting(true)
     setError('')
     try {
-      const body: Record<string, any> = { date, amount: amt }
-      if (cuotaNum) body.cuotaNumber = parseInt(cuotaNum)
-      if (notes.trim()) body.notes = notes.trim()
+      // Use FormData so we can attach the comprobante image
+      const fd = new FormData()
+      fd.append('date',   date)
+      fd.append('amount', String(amt))
+      if (cuotaNum)     fd.append('cuotaNumber', cuotaNum)
+      if (notes.trim()) fd.append('notes',       notes.trim())
+      if (comprobanteFile) fd.append('comprobante', comprobanteFile)
 
       const res = await fetch(`/api/clients/${selected.id}/payments`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        method: 'POST',
+        body:   fd,   // browser sets Content-Type with boundary automatically
       })
       if (!res.ok) {
         const d = await res.json()
@@ -116,6 +137,8 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
         setCuotaNum('')
         setNotes('')
         setDate(new Date().toISOString().slice(0, 10))
+        setComprobanteFile(null)
+        setComprobantePreview(null)
         setSuccess(false)
       }, 1800)
     } catch {
@@ -305,6 +328,52 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
                     className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
                     style={{ color: '#374151' }} />
                 </div>
+              </div>
+
+              {/* Comprobante (receipt photo) */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  📸 Comprobante (opcional)
+                </label>
+                {comprobantePreview ? (
+                  <div className="relative rounded-xl overflow-hidden border-2 border-blue-200 bg-slate-50">
+                    <img
+                      src={comprobantePreview}
+                      alt="Comprobante"
+                      className="w-full max-h-44 object-contain"
+                    />
+                    <button
+                      onClick={clearComprobante}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white transition-opacity hover:opacity-90"
+                      style={{ background: '#DC2626' }}
+                      title="Quitar imagen">
+                      ✕
+                    </button>
+                    <div className="px-3 py-1.5 text-xs text-slate-400 border-t border-slate-100 truncate">
+                      {comprobanteFile?.name}
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
+                    <input
+                      ref={comprobanteRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0]
+                        if (f) handleComprobanteChange(f)
+                        e.target.value = ''
+                      }}
+                    />
+                    <span className="text-2xl flex-shrink-0">📸</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-600 leading-tight">Adjuntar comprobante</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Usá la cámara o elegí una imagen</p>
+                    </div>
+                  </label>
+                )}
               </div>
 
               {/* Submit */}

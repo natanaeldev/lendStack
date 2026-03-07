@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortization, getRiskConfig, LoanParams, RateMode, RiskProfile } from '@/lib/loan'
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
@@ -15,7 +15,7 @@ interface ClientDoc {
 }
 interface Payment {
   id: string; date: string; amount: number; registeredAt: string
-  cuotaNumber?: number; notes?: string
+  cuotaNumber?: number; notes?: string; comprobanteUrl?: string
 }
 interface ClientProfile {
   id: string; savedAt: string; loanStatus: LoanStatus
@@ -147,9 +147,25 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const [saving,    setSaving]    = useState(false)
 
   // ── Payment registration ────────────────────────────────────────────────────
-  const [payForm,    setPayForm]    = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
-  const [payLoading, setPayLoading] = useState(false)
-  const [deletingPayId, setDeletingPayId] = useState<string | null>(null)
+  const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
+  const [payLoading,          setPayLoading]          = useState(false)
+  const [deletingPayId,       setDeletingPayId]       = useState<string | null>(null)
+  const [payComprobanteFile,  setPayComprobanteFile]  = useState<File | null>(null)
+  const [payComprobantePreview, setPayComprobantePreview] = useState<string | null>(null)
+  const [lightboxUrl,         setLightboxUrl]         = useState<string | null>(null)
+  const comprobanteInputRef = useRef<HTMLInputElement>(null)
+
+  const handlePayComprobanteChange = (file: File) => {
+    setPayComprobanteFile(file)
+    const reader = new FileReader()
+    reader.onload = ev => setPayComprobantePreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+  const clearPayComprobante = () => {
+    setPayComprobanteFile(null)
+    setPayComprobantePreview(null)
+    if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
+  }
 
   const sf = (k: keyof EditForm) => (v: string | boolean) =>
     setEditForm(prev => prev ? { ...prev, [k]: v } : prev)
@@ -237,18 +253,23 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
     }
     setPayLoading(true)
     try {
-      const body: Record<string, any> = { date: payForm.date, amount }
-      if (payForm.cuotaNumber) body.cuotaNumber = parseInt(payForm.cuotaNumber)
-      if (payForm.notes.trim()) body.notes = payForm.notes.trim()
-      const res  = await fetch(`/api/clients/${clientId}/payments`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+      // Use FormData so we can attach the comprobante image
+      const fd = new FormData()
+      fd.append('date',   payForm.date)
+      fd.append('amount', String(amount))
+      if (payForm.cuotaNumber) fd.append('cuotaNumber', payForm.cuotaNumber)
+      if (payForm.notes.trim()) fd.append('notes', payForm.notes.trim())
+      if (payComprobanteFile)   fd.append('comprobante', payComprobanteFile)
+
+      const res = await fetch(`/api/clients/${clientId}/payments`, {
+        method: 'POST',
+        body:   fd,
       })
       if (!res.ok) { const d = await res.json(); showToast('❌', d.error ?? 'Error'); return }
       const { payment } = await res.json()
       setClient(prev => prev ? { ...prev, payments: [...prev.payments, payment] } : prev)
       setPayForm({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
+      clearPayComprobante()
       showToast('✅', 'Pago registrado correctamente')
     } catch { showToast('❌', 'No se pudo conectar') }
     finally  { setPayLoading(false) }
@@ -760,29 +781,46 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
               {payments.length > 0 ? (
                 <div className="space-y-2">
                   {[...payments].reverse().map(p => (
-                    <div key={p.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{fmt(p.amount)}</span>
-                          {p.cuotaNumber && (
-                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                              style={{ background: '#e8eef7', color: '#1565C0' }}>
-                              Cuota #{p.cuotaNumber}
-                            </span>
-                          )}
+                    <div key={p.id} className="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{fmt(p.amount)}</span>
+                            {p.cuotaNumber && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                style={{ background: '#e8eef7', color: '#1565C0' }}>
+                                Cuota #{p.cuotaNumber}
+                              </span>
+                            )}
+                            {p.comprobanteUrl && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac' }}>
+                                📸 Comprobante
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 flex-wrap">
+                            <span>📅 {formatDate(p.date)}</span>
+                            {p.notes && <span>· {p.notes}</span>}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 flex-wrap">
-                          <span>📅 {formatDate(p.date)}</span>
-                          {p.notes && <span>· {p.notes}</span>}
-                        </div>
+                        {/* Comprobante thumbnail (click to enlarge) */}
+                        {p.comprobanteUrl && (
+                          <button
+                            onClick={() => setLightboxUrl(p.comprobanteUrl!)}
+                            className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 border-slate-200 hover:border-blue-400 transition-colors"
+                            title="Ver comprobante">
+                            <img src={p.comprobanteUrl} alt="Comprobante" className="w-full h-full object-cover" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deletePayment(p.id)}
+                          disabled={deletingPayId === p.id}
+                          className="text-xs text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40 flex-shrink-0"
+                          title="Eliminar pago">
+                          {deletingPayId === p.id ? '⏳' : '✕'}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => deletePayment(p.id)}
-                        disabled={deletingPayId === p.id}
-                        className="text-xs text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40 flex-shrink-0"
-                        title="Eliminar pago">
-                        {deletingPayId === p.id ? '⏳' : '✕'}
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -825,6 +863,45 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
                       className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
                       style={{ color: '#374151' }} />
                   </div>
+                </div>
+                {/* Comprobante capture */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-slate-500 mb-1">📸 Comprobante (opcional)</label>
+                  {payComprobantePreview ? (
+                    <div className="relative rounded-xl overflow-hidden border-2 border-blue-200 bg-slate-50">
+                      <img src={payComprobantePreview} alt="Comprobante" className="w-full max-h-40 object-contain" />
+                      <button
+                        onClick={clearPayComprobante}
+                        className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                        style={{ background: '#DC2626' }}
+                        title="Quitar imagen">
+                        ✕
+                      </button>
+                      <p className="px-3 py-1 text-xs text-slate-400 border-t border-slate-100 truncate">
+                        {payComprobanteFile?.name}
+                      </p>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 border-dashed border-slate-200 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
+                      <input
+                        ref={comprobanteInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={e => {
+                          const f = e.target.files?.[0]
+                          if (f) handlePayComprobanteChange(f)
+                          e.target.value = ''
+                        }}
+                      />
+                      <span className="text-xl">📸</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-600 leading-tight">Adjuntar comprobante</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Usá la cámara o elegí una imagen</p>
+                      </div>
+                    </label>
+                  )}
                 </div>
                 <button onClick={registerPayment} disabled={payLoading}
                   className="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
@@ -891,6 +968,38 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
         config={riskCfg}
         defaultTo={client.email ?? ''}
       />
+
+      {/* Comprobante lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(7,26,62,.85)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setLightboxUrl(null)}>
+          <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <img
+              src={lightboxUrl}
+              alt="Comprobante"
+              className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]"
+            />
+            <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white transition-opacity hover:opacity-80"
+              style={{ background: 'rgba(0,0,0,.5)' }}>
+              ✕
+            </button>
+            <a
+              href={lightboxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+              style={{ background: 'rgba(0,0,0,.5)' }}
+              onClick={e => e.stopPropagation()}>
+              🔗 Ver original
+            </a>
+          </div>
+        </div>
+      )}
+
       <ToastProvider />
     </div>
   )
