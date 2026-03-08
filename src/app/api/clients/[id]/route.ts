@@ -47,6 +47,8 @@ export async function GET(
         reference2:      c.reference2      ?? '',
         notes:           c.notes           ?? '',
         branch:          c.branch          ?? null,
+        branchId:        c.branchId        ?? null,
+        branchName:      c.branchName      ?? null,
         loanStatus:      c.loanStatus      ?? 'pending',
         params: c.loan ? {
           amount: c.loan.amount, termYears: c.loan.termYears,
@@ -126,12 +128,25 @@ export async function PATCH(
       'nationality', 'address', 'occupation', 'monthlyIncome', 'hasIncomeProof',
       'currentDebts', 'totalDebtValue', 'paymentCapacity', 'collateral',
       'territorialTies', 'creditHistory', 'reference1', 'reference2', 'notes',
-      'branch',
     ]
     for (const field of ALLOWED) {
       if (body[field] !== undefined) $set[field] = body[field]
     }
     if (body.loanStartDate !== undefined) $set['loan.startDate'] = body.loanStartDate
+
+    // ── Branch update (resolve named branch → derive type + name) ──────────────
+    if (body.branchId !== undefined) {
+      const db2 = await getDb()
+      const branchDoc = await db2.collection('branches').findOne({
+        _id:            body.branchId as any,
+        organizationId: session.user.organizationId,
+      })
+      if (!branchDoc)
+        return NextResponse.json({ error: 'Sucursal no encontrada.' }, { status: 404 })
+      $set.branchId   = body.branchId
+      $set.branch     = branchDoc.type
+      $set.branchName = branchDoc.name
+    }
 
     if (Object.keys($set).length === 0)
       return NextResponse.json({ error: 'Sin cambios' }, { status: 400 })

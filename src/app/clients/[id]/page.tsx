@@ -26,6 +26,8 @@ interface ClientProfile {
   collateral: string; territorialTies: string
   creditHistory: string; reference1: string; reference2: string; notes: string
   branch: Branch | null
+  branchId: string | null
+  branchName: string | null
   params: { amount: number; termYears: number; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number }
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
@@ -229,7 +231,7 @@ export default function ClientProfilePage() {
                   {client.branch && BRANCH_CFG[client.branch] && (
                     <span className="text-xs font-bold px-3 py-1 rounded-full"
                       style={{ background: BRANCH_CFG[client.branch].bg, color: BRANCH_CFG[client.branch].color, border: `1.5px solid ${BRANCH_CFG[client.branch].border}` }}>
-                      {BRANCH_CFG[client.branch].emoji} {BRANCH_CFG[client.branch].label}
+                      {BRANCH_CFG[client.branch].emoji} {client.branchName ?? BRANCH_CFG[client.branch].label}
                     </span>
                   )}
                   {/* Status badge */}

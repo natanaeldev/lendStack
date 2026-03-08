@@ -48,7 +48,9 @@ export async function GET() {
       reference2:    c.reference2    ?? '',
       notes:         c.notes         ?? '',
       // Sucursal
-      branch: c.branch ?? null,
+      branch:     c.branch     ?? null,
+      branchId:   c.branchId   ?? null,
+      branchName: c.branchName ?? null,
       // Estado del préstamo
       loanStatus: c.loanStatus ?? 'pending',
       // Préstamo
@@ -103,7 +105,7 @@ export async function POST(req: NextRequest) {
       // Section 4 – History & References
       creditHistory, reference1, reference2, notes,
       // Branch
-      branch,
+      branchId,
       // Loan
       params, result,
     } = body
@@ -111,14 +113,26 @@ export async function POST(req: NextRequest) {
     if (!name?.trim())
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
-    if (!branch || !['sede', 'rutas'].includes(branch))
-      return NextResponse.json({ error: 'Branch is required (sede or rutas)' }, { status: 400 })
+    if (!branchId)
+      return NextResponse.json({ error: 'Branch is required' }, { status: 400 })
 
     const clientId = uuidv4()
     const loanId   = uuidv4()
     const savedAt  = new Date().toISOString()
 
     const db  = await getDb()
+
+    // Resolve named branch → derive type and display name
+    const branchDoc = await db.collection('branches').findOne({
+      _id:            branchId as any,
+      organizationId: session.user.organizationId,
+    })
+    if (!branchDoc)
+      return NextResponse.json({ error: 'Sucursal no encontrada.' }, { status: 404 })
+
+    const branch     = branchDoc.type as string   // 'sede' | 'rutas'
+    const branchName = branchDoc.name as string
+
     const col = db.collection('clients')
 
     await col.insertOne({
@@ -149,8 +163,10 @@ export async function POST(req: NextRequest) {
       reference1:    reference1?.trim()    ?? '',
       reference2:    reference2?.trim()    ?? '',
       notes:         notes?.trim()         ?? '',
-      // Branch
+      // Branch (type for filtering + named branch)
       branch,
+      branchId,
+      branchName,
       // Loan status
       loanStatus: 'pending',
       // Loan

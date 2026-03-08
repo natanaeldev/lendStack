@@ -12,6 +12,9 @@ type LoanStatus = 'pending' | 'approved' | 'denied'
 interface Payment {
   id: string; date: string; amount: number; cuotaNumber?: number; notes?: string
 }
+interface BranchDoc {
+  id: string; name: string; type: Branch
+}
 interface Client {
   id: string; savedAt: string
   // Sección 1 – Información Personal
@@ -27,6 +30,8 @@ interface Client {
   creditHistory: string; reference1: string; reference2: string; notes: string
   // Sucursal
   branch: Branch | null
+  branchId: string | null
+  branchName: string | null
   // Estado del préstamo
   loanStatus: LoanStatus
   // Préstamo
@@ -53,7 +58,7 @@ const EMPTY_FORM = {
   collateral: '', territorialTies: '',
   creditHistory: '', reference1: '', reference2: '', notes: '',
   loanStartDate: '',
-  branch: '' as Branch | '',
+  branchId: '',
 }
 type FormData = typeof EMPTY_FORM
 
@@ -117,6 +122,7 @@ const inputCls = 'w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 text-s
 
 export default function ClientsPanel({ currentParams, currentResult, onLoadClient, onViewProfile }: Props) {
   const [clients,   setClients]  = useState<Client[]>([])
+  const [branches,  setBranches] = useState<BranchDoc[]>([])
   const [mode,      setMode]     = useState<StorageMode>('loading')
   const [form,      setForm]     = useState<FormData>(EMPTY_FORM)
   const [saved,     setSaved]    = useState(false)
@@ -177,6 +183,16 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
               : '',
           })))
           setMode('cloud')
+
+          // Load named branches (master-only endpoint; silently ignore 403)
+          try {
+            const br = await fetch('/api/admin/branches')
+            if (br.ok) {
+              const bd = await br.json()
+              setBranches(bd.branches ?? [])
+            }
+          } catch { /* non-master users: ignore */ }
+
           return
         }
       } catch { /* network unavailable */ }
@@ -202,6 +218,9 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
     if (!form.name.trim() || saving) return
     setSaving(true)
 
+    // Resolve branch metadata for optimistic UI update
+    const selectedBranch = branches.find(b => b.id === form.branchId) ?? null
+
     if (mode === 'cloud') {
       try {
         const res = await fetch('/api/clients', {
@@ -213,7 +232,9 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           const data   = await res.json()
           const client: Client = {
             ...form,
-            branch:     (form.branch as Branch) || null,
+            branch:     selectedBranch?.type ?? null,
+            branchId:   form.branchId || null,
+            branchName: selectedBranch?.name ?? null,
             id:         data.id,
             savedAt:    new Date(data.savedAt).toLocaleDateString('es-AR',
               { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -230,7 +251,9 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
     } else {
       const client: Client = {
         ...form,
-        branch:     (form.branch as Branch) || null,
+        branch:     selectedBranch?.type ?? null,
+        branchId:   form.branchId || null,
+        branchName: selectedBranch?.name ?? null,
         id:         String(Date.now()),
         savedAt:    new Date().toLocaleDateString('es-AR',
           { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -452,25 +475,56 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
         {/* ── Sucursal ── */}
         <SectionHeader emoji="🏢" title="Sucursal *" />
-        <div className="grid grid-cols-2 gap-3 mb-2">
-          {(['sede', 'rutas'] as Branch[]).map(b => {
-            const bc = BRANCH_CFG[b]
-            const active = form.branch === b
-            return (
-              <button key={b} type="button" onClick={() => sf('branch')(b)}
-                className="py-3 rounded-xl text-sm font-bold border-2 transition-all flex items-center justify-center gap-2"
-                style={{
-                  background:  active ? bc.bg      : '#f8fafc',
-                  color:       active ? bc.color    : '#64748b',
-                  borderColor: active ? bc.border   : '#e2e8f0',
-                }}>
-                {bc.emoji} {bc.label}
-              </button>
-            )
-          })}
-        </div>
-        {!form.branch && (
-          <p className="text-xs text-amber-600 mb-2">⚠️ Seleccioná una sucursal para continuar</p>
+        {branches.length === 0 ? (
+          <div className="px-4 py-3 rounded-xl mb-2 text-xs"
+            style={{ background: '#FFF7ED', border: '1px solid #FED7AA', color: '#9A3412' }}>
+            ⚠️ No hay sucursales creadas aún.{' '}
+            <a href="/admin/branches" target="_blank" rel="noopener noreferrer"
+              className="underline font-semibold hover:opacity-80">
+              Crear sucursales en el panel de administración →
+            </a>
+          </div>
+        ) : (
+          <>
+            <div className="mb-2">
+              <select
+                value={form.branchId}
+                onChange={e => sf('branchId')(e.target.value)}
+                className={inputCls + ' bg-white'}
+                style={{ color: form.branchId ? '#374151' : '#94a3b8' }}>
+                <option value="">— Seleccioná una sucursal —</option>
+                {(['sede', 'rutas'] as Branch[]).map(type => {
+                  const group = branches.filter(b => b.type === type)
+                  if (group.length === 0) return null
+                  return (
+                    <optgroup key={type} label={`${BRANCH_CFG[type].emoji} ${BRANCH_CFG[type].label}`}>
+                      {group.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
+              </select>
+            </div>
+            {/* Preview badge of selected branch */}
+            {form.branchId && (() => {
+              const sel = branches.find(b => b.id === form.branchId)
+              if (!sel) return null
+              const bc = BRANCH_CFG[sel.type]
+              return (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ background: bc.bg, color: bc.color, border: `1px solid ${bc.border}` }}>
+                    {bc.emoji} {sel.name}
+                  </span>
+                  <span className="text-xs text-slate-400">{bc.label}</span>
+                </div>
+              )
+            })()}
+            {!form.branchId && (
+              <p className="text-xs text-amber-600 mb-2">⚠️ Seleccioná una sucursal para continuar</p>
+            )}
+          </>
         )}
 
         {/* ── Fecha de inicio del préstamo ── */}
@@ -637,7 +691,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
         {/* ── Submit ── */}
         <div className="flex items-center gap-3 mt-6 pt-5 border-t border-slate-100">
-          <button onClick={saveClient} disabled={!form.name.trim() || !form.branch || saving}
+          <button onClick={saveClient} disabled={!form.name.trim() || !form.branchId || saving}
             className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
             {saving ? '⏳ Guardando...' : '💾 Guardar solicitud'}
@@ -776,8 +830,8 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                           </span>
                           {c.branch && BRANCH_CFG[c.branch] && (
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                              style={{ background: BRANCH_CFG[c.branch!].bg, color: BRANCH_CFG[c.branch!].color, border: `1px solid ${BRANCH_CFG[c.branch!].border}` }}>
-                              {BRANCH_CFG[c.branch!].emoji} {BRANCH_CFG[c.branch!].label}
+                              style={{ background: BRANCH_CFG[c.branch].bg, color: BRANCH_CFG[c.branch].color, border: `1px solid ${BRANCH_CFG[c.branch].border}` }}>
+                              {BRANCH_CFG[c.branch].emoji} {c.branchName ?? BRANCH_CFG[c.branch].label}
                             </span>
                           )}
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full"

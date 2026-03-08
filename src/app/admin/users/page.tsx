@@ -127,6 +127,11 @@ export default function AdminUsersPage() {
               <h1 className="font-display text-xl text-white leading-tight">Gestión de Usuarios</h1>
             </div>
           </div>
+          <Link href="/admin/branches"
+            className="hidden md:flex items-center gap-2 text-xs px-4 py-2 rounded-xl font-semibold transition-all hover:opacity-80"
+            style={{ background: 'rgba(255,255,255,.10)', color: '#fff', border: '1px solid rgba(255,255,255,.20)' }}>
+            🏢 Sucursales
+          </Link>
           <Link href="/"
             className="hidden md:flex items-center gap-2 text-xs px-4 py-2 rounded-xl font-semibold transition-all hover:opacity-80"
             style={{ background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.25)' }}>
