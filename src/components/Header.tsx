@@ -32,11 +32,18 @@ export default function Header() {
                   {isMaster ? '👑' : '👤'} {session.user.name || session.user.email}
                 </span>
                 {isMaster && (
-                  <Link href="/admin/users"
-                    className="text-xs px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"
-                    style={{ background: 'rgba(249,168,37,.2)', color: '#F9A825', border: '1px solid rgba(249,168,37,.35)' }}>
-                    👥 Usuarios
-                  </Link>
+                  <>
+                    <Link href="/admin/users"
+                      className="text-xs px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"
+                      style={{ background: 'rgba(249,168,37,.2)', color: '#F9A825', border: '1px solid rgba(249,168,37,.35)' }}>
+                      👥 Usuarios
+                    </Link>
+                    <Link href="/admin/branches"
+                      className="text-xs px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"
+                      style={{ background: 'rgba(99,179,237,.15)', color: '#90cdf4', border: '1px solid rgba(99,179,237,.35)' }}>
+                      🏢 Sucursales
+                    </Link>
+                  </>
                 )}
                 <button onClick={() => signOut({ callbackUrl: '/login' })}
                   className="text-xs px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"
@@ -62,11 +69,18 @@ export default function Header() {
           {session?.user ? (
             <>
               {isMaster && (
-                <Link href="/admin/users"
-                  className="text-xs px-2 py-1 rounded-full font-semibold"
-                  style={{ background: 'rgba(249,168,37,.2)', color: '#F9A825', border: '1px solid rgba(249,168,37,.35)' }}>
-                  👥
-                </Link>
+                <>
+                  <Link href="/admin/users"
+                    className="text-xs px-2 py-1 rounded-full font-semibold"
+                    style={{ background: 'rgba(249,168,37,.2)', color: '#F9A825', border: '1px solid rgba(249,168,37,.35)' }}>
+                    👥
+                  </Link>
+                  <Link href="/admin/branches"
+                    className="text-xs px-2 py-1 rounded-full font-semibold"
+                    style={{ background: 'rgba(99,179,237,.15)', color: '#90cdf4', border: '1px solid rgba(99,179,237,.35)' }}>
+                    🏢
+                  </Link>
+                </>
               )}
               <span className="text-xs px-2 py-1 rounded-full font-medium max-w-[100px] truncate"
                 style={{ background: 'rgba(255,255,255,.12)', color: '#c5d5ea', border: '1px solid rgba(255,255,255,.2)' }}>
