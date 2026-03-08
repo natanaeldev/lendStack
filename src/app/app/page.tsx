@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Header from '@/components/Header'
 import CurrencyToggle from '@/components/CurrencyToggle'
 import RateModeToggle from '@/components/RateModeToggle'
@@ -27,7 +27,7 @@ import {
   formatCurrency, formatPercent, CURRENCIES,
 } from '@/lib/loan'
 
-type Tab = 'calculator' | 'dashboard' | 'clients'
+export type Tab = 'calculator' | 'dashboard' | 'clients'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
@@ -42,8 +42,8 @@ const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'comparison', label: 'Comparación'    },
 ]
 
-export default function Home() {
-  const [tab,               setTab]               = useState<Tab>('dashboard')
+export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
+  const [tab,               setTab]               = useState<Tab>(initialTab)
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
   const [showPayment,       setShowPayment]        = useState(false)
@@ -67,6 +67,31 @@ export default function Home() {
   const [carritoTerm,       setCarritoTerm]       = useState(4)
   const [carritoPayments,   setCarritoPayments]   = useState(4)
   const [carritoFreq,       setCarritoFreq]       = useState<CarritoFrequency>('weekly')
+
+  // ── URL-synced tab navigation ──────────────────────────────────────────────
+  const changeTab = useCallback((newTab: Tab) => {
+    setTab(newTab)
+    if (typeof window !== 'undefined') {
+      const paths: Record<Tab, string> = {
+        dashboard:  '/app',
+        calculator: '/app/calculadora',
+        clients:    '/app/clientes',
+      }
+      window.history.pushState(null, '', paths[newTab])
+    }
+  }, [])
+
+  // Keep tab in sync when browser Back / Forward is used
+  useEffect(() => {
+    const onPopState = () => {
+      const p = window.location.pathname
+      if (p.startsWith('/app/calculadora')) setTab('calculator')
+      else if (p.startsWith('/app/clientes'))  setTab('clients')
+      else                                      setTab('dashboard')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   // Always pass termYears to the calculation layer (convert months → fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
@@ -101,9 +126,9 @@ export default function Home() {
     setTermValue(p.termYears)
     setProfile(p.profile)
     setCurrency(p.currency)
-    setTab('calculator')
+    changeTab('calculator')
     showToast('📂', 'Simulación de cliente cargada')
-  }, [])
+  }, [changeTab])
 
   const handleCurrencyChange = (c: Currency) => {
     setCurrency(c)
@@ -132,7 +157,7 @@ export default function Home() {
       <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
+            <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
               className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
               style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
               {t.label}
@@ -458,7 +483,7 @@ export default function Home() {
                     style={{ color: '#1565C0', borderColor: '#1565C0' }}>
                     ✉️ Enviar por email
                   </button>
-                  <button onClick={() => { setTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
                     👤 Guardar como cliente
                   </button>
@@ -512,7 +537,7 @@ export default function Home() {
                     style={{ color: '#1565C0', borderColor: '#1565C0' }}>
                     ✉️ Enviar por email
                   </button>
-                  <button onClick={() => { setTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
                     👤 Guardar como cliente
                   </button>
@@ -571,7 +596,7 @@ export default function Home() {
                     style={{ color: '#1565C0', borderColor: '#1565C0' }}>
                     ✉️ Enviar por email
                   </button>
-                  <button onClick={() => { setTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
                     👤 Guardar como cliente
                   </button>
@@ -629,7 +654,7 @@ export default function Home() {
           <Dashboard
             onViewProfile={(id) => {
               setSelectedClientId(id)
-              setTab('clients')
+              changeTab('clients')
             }}
           />
         )}
@@ -676,7 +701,7 @@ export default function Home() {
             const active = tab === t.id
             return (
               <button key={t.id}
-                onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
+                onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all"
                 style={{ color: active ? '#1565C0' : '#94a3b8' }}>
                 <span className="text-2xl leading-none">{t.emoji}</span>
@@ -696,4 +721,9 @@ export default function Home() {
       <ToastProvider />
     </div>
   )
+}
+
+// Default export for /app route (dashboard as home)
+export default function Home() {
+  return <HomeWithTab initialTab="dashboard" />
 }

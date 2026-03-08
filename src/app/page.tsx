@@ -109,7 +109,9 @@ export default async function LandingPage() {
       <nav className="relative z-50 sticky top-0" style={{ background: 'rgba(7,26,62,.85)', borderBottom: '1px solid rgba(255,255,255,.08)', backdropFilter: 'blur(16px)' }}>
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           {/* Logo */}
-          <LendStackLogo variant="light" size={38} />
+          <Link href={loggedIn ? '/app' : '/'} className="flex items-center">
+            <LendStackLogo variant="light" size={38} />
+          </Link>
 
           {/* Nav links (desktop) */}
           <div className="hidden md:flex items-center gap-6">
