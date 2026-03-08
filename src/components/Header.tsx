@@ -23,7 +23,7 @@ export default function Header() {
   }, [menuOpen])
 
   return (
-    <header className="relative overflow-hidden"
+    <header className="relative"
       style={{ background: 'linear-gradient(135deg, #071a3e 0%, #0D2B5E 55%, #1565C0 100%)', boxShadow: '0 4px 32px rgba(7,26,62,.4)' }}>
       <div className="absolute inset-0 opacity-[0.07]"
         style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '38px 38px' }} />
