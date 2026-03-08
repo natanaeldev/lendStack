@@ -277,6 +277,10 @@ export function buildCarritoSchedule(
   return rows
 }
 
+// ─── Branch ───────────────────────────────────────────────────────────────────
+
+export type Branch = 'sede' | 'rutas'
+
 // ─── Client ───────────────────────────────────────────────────────────────────
 
 export interface ClientDocument {
@@ -285,6 +289,7 @@ export interface ClientDocument {
 
 export interface Client {
   id: string; name: string; email: string; phone: string; notes: string
+  branch: Branch
   params: LoanParams; result: LoanResult; savedAt: string
   documents?: ClientDocument[]
 }

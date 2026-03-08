@@ -47,6 +47,8 @@ export async function GET() {
       reference1:    c.reference1    ?? '',
       reference2:    c.reference2    ?? '',
       notes:         c.notes         ?? '',
+      // Sucursal
+      branch: c.branch ?? null,
       // Estado del préstamo
       loanStatus: c.loanStatus ?? 'pending',
       // Préstamo
@@ -100,12 +102,17 @@ export async function POST(req: NextRequest) {
       collateral, territorialTies,
       // Section 4 – History & References
       creditHistory, reference1, reference2, notes,
+      // Branch
+      branch,
       // Loan
       params, result,
     } = body
 
     if (!name?.trim())
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+
+    if (!branch || !['sede', 'rutas'].includes(branch))
+      return NextResponse.json({ error: 'Branch is required (sede or rutas)' }, { status: 400 })
 
     const clientId = uuidv4()
     const loanId   = uuidv4()
@@ -142,6 +149,8 @@ export async function POST(req: NextRequest) {
       reference1:    reference1?.trim()    ?? '',
       reference2:    reference2?.trim()    ?? '',
       notes:         notes?.trim()         ?? '',
+      // Branch
+      branch,
       // Loan status
       loanStatus: 'pending',
       // Loan

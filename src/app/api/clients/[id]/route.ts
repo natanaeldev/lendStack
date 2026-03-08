@@ -46,6 +46,7 @@ export async function GET(
         reference1:      c.reference1      ?? '',
         reference2:      c.reference2      ?? '',
         notes:           c.notes           ?? '',
+        branch:          c.branch          ?? null,
         loanStatus:      c.loanStatus      ?? 'pending',
         params: c.loan ? {
           amount: c.loan.amount, termYears: c.loan.termYears,
@@ -125,6 +126,7 @@ export async function PATCH(
       'nationality', 'address', 'occupation', 'monthlyIncome', 'hasIncomeProof',
       'currentDebts', 'totalDebtValue', 'paymentCapacity', 'collateral',
       'territorialTies', 'creditHistory', 'reference1', 'reference2', 'notes',
+      'branch',
     ]
     for (const field of ALLOWED) {
       if (body[field] !== undefined) $set[field] = body[field]

@@ -88,6 +88,23 @@ export async function GET() {
     const approvedCount = byStatus.find(s => s.status === 'approved')?.count ?? 0
     const deniedCount   = byStatus.find(s => s.status === 'denied')?.count   ?? 0
 
+    // ── By branch ─────────────────────────────────────────────────────────
+    const byBranchRaw = await col.aggregate([
+      { $match: { organizationId: orgId } },
+      {
+        $group: {
+          _id:   { $ifNull: ['$branch', 'sin_sucursal'] },
+          count: { $sum: 1 },
+        },
+      },
+      { $project: { _id: 0, branch: '$_id', count: 1 } },
+    ]).toArray()
+
+    const byBranch = {
+      sede:  byBranchRaw.find(b => b.branch === 'sede')?.count  ?? 0,
+      rutas: byBranchRaw.find(b => b.branch === 'rutas')?.count ?? 0,
+    }
+
     // ── Payment collection stats (today / week / month) ────────────────────
     const now          = new Date()
     const todayStr     = now.toISOString().slice(0, 10)
@@ -157,6 +174,7 @@ export async function GET() {
       approvedCapital:     approvedStats?.totalCapital       ?? 0,
       byProfile,
       byCurrency,
+      byBranch,
       recentClients,
       pendingCount,
       approvedCount,

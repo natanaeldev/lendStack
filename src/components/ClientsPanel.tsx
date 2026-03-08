@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { LoanParams, LoanResult, RiskProfile, Currency, RateMode, RISK_PROFILES, CURRENCIES, formatCurrency, formatPercent, calculateLoan } from '@/lib/loan'
+import { LoanParams, LoanResult, RiskProfile, Currency, RateMode, Branch, RISK_PROFILES, CURRENCIES, formatCurrency, formatPercent, calculateLoan } from '@/lib/loan'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,8 @@ interface Client {
   collateral: string; territorialTies: string
   // Sección 4 – Historial y Referencias
   creditHistory: string; reference1: string; reference2: string; notes: string
+  // Sucursal
+  branch: Branch | null
   // Estado del préstamo
   loanStatus: LoanStatus
   // Préstamo
@@ -51,6 +53,7 @@ const EMPTY_FORM = {
   collateral: '', territorialTies: '',
   creditHistory: '', reference1: '', reference2: '', notes: '',
   loanStartDate: '',
+  branch: '' as Branch | '',
 }
 type FormData = typeof EMPTY_FORM
 
@@ -76,6 +79,11 @@ const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string;
   pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
   approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC' },
   denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337', border: '#FECDD3' },
+}
+
+const BRANCH_CFG: Record<Branch, { label: string; emoji: string; bg: string; color: string; border: string }> = {
+  sede:  { label: 'Sede',  emoji: '🏢', bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE' },
+  rutas: { label: 'Rutas', emoji: '🛵', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' },
 }
 
 // ─── Section header ───────────────────────────────────────────────────────────
@@ -114,7 +122,8 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
   const [saved,     setSaved]    = useState(false)
   const [saving,    setSaving]   = useState(false)
   const [expandId,  setExpandId] = useState<string | null>(null)
-  const [search,    setSearch]   = useState('')
+  const [search,       setSearch]       = useState('')
+  const [branchFilter, setBranchFilter] = useState<Branch | 'all'>('all')
   const [uploading,       setUploading]      = useState<string | null>(null)
   const [updatingStatus,  setUpdatingStatus] = useState<string | null>(null)
 
@@ -142,10 +151,12 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
   const activeResult = loanSource === 'calculator' ? currentResult : manualResult
 
   const filteredClients = useMemo(() =>
-    clients.filter(c =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email ?? '').toLowerCase().includes(search.toLowerCase())
-    ), [clients, search])
+    clients.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
+        (c.email ?? '').toLowerCase().includes(search.toLowerCase())
+      const matchesBranch = branchFilter === 'all' || c.branch === branchFilter
+      return matchesSearch && matchesBranch
+    }), [clients, search, branchFilter])
 
   // Handy setter: sf('name')('María')
   const sf = (k: keyof FormData) => (v: string | boolean) =>
@@ -202,6 +213,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           const data   = await res.json()
           const client: Client = {
             ...form,
+            branch:     (form.branch as Branch) || null,
             id:         data.id,
             savedAt:    new Date(data.savedAt).toLocaleDateString('es-AR',
               { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -218,6 +230,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
     } else {
       const client: Client = {
         ...form,
+        branch:     (form.branch as Branch) || null,
         id:         String(Date.now()),
         savedAt:    new Date().toLocaleDateString('es-AR',
           { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -437,6 +450,29 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           </div>
         )}
 
+        {/* ── Sucursal ── */}
+        <SectionHeader emoji="🏢" title="Sucursal *" />
+        <div className="grid grid-cols-2 gap-3 mb-2">
+          {(['sede', 'rutas'] as Branch[]).map(b => {
+            const bc = BRANCH_CFG[b]
+            const active = form.branch === b
+            return (
+              <button key={b} type="button" onClick={() => sf('branch')(b)}
+                className="py-3 rounded-xl text-sm font-bold border-2 transition-all flex items-center justify-center gap-2"
+                style={{
+                  background:  active ? bc.bg      : '#f8fafc',
+                  color:       active ? bc.color    : '#64748b',
+                  borderColor: active ? bc.border   : '#e2e8f0',
+                }}>
+                {bc.emoji} {bc.label}
+              </button>
+            )
+          })}
+        </div>
+        {!form.branch && (
+          <p className="text-xs text-amber-600 mb-2">⚠️ Seleccioná una sucursal para continuar</p>
+        )}
+
         {/* ── Fecha de inicio del préstamo ── */}
         <SectionHeader emoji="📅" title="Fecha del préstamo" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
@@ -601,7 +637,7 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
         {/* ── Submit ── */}
         <div className="flex items-center gap-3 mt-6 pt-5 border-t border-slate-100">
-          <button onClick={saveClient} disabled={!form.name.trim() || saving}
+          <button onClick={saveClient} disabled={!form.name.trim() || !form.branch || saving}
             className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
             {saving ? '⏳ Guardando...' : '💾 Guardar solicitud'}
@@ -618,6 +654,29 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           placeholder="Buscar cliente por nombre o email..."
           className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
           style={{ color: '#374151', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }} />
+      </div>
+
+      {/* ── Branch filter tabs ── */}
+      <div className="flex gap-2">
+        {([
+          { key: 'all',   label: 'Todos',       emoji: '📋' },
+          { key: 'sede',  label: BRANCH_CFG.sede.label,  emoji: BRANCH_CFG.sede.emoji  },
+          { key: 'rutas', label: BRANCH_CFG.rutas.label, emoji: BRANCH_CFG.rutas.emoji },
+        ] as { key: Branch | 'all'; label: string; emoji: string }[]).map(tab => {
+          const active = branchFilter === tab.key
+          const bc = tab.key !== 'all' ? BRANCH_CFG[tab.key] : null
+          return (
+            <button key={tab.key} onClick={() => setBranchFilter(tab.key)}
+              className="flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all"
+              style={{
+                background:  active ? (bc?.bg  ?? '#EFF6FF') : '#f8fafc',
+                color:       active ? (bc?.color ?? '#1E40AF') : '#64748b',
+                borderColor: active ? (bc?.border ?? '#BFDBFE') : '#e2e8f0',
+              }}>
+              {tab.emoji} {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Client list ── */}
@@ -657,10 +716,14 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
         ) : filteredClients.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <p className="text-4xl mb-3">🔍</p>
-            <p className="text-sm">Sin resultados para <strong>&ldquo;{search}&rdquo;</strong></p>
-            <button onClick={() => setSearch('')}
+            <p className="text-sm">
+              Sin resultados
+              {search && <> para <strong>&ldquo;{search}&rdquo;</strong></>}
+              {branchFilter !== 'all' && <> en <strong>{BRANCH_CFG[branchFilter].label}</strong></>}
+            </p>
+            <button onClick={() => { setSearch(''); setBranchFilter('all') }}
               className="text-xs mt-2 underline hover:text-blue-500 transition-colors">
-              Limpiar búsqueda
+              Limpiar filtros
             </button>
           </div>
         ) : (
@@ -711,6 +774,12 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
                             style={{ background: cfg.colorBg, color: cfg.colorText }}>
                             {cfg.emoji} {cfg.label}
                           </span>
+                          {c.branch && BRANCH_CFG[c.branch] && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                              style={{ background: BRANCH_CFG[c.branch!].bg, color: BRANCH_CFG[c.branch!].color, border: `1px solid ${BRANCH_CFG[c.branch!].border}` }}>
+                              {BRANCH_CFG[c.branch!].emoji} {BRANCH_CFG[c.branch!].label}
+                            </span>
+                          )}
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                             style={{ background: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}` }}>
                             {sCfg.emoji} {sCfg.label}

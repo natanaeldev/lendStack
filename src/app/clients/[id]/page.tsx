@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortization, getRiskConfig, LoanParams, RateMode, RiskProfile } from '@/lib/loan'
+import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortization, getRiskConfig, LoanParams, RateMode, RiskProfile, Branch } from '@/lib/loan'
 import LendStackLogo    from '@/components/LendStackLogo'
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
@@ -25,6 +25,7 @@ interface ClientProfile {
   currentDebts: string; totalDebtValue: string; paymentCapacity: string
   collateral: string; territorialTies: string
   creditHistory: string; reference1: string; reference2: string; notes: string
+  branch: Branch | null
   params: { amount: number; termYears: number; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number }
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
@@ -36,6 +37,11 @@ const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string;
   pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
   approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
   denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
+}
+
+const BRANCH_CFG: Record<Branch, { label: string; emoji: string; bg: string; color: string; border: string }> = {
+  sede:  { label: 'Sede',  emoji: '🏢', bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE' },
+  rutas: { label: 'Rutas', emoji: '🛵', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' },
 }
 
 function initials(name: string) {
@@ -219,6 +225,13 @@ export default function ClientProfilePage() {
                     style={{ background: cfg.colorBg, color: cfg.colorText }}>
                     {cfg.emoji} {cfg.label}
                   </span>
+                  {/* Branch badge */}
+                  {client.branch && BRANCH_CFG[client.branch] && (
+                    <span className="text-xs font-bold px-3 py-1 rounded-full"
+                      style={{ background: BRANCH_CFG[client.branch].bg, color: BRANCH_CFG[client.branch].color, border: `1.5px solid ${BRANCH_CFG[client.branch].border}` }}>
+                      {BRANCH_CFG[client.branch].emoji} {BRANCH_CFG[client.branch].label}
+                    </span>
+                  )}
                   {/* Status badge */}
                   <span className="text-sm font-bold px-3 py-1.5 rounded-full"
                     style={{ background: sCfg.bg, color: sCfg.color, border: `1.5px solid ${sCfg.border}` }}>
