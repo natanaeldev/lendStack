@@ -162,7 +162,7 @@ export default function ClientProfilePage() {
       <div className="text-center max-w-sm">
         <p className="text-4xl mb-4">😕</p>
         <p className="text-slate-700 font-semibold mb-2">{error || 'Cliente no encontrado'}</p>
-        <Link href="/" className="text-sm text-blue-600 underline">← Volver a la aplicación</Link>
+        <Link href="/app" className="text-sm text-blue-600 underline">← Volver a la aplicación</Link>
       </div>
     </div>
   )

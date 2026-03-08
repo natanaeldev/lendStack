@@ -126,7 +126,7 @@ export default function AdminBranchesPage() {
               style={{ background: 'rgba(255,255,255,.10)', color: '#fff', border: '1px solid rgba(255,255,255,.20)' }}>
               👥 Usuarios
             </Link>
-            <Link href="/"
+            <Link href="/app"
               className="flex items-center gap-2 text-xs px-4 py-2 rounded-xl font-semibold transition-all hover:opacity-80"
               style={{ background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.25)' }}>
               ← Volver a la app
