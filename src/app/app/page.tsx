@@ -93,6 +93,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
+  // Reset to dashboard when the Header logo is clicked.
+  // Needed because Next.js skips navigation when the real route is
+  // already /app (even if pushState changed the visible URL to a sub-path).
+  useEffect(() => {
+    const onGotoDashboard = () => changeTab('dashboard')
+    window.addEventListener('lendstack:goto-dashboard', onGotoDashboard)
+    return () => window.removeEventListener('lendstack:goto-dashboard', onGotoDashboard)
+  }, [changeTab])
+
   // Always pass termYears to the calculation layer (convert months → fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
 

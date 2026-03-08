@@ -32,8 +32,9 @@ export default function Header() {
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
 
-        {/* Logo */}
-        <Link href="/app" className="flex items-center">
+        {/* Logo — also dispatches event so the app shell can reset to dashboard tab */}
+        <Link href="/app" className="flex items-center"
+          onClick={() => window.dispatchEvent(new Event('lendstack:goto-dashboard'))}>
           <LendStackLogo variant="light" size={36} />
         </Link>
 
