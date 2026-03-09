@@ -448,12 +448,15 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
-        type PayStatus = 'overdue' | 'due-today' | 'upcoming' | 'active' | 'no-date'
+        type PayStatus = 'overdue' | 'due-today' | 'upcoming' | 'active' | 'no-date' | 'paid'
 
         function getPayStatus(c: ClientRow): PayStatus {
           const startDateStr = c.params?.startDate
           if (!startDateStr) return 'no-date'
           if (c.loanStatus === 'denied') return 'no-date'
+
+          // If the client already paid this month, skip all date-based checks
+          if (isPaidThisMonth(c)) return 'paid'
 
           const start = new Date(startDateStr + 'T12:00:00')
           const totalMonths: number = c.result?.totalMonths ?? (c.params?.termYears ?? 0) * 12
@@ -479,10 +482,11 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         const withDate = clients.filter(c => c.params?.startDate && c.loanStatus !== 'denied')
         if (withDate.length === 0) return null
 
-        const overdue  = withDate.filter(c => getPayStatus(c) === 'overdue')
-        const dueToday = withDate.filter(c => getPayStatus(c) === 'due-today')
-        const upcoming = withDate.filter(c => getPayStatus(c) === 'upcoming')
-        const alertClients = [...dueToday, ...overdue, ...upcoming]
+        const overdue      = withDate.filter(c => getPayStatus(c) === 'overdue')
+        const dueToday     = withDate.filter(c => getPayStatus(c) === 'due-today')
+        const upcoming     = withDate.filter(c => getPayStatus(c) === 'upcoming')
+        const paidThisMonth = withDate.filter(c => getPayStatus(c) === 'paid')
+        const alertClients = [...dueToday, ...overdue, ...upcoming, ...paidThisMonth]
 
         return (
           <div className="space-y-4">
@@ -491,12 +495,13 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Estado de vencimientos</h3>
             </div>
 
-            {/* 3 KPI pills */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* 4 KPI pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Vencidos / atrasados', count: overdue.length,  emoji: '🔴', bg: '#FFF1F2', border: '#FECDD3', color: '#881337' },
-                { label: 'Cuota hoy',            count: dueToday.length, emoji: '🟡', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E' },
-                { label: 'Próximos 7 días',      count: upcoming.length, emoji: '🟢', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D' },
+                { label: 'Vencidos / atrasados', count: overdue.length,       emoji: '🔴', bg: '#FFF1F2', border: '#FECDD3', color: '#881337' },
+                { label: 'Cuota hoy',            count: dueToday.length,      emoji: '🟡', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E' },
+                { label: 'Próximos 7 días',      count: upcoming.length,      emoji: '🟢', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D' },
+                { label: 'Pagado este mes',       count: paidThisMonth.length, emoji: '✅', bg: '#F0FDF4', border: '#6EE7B7', color: '#065F46' },
               ].map(s => (
                 <div key={s.label} className="rounded-2xl p-3 sm:p-4 border text-center sm:text-left"
                   style={{ background: s.bg, borderColor: s.border }}>
@@ -530,7 +535,9 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     const payDate = new Date(today.getFullYear(), today.getMonth(), clampedDay)
                     const payDateStr = payDate.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 
-                    const pill = status === 'overdue'
+                    const pill = status === 'paid'
+                      ? { label: 'Pagado',  bg: '#F0FDF4', color: '#065F46', border: '#6EE7B7' }
+                      : status === 'overdue'
                       ? { label: 'Vencido', bg: '#FFF1F2', color: '#881337', border: '#FECDD3' }
                       : status === 'due-today'
                       ? { label: 'Hoy',     bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' }
