@@ -17,6 +17,8 @@ interface StatsData {
   totalMonthlyIncome: number; approvedCapital: number
   pendingCount: number; approvedCount: number; deniedCount: number
   collectedToday: number; collectedWeek: number; collectedMonth: number
+  collectionRate: number; paidPeriodsCount: number
+  overdueAmountByCurrency: { currency: string; amount: number }[]
   byProfile:            { profile: string; count: number; totalAmount: number }[]
   byCurrency:           { currency: string; count: number; totalAmount: number }[]
   avgPaymentByCurrency:  { currency: string; avgMonthlyPayment: number; count: number }[]
@@ -478,6 +480,68 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* ── Collection rate + overdue amount ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Tasa de cobranza */}
+              {(() => {
+                const rate   = stats.collectionRate ?? 0
+                const paid   = stats.paidPeriodsCount ?? 0
+                const total  = stats.approvedCount ?? 0
+                const badge  = rate >= 80
+                  ? { text: 'Excelente', color: '#14532D', bg: '#F0FDF4' }
+                  : rate >= 50
+                  ? { text: 'Normal',    color: '#92400E', bg: '#FFFBEB' }
+                  : { text: 'Atención',  color: '#881337', bg: '#FFF1F2' }
+                const accent = rate >= 80 ? '#16A34A' : rate >= 50 ? '#D97706' : '#DC2626'
+                return (
+                  <KpiCard
+                    label="Tasa de cobranza del mes"
+                    value={`${rate}%`}
+                    sub={total > 0 ? `${paid} de ${total} préstamos aprobados pagaron este mes` : 'sin préstamos aprobados'}
+                    accent={accent}
+                    icon="📊"
+                    badge={total > 0 ? badge : undefined}
+                  />
+                )
+              })()}
+
+              {/* Atraso estimado */}
+              <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: '#DC2626' }} />
+                <div className="pl-6 pr-5 py-5">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">Atraso estimado</p>
+                    <span className="text-xl flex-shrink-0">⚠️</span>
+                  </div>
+                  {(stats.overdueAmountByCurrency ?? []).length === 0 ? (
+                    <>
+                      <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>$0</p>
+                      <p className="text-xs text-slate-400">sin atrasos detectados</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2 mb-1.5">
+                        {(stats.overdueAmountByCurrency ?? []).map(r => (
+                          <div key={r.currency} className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded"
+                              style={{ background: '#FFF1F2', color: '#DC2626' }}>
+                              {r.currency}
+                            </span>
+                            <span className="font-display text-xl font-black tabular-nums leading-none"
+                              style={{ color: '#DC2626' }}>
+                              {fmtK(r.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-400">cuotas pendientes acumuladas</p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 

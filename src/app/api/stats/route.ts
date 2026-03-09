@@ -178,6 +178,66 @@ export async function GET() {
       },
     ]).toArray()
 
+    // ── Collection rate (approved loans with ≥1 payment this month / total approved) ─
+    const [collRateStats] = await col.aggregate([
+      { $match: { organizationId: orgId, loanStatus: 'approved' } },
+      {
+        $project: {
+          paidThisMonth: {
+            $gt: [{
+              $size: {
+                $filter: {
+                  input: { $ifNull: ['$payments', []] },
+                  as: 'p',
+                  cond: { $gte: ['$$p.date', monthStartStr] },
+                },
+              },
+            }, 0],
+          },
+        },
+      },
+      {
+        $group: {
+          _id:           null,
+          totalApproved: { $sum: 1 },
+          paidThisMonth: { $sum: { $cond: ['$paidThisMonth', 1, 0] } },
+        },
+      },
+    ]).toArray()
+
+    const collectionRate   = (collRateStats?.totalApproved ?? 0) > 0
+      ? Math.round(((collRateStats.paidThisMonth ?? 0) / collRateStats.totalApproved) * 100)
+      : 0
+    const paidPeriodsCount = collRateStats?.paidThisMonth ?? 0
+
+    // ── Overdue amount per currency (JS computation on approved loans) ──────
+    const approvedLoans = await col.find(
+      { organizationId: orgId, loanStatus: 'approved' },
+      { projection: { 'loan.monthlyPayment': 1, 'loan.totalMonths': 1, 'loan.currency': 1, savedAt: 1, payments: 1 } },
+    ).toArray()
+
+    const overdueMap: Record<string, number> = {}
+    for (const loan of approvedLoans) {
+      const savedAt      = new Date(loan.savedAt ?? Date.now())
+      const monthsElapsed = Math.max(0,
+        (now.getFullYear() - savedAt.getFullYear()) * 12 +
+        (now.getMonth()    - savedAt.getMonth()),
+      )
+      const duePeriods   = Math.min(monthsElapsed, loan.loan?.totalMonths ?? 0)
+      const expectedPaid = (loan.loan?.monthlyPayment ?? 0) * duePeriods
+      const actualPaid   = ((loan.payments ?? []) as { amount: number }[])
+        .reduce((s, p) => s + (p.amount ?? 0), 0)
+      const deficit = Math.max(0, expectedPaid - actualPaid)
+      if (deficit > 0) {
+        const cur = loan.loan?.currency ?? 'USD'
+        overdueMap[cur] = (overdueMap[cur] ?? 0) + deficit
+      }
+    }
+    const overdueAmountByCurrency = Object.entries(overdueMap).map(([currency, amount]) => ({
+      currency,
+      amount: Math.round(amount),
+    }))
+
     // ── 5 most-recent clients ──────────────────────────────────────────────
     const recentRaw = await col
       .find(
@@ -229,6 +289,9 @@ export async function GET() {
       collectedToday: paymentStats?.collectedToday ?? 0,
       collectedWeek:  paymentStats?.collectedWeek  ?? 0,
       collectedMonth: paymentStats?.collectedMonth ?? 0,
+      collectionRate,
+      paidPeriodsCount,
+      overdueAmountByCurrency,
     })
   } catch (err: any) {
     console.error('[GET /api/stats]', err)
