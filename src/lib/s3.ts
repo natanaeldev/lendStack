@@ -27,9 +27,6 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' })
 
 const BUCKET = process.env.AWS_S3_DOCUMENTS_BUCKET
-if (!BUCKET && process.env.NODE_ENV === 'production') {
-  throw new Error('AWS_S3_DOCUMENTS_BUCKET env var is required in production')
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
