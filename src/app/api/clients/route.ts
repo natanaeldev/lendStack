@@ -3,6 +3,9 @@ import { getDb, isDbConfigured }                       from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }           from '@/lib/orgAuth'
 import { v4 as uuidv4 }                               from 'uuid'
 
+// Starter plan: max 50 clients
+const STARTER_CLIENT_LIMIT = 50
+
 // ─── GET  /api/clients ────────────────────────────────────────────────────────
 export async function GET() {
   const session = await requireAuth()
@@ -116,11 +119,32 @@ export async function POST(req: NextRequest) {
     if (!branchId)
       return NextResponse.json({ error: 'Branch is required' }, { status: 400 })
 
+    // ── Plan limit check ──────────────────────────────────────────────────────
+    const db = await getDb()
+
+    const org = await db.collection('organizations').findOne({
+      _id: session.user.organizationId as any,
+    })
+    const orgPlan = (org?.plan as string | undefined) ?? 'starter'
+
+    if (orgPlan === 'starter') {
+      const clientCount = await db.collection('clients').countDocuments({
+        organizationId: session.user.organizationId,
+      })
+      if (clientCount >= STARTER_CLIENT_LIMIT) {
+        return NextResponse.json(
+          {
+            error:       `Límite del plan Starter alcanzado (${STARTER_CLIENT_LIMIT} clientes).`,
+            planLimited: true,
+          },
+          { status: 403 }
+        )
+      }
+    }
+
     const clientId = uuidv4()
     const loanId   = uuidv4()
     const savedAt  = new Date().toISOString()
-
-    const db  = await getDb()
 
     // Resolve named branch → derive type and display name
     const branchDoc = await db.collection('branches').findOne({

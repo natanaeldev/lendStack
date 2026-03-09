@@ -165,6 +165,15 @@ interface DashboardProps {
   onViewProfile?: (id: string) => void
 }
 
+interface OrgInfo {
+  plan:        string
+  clientCount: number
+  maxClients:  number | null
+  isAtLimit:   boolean
+  isNearLimit: boolean
+  orgName:     string
+}
+
 export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [stats,    setStats]    = useState<StatsData | null>(null)
   const [clients,  setClients]  = useState<ClientRow[]>([])
@@ -173,6 +182,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [search,   setSearch]   = useState('')
   const [uploading,setUploading]= useState<string | null>(null)
   const [expandDoc,setExpandDoc]= useState<string | null>(null)
+  const [orgInfo,  setOrgInfo]  = useState<OrgInfo | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // ── Fetch on mount ──────────────────────────────────────────────────────────
@@ -180,12 +190,14 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     Promise.all([
       fetch('/api/stats').then(r => r.json()),
       fetch('/api/clients').then(r => r.json()),
+      fetch('/api/org').then(r => r.json()).catch(() => null),
     ])
-      .then(([s, c]) => {
+      .then(([s, c, org]) => {
         // configured is false (503) OR undefined (500 error) → show setup screen
         if (!s.configured) { setNotConf(true); return }
         setStats(s)
         setClients(c.clients ?? [])
+        if (org && !org.error) setOrgInfo(org)
       })
       .catch(() => setNotConf(true))
       .finally(() => setLoading(false))
@@ -253,6 +265,59 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   // ── Full dashboard ──────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+
+      {/* ── Plan banner (Starter limit warning / Pro badge) ── */}
+      {orgInfo && orgInfo.plan === 'starter' && orgInfo.maxClients !== null && (
+        <div
+          className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap"
+          style={{
+            background:  orgInfo.isAtLimit  ? '#FFF1F2' : orgInfo.isNearLimit ? '#FFFBEB' : '#F0F9FF',
+            border:      `1.5px solid ${orgInfo.isAtLimit ? '#FECDD3' : orgInfo.isNearLimit ? '#FDE68A' : '#BAE6FD'}`,
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">{orgInfo.isAtLimit ? '🚫' : orgInfo.isNearLimit ? '⚠️' : '📊'}</span>
+            <div>
+              <p
+                className="text-sm font-bold"
+                style={{ color: orgInfo.isAtLimit ? '#9F1239' : orgInfo.isNearLimit ? '#92400E' : '#0C4A6E' }}
+              >
+                Plan Starter — {orgInfo.clientCount} / {orgInfo.maxClients} clientes
+              </p>
+              <p
+                className="text-xs"
+                style={{ color: orgInfo.isAtLimit ? '#BE123C' : orgInfo.isNearLimit ? '#B45309' : '#0369A1' }}
+              >
+                {orgInfo.isAtLimit
+                  ? 'Límite alcanzado. Actualizá al plan Pro para agregar más clientes.'
+                  : orgInfo.isNearLimit
+                    ? 'Estás cerca del límite del plan gratuito.'
+                    : `Te quedan ${orgInfo.maxClients - orgInfo.clientCount} clientes disponibles en el plan gratuito.`}
+              </p>
+            </div>
+          </div>
+          {(orgInfo.isAtLimit || orgInfo.isNearLimit) && (
+            <a
+              href="mailto:ventas@lendstack.app?subject=Actualizar%20a%20Pro"
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}
+            >
+              ⭐ Actualizar a Pro
+            </a>
+          )}
+        </div>
+      )}
+      {orgInfo && orgInfo.plan !== 'starter' && (
+        <div
+          className="rounded-2xl px-5 py-3 flex items-center gap-3"
+          style={{ background: '#F0FDF4', border: '1.5px solid #86EFAC' }}
+        >
+          <span className="text-base">✅</span>
+          <p className="text-sm font-semibold" style={{ color: '#14532D' }}>
+            Plan {orgInfo.plan.charAt(0).toUpperCase() + orgInfo.plan.slice(1)} activo — clientes y usuarios ilimitados
+          </p>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
            KPI SECTION
