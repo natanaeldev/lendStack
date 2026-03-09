@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse }          from 'next/server'
-import { getDb, isDbConfigured }             from '@/lib/mongodb'
-import { requireMaster, forbiddenResponse }  from '@/lib/orgAuth'
-import { v4 as uuidv4 }                      from 'uuid'
+import { NextRequest, NextResponse }                        from 'next/server'
+import { getDb, isDbConfigured }                           from '@/lib/mongodb'
+import { requireAuth, requireMaster,
+         unauthorizedResponse, forbiddenResponse }         from '@/lib/orgAuth'
+import { v4 as uuidv4 }                                   from 'uuid'
 
 // ─── GET /api/admin/branches — list branches for this org ─────────────────────
+// Any authenticated user in the org can read branches (needed for client form).
+// Only masters can create or delete branches.
 export async function GET() {
-  const session = await requireMaster()
-  if (!session) return forbiddenResponse()
+  const session = await requireAuth()
+  if (!session) return unauthorizedResponse()
   if (!isDbConfigured())
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 

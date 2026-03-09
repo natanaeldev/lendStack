@@ -204,14 +204,14 @@ export default function ClientsPanel({
           })))
           setMode('cloud')
 
-          // Load named branches (master-only endpoint; silently ignore 403)
+          // Load named branches (all authenticated users can read)
           try {
             const br = await fetch('/api/admin/branches')
             if (br.ok) {
               const bd = await br.json()
               setBranches(bd.branches ?? [])
             }
-          } catch { /* non-master users: ignore */ }
+          } catch { /* ignore on network error */ }
 
           return
         }
