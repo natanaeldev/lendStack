@@ -7,9 +7,6 @@ import { paymentOverdueHtml }             from '@/emails/payment-overdue'
 
 export const dynamic = 'force-dynamic'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM   = process.env.RESEND_FROM ?? 'JVF Inversiones <onboarding@resend.dev>'
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dateDiffDays(a: Date, b: Date): number {
@@ -43,6 +40,9 @@ export async function GET(req: NextRequest) {
 
   if (!isDbConfigured())
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const FROM   = process.env.RESEND_FROM ?? 'JVF Inversiones <onboarding@resend.dev>'
 
   const db         = await getDb()
   const clientsCol = db.collection('clients')
