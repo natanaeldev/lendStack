@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortization, getRiskConfig, LoanParams, RateMode, RiskProfile } from '@/lib/loan'
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
+import PrintReceiptButton, { PaymentReceiptModal } from '@/components/PaymentReceipt'
+import type { ReceiptData } from '@/components/PaymentReceipt'
 import EmailModal       from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
 
@@ -157,6 +159,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
   const [payLoading,          setPayLoading]          = useState(false)
   const [deletingPayId,       setDeletingPayId]       = useState<string | null>(null)
+  const [receiptData,         setReceiptData]         = useState<ReceiptData | null>(null)
   const [payComprobanteFile,  setPayComprobanteFile]  = useState<File | null>(null)
   const [payComprobantePreview, setPayComprobantePreview] = useState<string | null>(null)
   const [lightboxUrl,         setLightboxUrl]         = useState<string | null>(null)
@@ -295,6 +298,23 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
       setPayForm({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
       clearPayComprobante()
       showToast('✅', 'Pago registrado correctamente')
+      // Show inline receipt modal (avoids browser popup blockers)
+      if (client) setReceiptData({
+        clientName:     client.name,
+        clientIdType:   client.idType,
+        clientId:       client.idNumber,
+        clientEmail:    client.email,
+        paymentId:      payment.id,
+        date:           payment.date,
+        amount:         payment.amount,
+        cuotaNumber:    payment.cuotaNumber,
+        notes:          payment.notes,
+        currency:       client.params.currency,
+        loanAmount:     client.params.amount,
+        monthlyPayment: client.result.monthlyPayment,
+        totalMonths:    client.result.totalMonths,
+        profile:        client.params.profile,
+      })
     } catch { showToast('❌', 'No se pudo conectar') }
     finally  { setPayLoading(false) }
   }
@@ -869,6 +889,22 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
                             <img src={p.comprobanteUrl} alt="Comprobante" className="w-full h-full object-cover" />
                           </button>
                         )}
+                        <PrintReceiptButton data={{
+                          clientName:     client.name,
+                          clientIdType:   client.idType,
+                          clientId:       client.idNumber,
+                          clientEmail:    client.email,
+                          paymentId:      p.id,
+                          date:           p.date,
+                          amount:         p.amount,
+                          cuotaNumber:    p.cuotaNumber,
+                          notes:          p.notes,
+                          currency:       client.params.currency,
+                          loanAmount:     client.params.amount,
+                          monthlyPayment: client.result.monthlyPayment,
+                          totalMonths:    client.result.totalMonths,
+                          profile:        client.params.profile,
+                        }} />
                         <button
                           onClick={() => deletePayment(p.id)}
                           disabled={deletingPayId === p.id}
@@ -1024,6 +1060,14 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
         config={riskCfg}
         defaultTo={client.email ?? ''}
       />
+
+      {/* Payment receipt modal */}
+      {receiptData && (
+        <PaymentReceiptModal
+          data={receiptData}
+          onClose={() => setReceiptData(null)}
+        />
+      )}
 
       {/* Comprobante lightbox */}
       {lightboxUrl && (
