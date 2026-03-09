@@ -106,6 +106,13 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     return () => window.removeEventListener('lendstack:goto-dashboard', onGotoDashboard)
   }, [changeTab])
 
+  // Navigate to clients tab (new loan form) when header button is clicked
+  useEffect(() => {
+    const onNewLoan = () => changeTab('clients')
+    window.addEventListener('lendstack:new-loan', onNewLoan)
+    return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
+  }, [changeTab])
+
   // Always pass termYears to the calculation layer (convert months → fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
 
