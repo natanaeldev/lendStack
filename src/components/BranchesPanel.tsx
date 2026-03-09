@@ -315,9 +315,7 @@ function BranchCard({
   return (
     <button onClick={onClick}
       className="text-left rounded-2xl bg-white border border-slate-200 overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-[.99] w-full"
-      style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-      {/* Type accent strip */}
-      <div className="h-1.5" style={{ background: cfg.accent }} />
+      style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)', borderTop: `3px solid ${cfg.accent}` }}>
 
       <div className="p-5">
         {/* Branch name + badge */}
