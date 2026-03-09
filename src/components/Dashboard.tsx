@@ -286,13 +286,36 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
             {/* ── Primary KPIs (4 large cards) ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard
-                label="Cartera total"
-                value={fmtK(stats.totalAmount)}
-                sub="capital otorgado"
-                accent="#1565C0"
-                icon="💼"
-              />
+              {/* Cartera total — desglosada por moneda */}
+              <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: '#1565C0' }} />
+                <div className="pl-6 pr-5 py-5">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">Cartera total</p>
+                    <span className="text-xl flex-shrink-0">💼</span>
+                  </div>
+                  {stats.byCurrency.length === 0 ? (
+                    <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>—</p>
+                  ) : (
+                    <div className="space-y-2 mb-1.5">
+                      {stats.byCurrency.map(c => (
+                        <div key={c.currency} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded"
+                            style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                            {c.currency}
+                          </span>
+                          <span className="font-display text-xl font-black tabular-nums leading-none"
+                            style={{ color: '#0D2B5E' }}>
+                            {fmtK(c.totalAmount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400">capital otorgado</p>
+                </div>
+              </div>
               <KpiCard
                 label="Tasa de aprobación"
                 value={`${approvalRate}%`}

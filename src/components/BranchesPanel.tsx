@@ -150,7 +150,31 @@ function BranchDetail({
       {/* KPI grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiMini label="Clientes"      value={String(stats.totalClients)}  icon="👥" />
-        <KpiMini label="Cartera total" value={fmtK(stats.totalAmount)}     icon="💼" />
+        {/* Cartera total — per currency */}
+        <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-col gap-1"
+          style={{ boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cartera total</p>
+            <span className="text-base">💼</span>
+          </div>
+          {stats.recoveryByCurrency.length === 0 ? (
+            <p className="text-xl font-black" style={{ color: '#0D2B5E' }}>—</p>
+          ) : (
+            <div className="space-y-1 mt-0.5">
+              {stats.recoveryByCurrency.map(r => (
+                <div key={r.currency} className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                    style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                    {r.currency}
+                  </span>
+                  <span className="text-lg font-black tabular-nums leading-none" style={{ color: '#0D2B5E' }}>
+                    {fmtK(r.totalAmount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <KpiMini label="Aprobación"    value={`${approvalRate}%`}          icon="✅" />
         <KpiMini label="Interés total" value={fmtK(stats.totalInterest)}   icon="💰" />
       </div>
@@ -338,9 +362,21 @@ function BranchCard({
             <span className="text-slate-500">👥 Clientes</span>
             <span className="font-bold" style={{ color: '#0D2B5E' }}>{stats.totalClients}</span>
           </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">💼 Cartera total</span>
-            <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmtK(stats.totalAmount)}</span>
+          <div className="text-xs space-y-1">
+            <span className="text-slate-500">💼 Cartera</span>
+            {stats.recoveryByCurrency.length === 0 ? (
+              <div className="flex items-center justify-between">
+                <span /><span className="font-bold" style={{ color: '#0D2B5E' }}>—</span>
+              </div>
+            ) : stats.recoveryByCurrency.map(r => (
+              <div key={r.currency} className="flex items-center justify-between gap-2">
+                <span className="px-1.5 py-0.5 rounded font-semibold text-[10px]"
+                  style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                  {r.currency}
+                </span>
+                <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmtK(r.totalAmount)}</span>
+              </div>
+            ))}
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">✅ Aprobación</span>
