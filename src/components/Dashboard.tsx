@@ -17,8 +17,9 @@ interface StatsData {
   totalMonthlyIncome: number; approvedCapital: number
   pendingCount: number; approvedCount: number; deniedCount: number
   collectedToday: number; collectedWeek: number; collectedMonth: number
-  byProfile:   { profile: string; count: number; totalAmount: number }[]
-  byCurrency:  { currency: string; count: number; totalAmount: number }[]
+  byProfile:            { profile: string; count: number; totalAmount: number }[]
+  byCurrency:           { currency: string; count: number; totalAmount: number }[]
+  avgPaymentByCurrency: { currency: string; avgMonthlyPayment: number; count: number }[]
   recentClients: RecentClient[]
 }
 interface RecentClient {
@@ -330,13 +331,37 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 icon="💰"
                 accent="#F59E0B"
               />
-              <MetricRow
-                label="Cuota prom. mensual"
-                value={`$${Math.round(stats.avgMonthlyPayment).toLocaleString('es-AR')}`}
-                sub="por préstamo"
-                icon="💳"
-                accent="#1565C0"
-              />
+              {/* Cuota promedio desglosada por moneda */}
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-white border border-slate-200"
+                style={{ boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                  style={{ background: '#EEF4FF', border: '1px solid rgba(21,101,192,.2)' }}>
+                  💳
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+                    Cuota prom. mensual
+                  </p>
+                  {(stats.avgPaymentByCurrency ?? []).length === 0 ? (
+                    <p className="text-sm font-bold text-slate-300">—</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {(stats.avgPaymentByCurrency ?? []).map(c => (
+                        <div key={c.currency} className="flex items-center justify-between gap-2">
+                          <span className="text-xs px-1.5 py-0.5 rounded font-semibold"
+                            style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                            {c.currency}
+                          </span>
+                          <span className="text-sm font-black tabular-nums" style={{ color: '#0D2B5E' }}>
+                            ${Math.round(c.avgMonthlyPayment).toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400 mt-1.5">por préstamo</p>
+                </div>
+              </div>
               <MetricRow
                 label="Ingresos mensuales"
                 value={stats.totalMonthlyIncome > 0 ? fmtK(stats.totalMonthlyIncome) : fmtK(stats.totalMonthlyPayments)}

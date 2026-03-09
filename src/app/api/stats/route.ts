@@ -88,6 +88,20 @@ export async function GET() {
     const approvedCount = byStatus.find(s => s.status === 'approved')?.count ?? 0
     const deniedCount   = byStatus.find(s => s.status === 'denied')?.count   ?? 0
 
+    // ── Avg monthly payment per currency ──────────────────────────────────
+    const avgPaymentByCurrency = await col.aggregate([
+      { $match: { organizationId: orgId } },
+      {
+        $group: {
+          _id:               '$loan.currency',
+          avgMonthlyPayment: { $avg: '$loan.monthlyPayment' },
+          count:             { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, currency: '$_id', avgMonthlyPayment: 1, count: 1 } },
+    ]).toArray()
+
     // ── By branch ─────────────────────────────────────────────────────────
     const byBranchRaw = await col.aggregate([
       { $match: { organizationId: orgId } },
@@ -175,6 +189,7 @@ export async function GET() {
       byProfile,
       byCurrency,
       byBranch,
+      avgPaymentByCurrency,
       recentClients,
       pendingCount,
       approvedCount,
