@@ -690,6 +690,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             <ClientsPanel
               currentParams={params}
               currentResult={result}
+              currentLoanType={loanType}
+              weeklyResult={weeklyResult}
+              weeklyTermWeeks={weeklyTermWeeks}
+              weeklyMonthlyRate={weeklyMonthlyRate}
+              carritoResult={carritoResult}
+              carritoFlatRate={carritoFlatRate}
+              carritoTerm={carritoTerm}
+              carritoPayments={carritoPayments}
+              carritoFreq={carritoFreq}
               onLoadClient={handleLoadClient}
               onViewProfile={(id) => setSelectedClientId(id)}
             />

@@ -7,8 +7,10 @@ import LendStackLogo from '@/components/LendStackLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface BranchDoc { id: string; name: string; type: 'sede' | 'rutas' }
 interface AppUser {
   id: string; name: string; email: string; role: string; createdAt: string
+  allowedBranchIds: string[] | null  // null = all branches
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -18,6 +20,10 @@ const ROLE_CFG: Record<string, { label: string; bg: string; color: string; avata
   manager:  { label: '👔 Gerente',    bg: '#EEF2FF', color: '#3730A3', avatar: 'linear-gradient(135deg,#3730A3,#6366F1)'  },
   operator: { label: '🛠️ Operador',  bg: '#ECFDF5', color: '#065F46', avatar: 'linear-gradient(135deg,#065F46,#10B981)'  },
   user:     { label: '👤 Usuario',    bg: '#E8F0FE', color: '#1a3a8f', avatar: 'linear-gradient(135deg,#1565C0,#0D2B5E)'  },
+}
+const BRANCH_CFG: Record<string, { emoji: string; color: string }> = {
+  sede:  { emoji: '🏢', color: '#1E40AF' },
+  rutas: { emoji: '🛵', color: '#9A3412' },
 }
 
 function fmtDate(iso: string) {
@@ -32,12 +38,14 @@ export default function AdminUsersPage() {
   const router = useRouter()
 
   const [users,     setUsers]     = useState<AppUser[]>([])
+  const [branches,  setBranches]  = useState<BranchDoc[]>([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState('')
   const [resetId,   setResetId]   = useState<string | null>(null)
 
   // ── Create-user form ────────────────────────────────────────────────────────
   const [form,      setForm]      = useState({ name: '', email: '', password: '', confirm: '', role: 'user' })
+  const [formBranches, setFormBranches] = useState<string[] | null>(null)  // null = all
   const [creating,  setCreating]  = useState(false)
   const [createErr, setCreateErr] = useState('')
   const [createOk,  setCreateOk]  = useState(false)
@@ -53,33 +61,50 @@ export default function AdminUsersPage() {
   const [roleChanging, setRoleChanging] = useState(false)
   const [roleOk,       setRoleOk]       = useState(false)
 
+  // ── Branch-access panel ─────────────────────────────────────────────────────
+  const [branchUserId,   setBranchUserId]  = useState<string | null>(null)
+  const [branchSaving,   setBranchSaving]  = useState(false)
+  const [branchOk,       setBranchOk]      = useState(false)
+  // Draft allowedBranchIds while editing — null = all, string[] = restricted
+  const [branchDraft,    setBranchDraft]   = useState<string[] | null>(null)
+
   // Redirect non-master users
   useEffect(() => {
     if (status === 'loading') return
     if (!session || session.user.role !== 'master') router.replace('/')
   }, [session, status, router])
 
-  // Load users
+  // Load users + branches
   useEffect(() => {
     if (session?.user.role !== 'master') return
-    fetch('/api/admin/users')
-      .then(r => r.json())
-      .then(d => { setUsers(d.users ?? []); setLoading(false) })
-      .catch(() => { setError('No se pudo cargar la lista de usuarios.'); setLoading(false) })
+    Promise.all([
+      fetch('/api/admin/users').then(r => r.json()),
+      fetch('/api/admin/branches').then(r => r.json()).catch(() => ({ branches: [] })),
+    ]).then(([ud, bd]) => {
+      setUsers(ud.users ?? [])
+      setBranches(bd.branches ?? [])
+      setLoading(false)
+    }).catch(() => { setError('No se pudo cargar la lista de usuarios.'); setLoading(false) })
   }, [session])
 
   // ── Create sub-user ─────────────────────────────────────────────────────────
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setCreateErr('')
-    if (form.password.length < 8)  { setCreateErr('La contraseña debe tener al menos 8 caracteres.'); return }
+    if (form.password.length < 8)    { setCreateErr('La contraseña debe tener al menos 8 caracteres.'); return }
     if (form.password !== form.confirm) { setCreateErr('Las contraseñas no coinciden.'); return }
 
     setCreating(true)
     const res  = await fetch('/api/admin/users', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name: form.name, email: form.email, password: form.password, role: form.role }),
+      body:    JSON.stringify({
+        name:             form.name,
+        email:            form.email,
+        password:         form.password,
+        role:             form.role,
+        allowedBranchIds: formBranches,
+      }),
     })
     const data = await res.json()
     setCreating(false)
@@ -87,6 +112,7 @@ export default function AdminUsersPage() {
     if (res.ok) {
       setUsers(prev => [...prev, data.user])
       setForm({ name: '', email: '', password: '', confirm: '', role: 'user' })
+      setFormBranches(null)
       setCreateOk(true); setTimeout(() => setCreateOk(false), 3000)
     } else {
       setCreateErr(data.error ?? 'Error al crear usuario.')
@@ -131,6 +157,51 @@ export default function AdminUsersPage() {
       setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u))
       setRoleOk(true); setTimeout(() => { setRoleOk(false); setRoleId(null) }, 2000)
     }
+  }
+
+  // ── Save branch access ──────────────────────────────────────────────────────
+  const handleBranchSave = async (id: string) => {
+    setBranchSaving(true)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ allowedBranchIds: branchDraft }),
+    })
+    setBranchSaving(false)
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, allowedBranchIds: branchDraft } : u))
+      setBranchOk(true); setTimeout(() => { setBranchOk(false); setBranchUserId(null) }, 2000)
+    }
+  }
+
+  const openBranchPanel = (u: AppUser) => {
+    setBranchUserId(u.id)
+    setBranchDraft(u.allowedBranchIds)
+    setBranchOk(false)
+    setResetId(null)
+    setRoleId(null)
+  }
+
+  const toggleBranchDraft = (branchId: string) => {
+    setBranchDraft(prev => {
+      if (prev === null) return [branchId]          // switch from "all" to restricted
+      if (prev.includes(branchId)) {
+        const next = prev.filter(b => b !== branchId)
+        return next.length === 0 ? null : next      // empty → back to "all" not useful; keep null
+      }
+      return [...prev, branchId]
+    })
+  }
+
+  const toggleFormBranch = (branchId: string) => {
+    setFormBranches(prev => {
+      if (prev === null) return [branchId]
+      if (prev.includes(branchId)) {
+        const next = prev.filter(b => b !== branchId)
+        return next
+      }
+      return [...prev, branchId]
+    })
   }
 
   if (status === 'loading' || (session?.user.role !== 'master')) return null
@@ -179,10 +250,21 @@ export default function AdminUsersPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {users.map(u => {
-                const badge      = ROLE_CFG[u.role]   ?? ROLE_CFG.user
-                const isMe       = u.email === session?.user.email
-                const isOpen     = resetId === u.id
-                const isRoleOpen = roleId  === u.id
+                const badge         = ROLE_CFG[u.role] ?? ROLE_CFG.user
+                const isMe          = u.email === session?.user.email
+                const isOpen        = resetId     === u.id
+                const isRoleOpen    = roleId      === u.id
+                const isBranchOpen  = branchUserId === u.id
+
+                // Summarise branch access for display
+                const branchLabel = u.allowedBranchIds === null
+                  ? 'Todas las sucursales'
+                  : u.allowedBranchIds.length === 0
+                    ? 'Sin acceso'
+                    : u.allowedBranchIds.map(bid => {
+                        const b = branches.find(x => x.id === bid)
+                        return b ? `${BRANCH_CFG[b.type]?.emoji ?? '🏢'} ${b.name}` : bid
+                      }).join(', ')
 
                 return (
                   <div key={u.id}>
@@ -201,7 +283,9 @@ export default function AdminUsersPage() {
                           {isMe && <span className="ml-2 text-xs font-normal text-slate-400">(vos)</span>}
                         </p>
                         <p className="text-xs text-slate-500 truncate">{u.email}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Creado: {fmtDate(u.createdAt)}</p>
+                        {u.role !== 'master' && branches.length > 0 && (
+                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">🏢 {branchLabel}</p>
+                        )}
                       </div>
 
                       {/* Role badge */}
@@ -212,13 +296,20 @@ export default function AdminUsersPage() {
 
                       {/* Actions (sub-users only) */}
                       {u.role !== 'master' && (
-                        <div className="flex gap-2 flex-shrink-0">
-                          <button onClick={() => { setRoleId(isRoleOpen ? null : u.id); setRoleOk(false); setResetId(null) }}
+                        <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                          <button onClick={() => { setRoleId(isRoleOpen ? null : u.id); setRoleOk(false); setResetId(null); setBranchUserId(null) }}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                             style={{ background: isRoleOpen ? '#3730A3' : '#EEF2FF', color: isRoleOpen ? '#fff' : '#3730A3' }}>
                             👔 Rol
                           </button>
-                          <button onClick={() => { setResetId(isOpen ? null : u.id); setNewPwd(''); setResetErr(''); setResetOk(false); setRoleId(null) }}
+                          {branches.length > 0 && (
+                            <button onClick={() => { isBranchOpen ? setBranchUserId(null) : openBranchPanel(u); setResetId(null); setRoleId(null) }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                              style={{ background: isBranchOpen ? '#065F46' : '#ECFDF5', color: isBranchOpen ? '#fff' : '#065F46' }}>
+                              🏢 Sucursales
+                            </button>
+                          )}
+                          <button onClick={() => { setResetId(isOpen ? null : u.id); setNewPwd(''); setResetErr(''); setResetOk(false); setRoleId(null); setBranchUserId(null) }}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                             style={{ background: isOpen ? '#0D2B5E' : '#e8eef7', color: isOpen ? '#fff' : '#1565C0' }}>
                             🔑 Contraseña
@@ -290,6 +381,80 @@ export default function AdminUsersPage() {
                         {roleOk && <p className="text-xs text-green-600 mt-3 font-semibold">✅ Rol actualizado</p>}
                       </div>
                     )}
+
+                    {/* Branch-access panel */}
+                    {isBranchOpen && branches.length > 0 && (
+                      <div className="px-6 pb-5 pt-0 bg-emerald-50 border-t border-emerald-100">
+                        <div className="pt-3 mb-4">
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Acceso a sucursales — {u.name || u.email}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Definí a qué sucursales puede ver este usuario. "Todas" no aplica ninguna restricción.
+                          </p>
+                        </div>
+
+                        {/* All-branches toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setBranchDraft(null)}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-sm font-bold mb-3 transition-all text-left"
+                          style={{
+                            background:  branchDraft === null ? '#ECFDF5' : '#f8fafc',
+                            color:       branchDraft === null ? '#065F46' : '#64748b',
+                            borderColor: branchDraft === null ? '#10B981' : '#e2e8f0',
+                          }}>
+                          <span className="text-lg">🌐</span>
+                          <span className="flex-1">Todas las sucursales</span>
+                          {branchDraft === null && <span className="text-green-600">✓</span>}
+                        </button>
+
+                        {/* Individual branches */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                          {branches.map(b => {
+                            const checked = branchDraft !== null && branchDraft.includes(b.id)
+                            const cfg     = BRANCH_CFG[b.type] ?? BRANCH_CFG.sede
+                            return (
+                              <button key={b.id}
+                                type="button"
+                                onClick={() => toggleBranchDraft(b.id)}
+                                className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all text-left"
+                                style={{
+                                  background:  checked ? '#E0F2FE' : '#f8fafc',
+                                  color:       checked ? cfg.color  : '#64748b',
+                                  borderColor: checked ? cfg.color  : '#e2e8f0',
+                                }}>
+                                <span className="text-lg">{cfg.emoji}</span>
+                                <span className="flex-1">{b.name}</span>
+                                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded"
+                                  style={{ background: b.type === 'sede' ? '#BFDBFE' : '#FED7AA', color: cfg.color }}>
+                                  {b.type}
+                                </span>
+                                {checked && <span style={{ color: cfg.color }}>✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleBranchSave(u.id)}
+                            disabled={branchSaving}
+                            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                            style={{ background: 'linear-gradient(135deg,#065F46,#10B981)' }}>
+                            {branchSaving ? '⏳...' : '✅ Guardar acceso'}
+                          </button>
+                          <span className="text-xs text-slate-400">
+                            {branchDraft === null
+                              ? 'Acceso total a todas las sucursales'
+                              : branchDraft.length === 0
+                                ? 'Sin sucursales seleccionadas'
+                                : `${branchDraft.length} sucursal${branchDraft.length !== 1 ? 'es' : ''} seleccionada${branchDraft.length !== 1 ? 's' : ''}`}
+                          </span>
+                          {branchOk && <span className="text-xs text-green-600 font-semibold ml-auto">✅ Guardado</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -305,18 +470,15 @@ export default function AdminUsersPage() {
           </div>
 
           <form onSubmit={handleCreate} className="p-6">
-            {/* Info */}
             <div className="px-4 py-3 rounded-xl mb-5 text-xs"
               style={{ background: '#E8F0FE', border: '1px solid #1565C033', color: '#1a3a8f' }}>
-              Los sub-usuarios pueden iniciar sesión y usar la aplicación, pero <strong>no pueden crear ni eliminar otros usuarios</strong>. Asigná el rol que mejor describe su función: <strong>👔 Gerente</strong>, <strong>🛠️ Operador</strong> o <strong>👤 Usuario</strong>.
+              Los sub-usuarios pueden iniciar sesión y usar la aplicación, pero <strong>no pueden crear ni eliminar otros usuarios</strong>. Asigná el rol y las sucursales que puede ver.
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               {/* Name */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                  Nombre completo
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Nombre completo</label>
                 <input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="Ej: Laura Díaz"
                   className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
@@ -325,11 +487,9 @@ export default function AdminUsersPage() {
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                  Email *
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Email *</label>
                 <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                  placeholder="usuario@jvfinversiones.com" required
+                  placeholder="usuario@empresa.com" required
                   className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{ color: '#374151' }} />
               </div>
@@ -347,9 +507,7 @@ export default function AdminUsersPage() {
 
               {/* Confirm */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                  Confirmar contraseña *
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Confirmar contraseña *</label>
                 <input type="password" value={form.confirm} onChange={e => setForm(p => ({ ...p, confirm: e.target.value }))}
                   placeholder="••••••••" required
                   className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm focus:outline-none transition-colors ${form.confirm && form.confirm !== form.password ? 'border-red-400' : 'border-slate-200 focus:border-blue-500'}`}
@@ -361,10 +519,8 @@ export default function AdminUsersPage() {
 
               {/* Rol */}
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                  Rol del usuario
-                </label>
-                <div className="flex gap-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Rol del usuario</label>
+                <div className="flex gap-2 flex-wrap">
                   {[
                     { value: 'user',     label: '👤 Usuario',   desc: 'Acceso estándar a la aplicación'        },
                     { value: 'operator', label: '🛠️ Operador',  desc: 'Gestión de clientes y préstamos'        },
@@ -375,7 +531,7 @@ export default function AdminUsersPage() {
                     return (
                       <button key={r.value} type="button"
                         onClick={() => setForm(p => ({ ...p, role: r.value }))}
-                        className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all text-left"
+                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all text-left"
                         style={{
                           background:  sel ? rc.bg    : '#f8fafc',
                           color:       sel ? rc.color : '#64748b',
@@ -388,6 +544,55 @@ export default function AdminUsersPage() {
                   })}
                 </div>
               </div>
+
+              {/* Sucursales (only if branches exist) */}
+              {branches.length > 0 && (
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                    Acceso a sucursales
+                  </label>
+                  <p className="text-xs text-slate-400 mb-3">
+                    Dejá en "Todas" para que vea toda la cartera, o seleccioná sucursales específicas.
+                  </p>
+                  {/* All toggle */}
+                  <button type="button"
+                    onClick={() => setFormBranches(null)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 text-sm font-bold mb-2 transition-all text-left"
+                    style={{
+                      background:  formBranches === null ? '#ECFDF5' : '#f8fafc',
+                      color:       formBranches === null ? '#065F46' : '#64748b',
+                      borderColor: formBranches === null ? '#10B981' : '#e2e8f0',
+                    }}>
+                    <span>🌐</span>
+                    <span className="flex-1">Todas las sucursales</span>
+                    {formBranches === null && <span className="text-green-600">✓</span>}
+                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {branches.map(b => {
+                      const checked = formBranches !== null && formBranches.includes(b.id)
+                      const cfg     = BRANCH_CFG[b.type] ?? BRANCH_CFG.sede
+                      return (
+                        <button key={b.id} type="button"
+                          onClick={() => toggleFormBranch(b.id)}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all text-left"
+                          style={{
+                            background:  checked ? '#E0F2FE' : '#f8fafc',
+                            color:       checked ? cfg.color  : '#64748b',
+                            borderColor: checked ? cfg.color  : '#e2e8f0',
+                          }}>
+                          <span>{cfg.emoji}</span>
+                          <span className="flex-1">{b.name}</span>
+                          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded"
+                            style={{ background: b.type === 'sede' ? '#BFDBFE' : '#FED7AA', color: cfg.color }}>
+                            {b.type}
+                          </span>
+                          {checked && <span style={{ color: cfg.color }}>✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {createErr && (

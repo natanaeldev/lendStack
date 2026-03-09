@@ -50,7 +50,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const { password, role } = await req.json()
+    const { password, role, allowedBranchIds } = await req.json()
     const $set: Record<string, any> = {}
 
     if (password !== undefined) {
@@ -65,6 +65,11 @@ export async function PATCH(
       if (!ALLOWED.includes(role))
         return NextResponse.json({ error: 'Rol inválido.' }, { status: 400 })
       $set.role = role
+    }
+
+    // allowedBranchIds: null = all branches; string[] = restricted to those
+    if (allowedBranchIds !== undefined) {
+      $set.allowedBranchIds = Array.isArray(allowedBranchIds) ? allowedBranchIds : null
     }
 
     if (Object.keys($set).length === 0)

@@ -22,11 +22,12 @@ export async function GET() {
 
     return NextResponse.json({
       users: users.map(u => ({
-        id:        String(u._id),
-        name:      u.name      ?? '',
-        email:     u.email     ?? '',
-        role:      u.role      ?? 'user',
-        createdAt: u.createdAt ?? '',
+        id:               String(u._id),
+        name:             u.name             ?? '',
+        email:            u.email            ?? '',
+        role:             u.role             ?? 'user',
+        createdAt:        u.createdAt        ?? '',
+        allowedBranchIds: u.allowedBranchIds ?? null,  // null = all branches
       })),
     })
   } catch (err: any) {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const { name, email, password, role: rawRole } = await req.json()
+    const { name, email, password, role: rawRole, allowedBranchIds } = await req.json()
 
     if (!email?.trim())
       return NextResponse.json({ error: 'El email es obligatorio.' }, { status: 400 })
@@ -53,6 +54,10 @@ export async function POST(req: NextRequest) {
     // Only allow sub-user roles — never 'master'
     const ALLOWED_ROLES = ['user', 'operator', 'manager']
     const role = ALLOWED_ROLES.includes(rawRole) ? rawRole : 'user'
+
+    // allowedBranchIds: null = all branches, string[] = restricted to those
+    const branchAccess: string[] | null =
+      Array.isArray(allowedBranchIds) ? allowedBranchIds : null
 
     const db  = await getDb()
     const col = db.collection('users')
@@ -64,23 +69,25 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12)
 
     const result = await col.insertOne({
-      name:           name?.trim() || 'Usuario',
-      email:          email.trim().toLowerCase(),
+      name:             name?.trim() || 'Usuario',
+      email:            email.trim().toLowerCase(),
       passwordHash,
       role,
-      organizationId: session.user.organizationId,
-      createdAt:      new Date().toISOString(),
-      createdBy:      session.user.id,
+      organizationId:   session.user.organizationId,
+      createdAt:        new Date().toISOString(),
+      createdBy:        session.user.id,
+      allowedBranchIds: branchAccess,
     })
 
     return NextResponse.json({
       success: true,
       user: {
-        id:        result.insertedId.toString(),
-        name:      name?.trim() || 'Usuario',
-        email:     email.trim().toLowerCase(),
+        id:               result.insertedId.toString(),
+        name:             name?.trim() || 'Usuario',
+        email:            email.trim().toLowerCase(),
         role,
-        createdAt: new Date().toISOString(),
+        createdAt:        new Date().toISOString(),
+        allowedBranchIds: branchAccess,
       },
     })
   } catch (err: any) {

@@ -1,6 +1,10 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { LoanParams, LoanResult, RiskProfile, Currency, RateMode, Branch, RISK_PROFILES, CURRENCIES, formatCurrency, formatPercent, calculateLoan } from '@/lib/loan'
+import {
+  LoanParams, LoanResult, RiskProfile, Currency, RateMode, Branch,
+  LoanType, WeeklyLoanResult, CarritoLoanResult, CarritoFrequency,
+  RISK_PROFILES, CURRENCIES, formatCurrency, formatPercent, calculateLoan,
+} from '@/lib/loan'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,10 +44,21 @@ interface Client {
   payments?: Payment[]
 }
 interface Props {
-  currentParams:  LoanParams
-  currentResult:  LoanResult
-  onLoadClient:   (params: LoanParams) => void
-  onViewProfile?: (id: string) => void
+  currentParams:    LoanParams
+  currentResult:    LoanResult
+  currentLoanType?: LoanType
+  // Weekly loan snapshot from calculator
+  weeklyResult?:      WeeklyLoanResult
+  weeklyTermWeeks?:   number
+  weeklyMonthlyRate?: number
+  // Carrito loan snapshot from calculator
+  carritoResult?:   CarritoLoanResult
+  carritoFlatRate?: number
+  carritoTerm?:     number
+  carritoPayments?: number
+  carritoFreq?:     CarritoFrequency
+  onLoadClient:     (params: LoanParams) => void
+  onViewProfile?:   (id: string) => void
 }
 
 type StorageMode = 'loading' | 'local' | 'cloud'
@@ -120,7 +135,12 @@ const inputCls = 'w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 text-s
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ClientsPanel({ currentParams, currentResult, onLoadClient, onViewProfile }: Props) {
+export default function ClientsPanel({
+  currentParams, currentResult, currentLoanType = 'amortized',
+  weeklyResult, weeklyTermWeeks, weeklyMonthlyRate,
+  carritoResult, carritoFlatRate, carritoTerm, carritoPayments, carritoFreq,
+  onLoadClient, onViewProfile,
+}: Props) {
   const [clients,   setClients]  = useState<Client[]>([])
   const [branches,  setBranches] = useState<BranchDoc[]>([])
   const [mode,      setMode]     = useState<StorageMode>('loading')
@@ -223,10 +243,31 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
 
     if (mode === 'cloud') {
       try {
+        // Build loan type-aware payload for the API
+        const loanPayload: Record<string, any> = {
+          ...form,
+          params: activeParams,
+          result: activeResult,
+          loanType: loanSource === 'calculator' ? currentLoanType : 'amortized',
+        }
+        if (loanSource === 'calculator' && currentLoanType === 'weekly' && weeklyResult && weeklyTermWeeks) {
+          loanPayload.weeklyParams = { termWeeks: weeklyTermWeeks, monthlyRate: weeklyMonthlyRate ?? 0 }
+          loanPayload.result       = weeklyResult
+        }
+        if (loanSource === 'calculator' && currentLoanType === 'carrito' && carritoResult && carritoFlatRate) {
+          loanPayload.carritoParams = {
+            flatRate:    carritoFlatRate,
+            term:        carritoTerm       ?? 4,
+            numPayments: carritoPayments   ?? 4,
+            frequency:   carritoFreq       ?? 'weekly',
+          }
+          loanPayload.result = carritoResult
+        }
+
         const res = await fetch('/api/clients', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ ...form, params: activeParams, result: activeResult }),
+          body:    JSON.stringify(loanPayload),
         })
         if (res.ok) {
           const data   = await res.json()
@@ -358,10 +399,24 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
           ))}
         </div>
 
-        {/* Calculator summary */}
+        {/* Calculator summary — shows data for the active loan type */}
         {loanSource === 'calculator' && (
-          <div className="rounded-xl p-4 mb-4 border border-slate-200 bg-slate-50 text-xs flex flex-wrap gap-4">
-            {[
+          <div className="rounded-xl p-4 mb-4 border-2 bg-slate-50 text-xs flex flex-wrap gap-4"
+            style={{ borderColor: currentLoanType === 'carrito' ? '#F59E0B44' : currentLoanType === 'weekly' ? '#1565C044' : '#0D2B5E22' }}>
+
+            {/* Loan type badge */}
+            <div className="w-full flex items-center gap-1.5 mb-0.5">
+              <span className="text-sm">
+                {currentLoanType === 'weekly' ? '📆' : currentLoanType === 'carrito' ? '🛒' : '📅'}
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: currentLoanType === 'carrito' ? '#92400E' : '#0D2B5E' }}>
+                {currentLoanType === 'weekly' ? 'Semanal' : currentLoanType === 'carrito' ? 'Carrito' : 'Amortizado'}
+              </span>
+            </div>
+
+            {/* Amortized summary */}
+            {currentLoanType === 'amortized' && [
               ['Monto',     fmt(currentParams.amount, currentParams.currency)],
               ['Plazo',     `${currentParams.termYears} años`],
               ['Perfil',    `${RISK_PROFILES.find(r => r.label === currentParams.profile)?.emoji} ${currentParams.profile}`],
@@ -370,6 +425,32 @@ export default function ClientsPanel({ currentParams, currentResult, onLoadClien
               <div key={l}>
                 <span className="text-slate-400 mr-1">{l}:</span>
                 <span className="font-bold" style={{ color: '#0D2B5E' }}>{v}</span>
+              </div>
+            ))}
+
+            {/* Weekly summary */}
+            {currentLoanType === 'weekly' && weeklyResult && [
+              ['Monto',      fmt(currentParams.amount, currentParams.currency)],
+              ['Plazo',      `${weeklyTermWeeks} semanas`],
+              ['Cuota/sem.', fmt(weeklyResult.weeklyPayment, currentParams.currency)],
+              ['Total',      fmt(weeklyResult.totalPayment, currentParams.currency)],
+            ].map(([l, v]) => (
+              <div key={l}>
+                <span className="text-slate-400 mr-1">{l}:</span>
+                <span className="font-bold" style={{ color: '#0D2B5E' }}>{v}</span>
+              </div>
+            ))}
+
+            {/* Carrito summary */}
+            {currentLoanType === 'carrito' && carritoResult && [
+              ['Monto',      fmt(currentParams.amount, currentParams.currency)],
+              ['Cuota fija', fmt(carritoResult.fixedPayment, currentParams.currency)],
+              ['# cuotas',   String(carritoResult.numPayments)],
+              ['Total int.', fmt(carritoResult.totalInterest, currentParams.currency)],
+            ].map(([l, v]) => (
+              <div key={l}>
+                <span className="text-slate-400 mr-1">{l}:</span>
+                <span className="font-bold" style={{ color: '#92400E' }}>{v}</span>
               </div>
             ))}
           </div>
