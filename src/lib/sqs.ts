@@ -75,8 +75,8 @@ export async function receiveMessages(maxMessages = 10): Promise<Message[]> {
     MaxNumberOfMessages: maxMessages,
     WaitTimeSeconds:     20,      // Long polling: wait up to 20s for messages
     VisibilityTimeout:   300,     // Lock message for 5 min while processing
-    AttributeNames:      ['ApproximateReceiveCount'],
-    MessageAttributeNames: ['All'],
+    MessageSystemAttributeNames: ['ApproximateReceiveCount'],
+    MessageAttributeNames:       ['All'],
   }))
 
   return result.Messages ?? []
