@@ -17,6 +17,9 @@ interface Payment {
   id: string; date: string; amount: number; registeredAt: string
   cuotaNumber?: number; notes?: string; comprobanteUrl?: string
 }
+interface BranchDoc {
+  id: string; name: string; type: 'sede' | 'rutas'; createdAt: string
+}
 interface ClientProfile {
   id: string; savedAt: string; loanStatus: LoanStatus
   name: string; email: string; phone: string
@@ -26,6 +29,7 @@ interface ClientProfile {
   currentDebts: string; totalDebtValue: string; paymentCapacity: string
   collateral: string; territorialTies: string
   creditHistory: string; reference1: string; reference2: string; notes: string
+  branch: string | null; branchId: string | null; branchName: string | null
   params: { amount: number; termYears: number; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number }
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
@@ -40,6 +44,7 @@ type EditForm = {
   currentDebts: string; totalDebtValue: string; paymentCapacity: string
   collateral: string; territorialTies: string
   creditHistory: string; reference1: string; reference2: string; notes: string
+  branchId: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,6 +76,7 @@ function clientToForm(c: ClientProfile): EditForm {
     currentDebts: c.currentDebts, totalDebtValue: c.totalDebtValue, paymentCapacity: c.paymentCapacity,
     collateral: c.collateral, territorialTies: c.territorialTies,
     creditHistory: c.creditHistory, reference1: c.reference1, reference2: c.reference2, notes: c.notes,
+    branchId: c.branchId ?? '',
   }
 }
 
@@ -145,6 +151,7 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const [editMode,  setEditMode]  = useState(false)
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
+  const [branches,  setBranches]  = useState<BranchDoc[]>([])
 
   // ── Payment registration ────────────────────────────────────────────────────
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
@@ -188,6 +195,14 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
 
   useEffect(() => { loadClient() }, [loadClient])
 
+  // Load named branches (master-only endpoint; silently ignore 403 for non-masters)
+  useEffect(() => {
+    fetch('/api/admin/branches')
+      .then(r => r.ok ? r.json() : { branches: [] })
+      .then(d => setBranches(d.branches ?? []))
+      .catch(() => {})
+  }, [])
+
   // ── Update status ──────────────────────────────────────────────────────────
   const updateStatus = async (next: LoanStatus) => {
     if (!client || updatingStatus) return
@@ -222,18 +237,27 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
     if (!editForm.name.trim()) { showToast('⚠️', 'El nombre es obligatorio'); return }
     setSaving(true)
     try {
+      // Transform branchId: '' → null (empty string = "clear branch assignment")
+      const { branchId: rawBranchId, ...rest } = editForm
+      const branchId = rawBranchId || null
       const res = await fetch(`/api/clients/${clientId}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(editForm),
+        body:    JSON.stringify({ ...rest, branchId }),
       })
       if (!res.ok) {
         const data = await res.json()
         showToast('❌', data.error ?? 'Error al guardar')
         return
       }
-      // Apply locally
-      setClient(prev => prev ? { ...prev, ...editForm } : prev)
+      // Optimistic update — derive branch type + name from local branches cache
+      const selectedBranch = branchId ? branches.find(b => b.id === branchId) : null
+      setClient(prev => prev ? {
+        ...prev, ...rest,
+        branchId,
+        branch:     branchId ? (selectedBranch?.type ?? prev.branch) : null,
+        branchName: branchId ? (selectedBranch?.name ?? prev.branchName) : null,
+      } : prev)
       setEditMode(false)
       setEditForm(null)
       showToast('✅', 'Datos del cliente actualizados')
@@ -508,6 +532,32 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
 
           </div>
 
+          {/* Sección 5 — Sucursal */}
+          <EditSectionHeader emoji="🏢" title="Sección 5 — Sucursal Asignada" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <EditField label="Sucursal" full>
+              {branches.length > 0 ? (
+                <select value={editForm.branchId} onChange={e => sf('branchId')(e.target.value)}
+                  className={inputCls} style={{ color: editForm.branchId ? '#374151' : '#94a3b8' }}>
+                  <option value="">— Sin asignar —</option>
+                  {(['sede', 'rutas'] as const).map(type => {
+                    const group = branches.filter(b => b.type === type)
+                    if (!group.length) return null
+                    return (
+                      <optgroup key={type} label={type === 'sede' ? '🏢 Sede' : '🛣️ Rutas'}>
+                        {group.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </optgroup>
+                    )
+                  })}
+                </select>
+              ) : (
+                <p className="text-sm text-slate-400 px-4 py-2.5 rounded-xl border-2 border-slate-100 bg-slate-50">
+                  No hay sucursales creadas — creá una en <span className="font-semibold">Admin → Sucursales</span>.
+                </p>
+              )}
+            </EditField>
+          </div>
+
           {/* Bottom save row */}
           <div className="flex items-center gap-3 mt-8 pt-6 border-t border-slate-100">
             <button onClick={saveEdit} disabled={saving}
@@ -577,6 +627,12 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
                   style={{ background: sCfg.bg, color: sCfg.color, border: `1.5px solid ${sCfg.border}` }}>
                   {sCfg.emoji} {sCfg.label}
                 </span>
+                {(client.branchName || client.branch) && (
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
+                    style={{ background: '#e8eef7', color: '#0D2B5E', border: '1.5px solid #c5d5ea' }}>
+                    🏢 {client.branchName ?? (client.branch === 'sede' ? 'Sede' : 'Rutas')}
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs sm:text-sm text-slate-500">
                 {client.email    && <span>✉️ {client.email}</span>}
