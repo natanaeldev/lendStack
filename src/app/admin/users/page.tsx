@@ -13,9 +13,11 @@ interface AppUser {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ROLE_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  master: { label: '👑 Maestro',   bg: '#FFF8E1', color: '#6D4C00' },
-  user:   { label: '👤 Usuario',   bg: '#E8F0FE', color: '#1a3a8f' },
+const ROLE_CFG: Record<string, { label: string; bg: string; color: string; avatar: string }> = {
+  master:   { label: '👑 Maestro',    bg: '#FFF8E1', color: '#6D4C00', avatar: 'linear-gradient(135deg,#6D4C00,#F9A825)'  },
+  manager:  { label: '👔 Gerente',    bg: '#EEF2FF', color: '#3730A3', avatar: 'linear-gradient(135deg,#3730A3,#6366F1)'  },
+  operator: { label: '🛠️ Operador',  bg: '#ECFDF5', color: '#065F46', avatar: 'linear-gradient(135deg,#065F46,#10B981)'  },
+  user:     { label: '👤 Usuario',    bg: '#E8F0FE', color: '#1a3a8f', avatar: 'linear-gradient(135deg,#1565C0,#0D2B5E)'  },
 }
 
 function fmtDate(iso: string) {
@@ -35,16 +37,21 @@ export default function AdminUsersPage() {
   const [resetId,   setResetId]   = useState<string | null>(null)
 
   // ── Create-user form ────────────────────────────────────────────────────────
-  const [form,      setForm]      = useState({ name: '', email: '', password: '', confirm: '' })
+  const [form,      setForm]      = useState({ name: '', email: '', password: '', confirm: '', role: 'user' })
   const [creating,  setCreating]  = useState(false)
   const [createErr, setCreateErr] = useState('')
   const [createOk,  setCreateOk]  = useState(false)
 
   // ── Reset-password form ─────────────────────────────────────────────────────
-  const [newPwd,    setNewPwd]    = useState('')
-  const [resetErr,  setResetErr]  = useState('')
-  const [resetting, setResetting] = useState(false)
-  const [resetOk,   setResetOk]   = useState(false)
+  const [newPwd,       setNewPwd]       = useState('')
+  const [resetErr,     setResetErr]     = useState('')
+  const [resetting,    setResetting]    = useState(false)
+  const [resetOk,      setResetOk]      = useState(false)
+
+  // ── Role-change ──────────────────────────────────────────────────────────────
+  const [roleId,       setRoleId]       = useState<string | null>(null)
+  const [roleChanging, setRoleChanging] = useState(false)
+  const [roleOk,       setRoleOk]       = useState(false)
 
   // Redirect non-master users
   useEffect(() => {
@@ -72,14 +79,14 @@ export default function AdminUsersPage() {
     const res  = await fetch('/api/admin/users', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name: form.name, email: form.email, password: form.password }),
+      body:    JSON.stringify({ name: form.name, email: form.email, password: form.password, role: form.role }),
     })
     const data = await res.json()
     setCreating(false)
 
     if (res.ok) {
       setUsers(prev => [...prev, data.user])
-      setForm({ name: '', email: '', password: '', confirm: '' })
+      setForm({ name: '', email: '', password: '', confirm: '', role: 'user' })
       setCreateOk(true); setTimeout(() => setCreateOk(false), 3000)
     } else {
       setCreateErr(data.error ?? 'Error al crear usuario.')
@@ -108,6 +115,21 @@ export default function AdminUsersPage() {
       setResetOk(true); setTimeout(() => { setResetOk(false); setResetId(null); setNewPwd('') }, 2000)
     } else {
       const d = await res.json(); setResetErr(d.error ?? 'Error.')
+    }
+  }
+
+  // ── Change role ─────────────────────────────────────────────────────────────
+  const handleRoleChange = async (id: string, newRole: string) => {
+    setRoleChanging(true)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ role: newRole }),
+    })
+    setRoleChanging(false)
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u))
+      setRoleOk(true); setTimeout(() => { setRoleOk(false); setRoleId(null) }, 2000)
     }
   }
 
@@ -157,9 +179,10 @@ export default function AdminUsersPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {users.map(u => {
-                const badge  = ROLE_BADGE[u.role] ?? ROLE_BADGE.user
-                const isMe   = u.email === session?.user.email
-                const isOpen = resetId === u.id
+                const badge      = ROLE_CFG[u.role]   ?? ROLE_CFG.user
+                const isMe       = u.email === session?.user.email
+                const isOpen     = resetId === u.id
+                const isRoleOpen = roleId  === u.id
 
                 return (
                   <div key={u.id}>
@@ -167,7 +190,7 @@ export default function AdminUsersPage() {
                     <div className="flex items-center gap-4 px-6 py-4">
                       {/* Avatar */}
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                        style={{ background: u.role === 'master' ? 'linear-gradient(135deg,#6D4C00,#F9A825)' : 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
+                        style={{ background: badge.avatar }}>
                         {(u.name || u.email).slice(0, 2).toUpperCase()}
                       </div>
 
@@ -190,7 +213,12 @@ export default function AdminUsersPage() {
                       {/* Actions (sub-users only) */}
                       {u.role !== 'master' && (
                         <div className="flex gap-2 flex-shrink-0">
-                          <button onClick={() => { setResetId(isOpen ? null : u.id); setNewPwd(''); setResetErr(''); setResetOk(false) }}
+                          <button onClick={() => { setRoleId(isRoleOpen ? null : u.id); setRoleOk(false); setResetId(null) }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={{ background: isRoleOpen ? '#3730A3' : '#EEF2FF', color: isRoleOpen ? '#fff' : '#3730A3' }}>
+                            👔 Rol
+                          </button>
+                          <button onClick={() => { setResetId(isOpen ? null : u.id); setNewPwd(''); setResetErr(''); setResetOk(false); setRoleId(null) }}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                             style={{ background: isOpen ? '#0D2B5E' : '#e8eef7', color: isOpen ? '#fff' : '#1565C0' }}>
                             🔑 Contraseña
@@ -227,6 +255,41 @@ export default function AdminUsersPage() {
                         {resetOk  && <p className="text-xs text-green-600 mt-2 font-semibold">✅ Contraseña actualizada</p>}
                       </div>
                     )}
+
+                    {/* Role-change panel */}
+                    {isRoleOpen && (
+                      <div className="px-6 pb-5 pt-0 bg-slate-50 border-t border-slate-100">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 pt-3">
+                          Cambiar rol — {u.name || u.email}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { value: 'user',     label: '👤 Usuario',   desc: 'Acceso estándar' },
+                            { value: 'operator', label: '🛠️ Operador',  desc: 'Gestión de clientes' },
+                            { value: 'manager',  label: '👔 Gerente',   desc: 'Acceso completo' },
+                          ].map(r => {
+                            const rc  = ROLE_CFG[r.value]
+                            const sel = u.role === r.value
+                            return (
+                              <button key={r.value}
+                                onClick={() => handleRoleChange(u.id, r.value)}
+                                disabled={roleChanging || sel}
+                                className="flex-1 min-w-[90px] py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all text-left disabled:cursor-default"
+                                style={{
+                                  background:  sel ? rc.bg    : '#f8fafc',
+                                  color:       sel ? rc.color : '#64748b',
+                                  borderColor: sel ? rc.color + '66' : '#e2e8f0',
+                                  opacity:     roleChanging && !sel ? 0.5 : 1,
+                                }}>
+                                <span className="block">{r.label} {sel ? '✓' : ''}</span>
+                                <span className="block font-normal text-[10px] mt-0.5 opacity-70">{r.desc}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {roleOk && <p className="text-xs text-green-600 mt-3 font-semibold">✅ Rol actualizado</p>}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -245,7 +308,7 @@ export default function AdminUsersPage() {
             {/* Info */}
             <div className="px-4 py-3 rounded-xl mb-5 text-xs"
               style={{ background: '#E8F0FE', border: '1px solid #1565C033', color: '#1a3a8f' }}>
-              👤 Los sub-usuarios pueden iniciar sesión y usar la aplicación, pero <strong>no pueden crear ni eliminar otros usuarios</strong>.
+              Los sub-usuarios pueden iniciar sesión y usar la aplicación, pero <strong>no pueden crear ni eliminar otros usuarios</strong>. Asigná el rol que mejor describe su función: <strong>👔 Gerente</strong>, <strong>🛠️ Operador</strong> o <strong>👤 Usuario</strong>.
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -294,6 +357,36 @@ export default function AdminUsersPage() {
                 {form.confirm && form.confirm !== form.password && (
                   <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
                 )}
+              </div>
+
+              {/* Rol */}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                  Rol del usuario
+                </label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'user',     label: '👤 Usuario',   desc: 'Acceso estándar a la aplicación'        },
+                    { value: 'operator', label: '🛠️ Operador',  desc: 'Gestión de clientes y préstamos'        },
+                    { value: 'manager',  label: '👔 Gerente',   desc: 'Acceso completo sin administración'     },
+                  ].map(r => {
+                    const rc  = ROLE_CFG[r.value]
+                    const sel = form.role === r.value
+                    return (
+                      <button key={r.value} type="button"
+                        onClick={() => setForm(p => ({ ...p, role: r.value }))}
+                        className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all text-left"
+                        style={{
+                          background:  sel ? rc.bg    : '#f8fafc',
+                          color:       sel ? rc.color : '#64748b',
+                          borderColor: sel ? rc.color + '66' : '#e2e8f0',
+                        }}>
+                        <span className="block">{r.label}</span>
+                        <span className="block font-normal text-[10px] mt-0.5 opacity-70">{r.desc}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
 

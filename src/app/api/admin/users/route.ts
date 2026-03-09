@@ -43,12 +43,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const { name, email, password } = await req.json()
+    const { name, email, password, role: rawRole } = await req.json()
 
     if (!email?.trim())
       return NextResponse.json({ error: 'El email es obligatorio.' }, { status: 400 })
     if (!password || password.length < 8)
       return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
+
+    // Only allow sub-user roles — never 'master'
+    const ALLOWED_ROLES = ['user', 'operator', 'manager']
+    const role = ALLOWED_ROLES.includes(rawRole) ? rawRole : 'user'
 
     const db  = await getDb()
     const col = db.collection('users')
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
       name:           name?.trim() || 'Usuario',
       email:          email.trim().toLowerCase(),
       passwordHash,
-      role:           'user',          // sub-users are never 'master'
+      role,
       organizationId: session.user.organizationId,
       createdAt:      new Date().toISOString(),
       createdBy:      session.user.id,
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
         id:        result.insertedId.toString(),
         name:      name?.trim() || 'Usuario',
         email:     email.trim().toLowerCase(),
-        role:      'user',
+        role,
         createdAt: new Date().toISOString(),
       },
     })
