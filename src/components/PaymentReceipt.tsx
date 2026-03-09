@@ -191,7 +191,7 @@ export function printPaymentReceipt(data: ReceiptData, recNum?: string) {
 // Renders the receipt inside the page — avoids popup blockers entirely.
 // The "Imprimir" button is a direct user click → safe to call window.open then.
 
-export function PaymentReceiptModal({ data, onClose }: { data: ReceiptData; onClose: () => void }) {
+export function PaymentReceiptModal({ data, onClose, zIndex = 50 }: { data: ReceiptData; onClose: () => void; zIndex?: number }) {
   const fmt = (v: number) => formatCurrency(v, data.currency as Currency)
   // Generate receipt number once on mount so it stays stable across re-renders
   const [recNum] = useState(() => `REC-${Date.now().toString().slice(-8)}`)
@@ -199,8 +199,8 @@ export function PaymentReceiptModal({ data, onClose }: { data: ReceiptData; onCl
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 overflow-y-auto"
-      style={{ background: 'rgba(7,26,62,.88)', backdropFilter: 'blur(6px)' }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 overflow-y-auto"
+      style={{ background: 'rgba(7,26,62,.88)', backdropFilter: 'blur(6px)', zIndex }}
       onClick={onClose}>
 
       <div
