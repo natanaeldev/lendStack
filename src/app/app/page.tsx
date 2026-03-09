@@ -14,6 +14,7 @@ import MultiLoanPanel from '@/components/MultiLoanPanel'
 import ClientsPanel from '@/components/ClientsPanel'
 import ClientProfilePanel from '@/components/ClientProfilePanel'
 import Dashboard from '@/components/Dashboard'
+import BranchesPanel from '@/components/BranchesPanel'
 import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
@@ -27,13 +28,14 @@ import {
   formatCurrency, formatPercent, CURRENCIES,
 } from '@/lib/loan'
 
-export type Tab = 'calculator' | 'dashboard' | 'clients'
+export type Tab = 'calculator' | 'dashboard' | 'clients' | 'branches'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
-  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'   },
-  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular' },
-  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes' },
+  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'      },
+  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
+  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes'   },
+  { id: 'branches',   label: '🏢 Sucursales',   emoji: '🏢', mobileLabel: 'Sucursales' },
 ]
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
@@ -76,6 +78,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         dashboard:  '/app',
         calculator: '/app/calculadora',
         clients:    '/app/clientes',
+        branches:   '/app/sucursales',
       }
       window.history.pushState(null, '', paths[newTab])
     }
@@ -85,9 +88,10 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   useEffect(() => {
     const onPopState = () => {
       const p = window.location.pathname
-      if (p.startsWith('/app/calculadora')) setTab('calculator')
-      else if (p.startsWith('/app/clientes'))  setTab('clients')
-      else                                      setTab('dashboard')
+      if (p.startsWith('/app/calculadora'))     setTab('calculator')
+      else if (p.startsWith('/app/clientes'))   setTab('clients')
+      else if (p.startsWith('/app/sucursales')) setTab('branches')
+      else                                       setTab('dashboard')
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -683,6 +687,16 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               onViewProfile={(id) => setSelectedClientId(id)}
             />
           )
+        )}
+
+        {/* ═══ BRANCHES ═══ */}
+        {tab === 'branches' && (
+          <BranchesPanel
+            onViewProfile={(id) => {
+              setSelectedClientId(id)
+              changeTab('clients')
+            }}
+          />
         )}
 
       </main>
