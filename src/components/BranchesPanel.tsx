@@ -25,6 +25,7 @@ interface BranchStats {
   pendingCount:      number
   avgMonthlyPayment: number
   byCurrency:        { currency: string; avgMonthlyPayment: number }[]
+  recoveryByCurrency:{ currency: string; totalAmount: number; totalRecovered: number; percentage: number }[]
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -74,7 +75,17 @@ function computeStats(clients: BranchClient[]): BranchStats {
     ? allPayments.reduce((s, v) => s + v, 0) / allPayments.length
     : 0
 
-  return { totalClients, totalAmount, totalInterest, approvedCount, pendingCount, avgMonthlyPayment, byCurrency }
+  // Recovery per currency: sum of all recorded payments vs total capital lent
+  const recoveryByCurrency = currencies.map(cur => {
+    const cc             = clients.filter(c => c.params?.currency === cur)
+    const totalAmt       = cc.reduce((s, c) => s + (c.params?.amount ?? 0), 0)
+    const totalRecovered = cc.reduce((s, c) =>
+      s + (c.payments ?? []).reduce((ps, p) => ps + (p.amount ?? 0), 0), 0)
+    const percentage = totalAmt > 0 ? Math.round((totalRecovered / totalAmt) * 100) : 0
+    return { currency: cur, totalAmount: totalAmt, totalRecovered, percentage }
+  }).sort((a, b) => a.currency.localeCompare(b.currency))
+
+  return { totalClients, totalAmount, totalInterest, approvedCount, pendingCount, avgMonthlyPayment, byCurrency, recoveryByCurrency }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -161,6 +172,51 @@ function BranchDetail({
                 <span className="text-base font-black" style={{ color: '#0D2B5E' }}>
                   ${Math.round(c.avgMonthlyPayment).toLocaleString('es-AR')}
                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Capital recovery by currency */}
+      {stats.recoveryByCurrency.length > 0 && (
+        <div className="rounded-xl bg-white border border-slate-200 p-4"
+          style={{ boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              💰 Recuperación de cartera
+            </p>
+            <p className="text-[10px] text-slate-400">capital cobrado vs. capital prestado</p>
+          </div>
+          <div className="space-y-3">
+            {stats.recoveryByCurrency.map(r => (
+              <div key={r.currency}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded"
+                      style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                      {r.currency}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {fmtK(r.totalRecovered)} de {fmtK(r.totalAmount)}
+                    </span>
+                  </div>
+                  <span className="text-sm font-black tabular-nums"
+                    style={{ color: r.percentage >= 70 ? '#15803D' : r.percentage >= 40 ? '#92400E' : '#0D2B5E' }}>
+                    {r.percentage}%
+                  </span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
+                  <div className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(r.percentage, 100)}%`,
+                      background: r.percentage >= 70
+                        ? 'linear-gradient(90deg,#16A34A,#22C55E)'
+                        : r.percentage >= 40
+                        ? 'linear-gradient(90deg,#D97706,#F59E0B)'
+                        : 'linear-gradient(90deg,#1565C0,#3B82F6)',
+                    }} />
+                </div>
               </div>
             ))}
           </div>
@@ -304,6 +360,33 @@ function BranchCard({
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+          {stats.recoveryByCurrency.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <span className="text-xs text-slate-500">💰 Recuperación</span>
+              {stats.recoveryByCurrency.map(r => (
+                <div key={r.currency}>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[11px] text-slate-400">{r.currency}</span>
+                    <span className="text-[11px] font-bold"
+                      style={{ color: r.percentage >= 70 ? '#15803D' : r.percentage >= 40 ? '#92400E' : '#0D2B5E' }}>
+                      {r.percentage}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
+                    <div className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(r.percentage, 100)}%`,
+                        background: r.percentage >= 70
+                          ? 'linear-gradient(90deg,#16A34A,#22C55E)'
+                          : r.percentage >= 40
+                          ? 'linear-gradient(90deg,#D97706,#F59E0B)'
+                          : 'linear-gradient(90deg,#1565C0,#3B82F6)',
+                      }} />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

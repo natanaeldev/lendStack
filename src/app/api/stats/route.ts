@@ -88,6 +88,37 @@ export async function GET() {
     const approvedCount = byStatus.find(s => s.status === 'approved')?.count ?? 0
     const deniedCount   = byStatus.find(s => s.status === 'denied')?.count   ?? 0
 
+    // ── Capital recovery per currency ─────────────────────────────────────
+    // totalRecovered = sum of all payments made, grouped by loan currency
+    const recoveryRaw = await col.aggregate([
+      { $match: { organizationId: orgId } },
+      {
+        $project: {
+          currency:      '$loan.currency',
+          loanAmount:    '$loan.amount',
+          totalPaid:     { $sum: '$payments.amount' },
+        },
+      },
+      {
+        $group: {
+          _id:            '$currency',
+          totalAmount:    { $sum: '$loanAmount' },
+          totalRecovered: { $sum: '$totalPaid' },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, currency: '$_id', totalAmount: 1, totalRecovered: 1 } },
+    ]).toArray()
+
+    const recoveryByCurrency = recoveryRaw.map(r => ({
+      currency:       r.currency as string,
+      totalAmount:    r.totalAmount   as number,
+      totalRecovered: r.totalRecovered as number,
+      percentage:     r.totalAmount > 0
+        ? Math.round((r.totalRecovered / r.totalAmount) * 100)
+        : 0,
+    }))
+
     // ── Avg monthly payment per currency ──────────────────────────────────
     const avgPaymentByCurrency = await col.aggregate([
       { $match: { organizationId: orgId } },
@@ -190,6 +221,7 @@ export async function GET() {
       byCurrency,
       byBranch,
       avgPaymentByCurrency,
+      recoveryByCurrency,
       recentClients,
       pendingCount,
       approvedCount,

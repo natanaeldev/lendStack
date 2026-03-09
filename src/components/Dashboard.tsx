@@ -19,7 +19,8 @@ interface StatsData {
   collectedToday: number; collectedWeek: number; collectedMonth: number
   byProfile:            { profile: string; count: number; totalAmount: number }[]
   byCurrency:           { currency: string; count: number; totalAmount: number }[]
-  avgPaymentByCurrency: { currency: string; avgMonthlyPayment: number; count: number }[]
+  avgPaymentByCurrency:  { currency: string; avgMonthlyPayment: number; count: number }[]
+  recoveryByCurrency:    { currency: string; totalAmount: number; totalRecovered: number; percentage: number }[]
   recentClients: RecentClient[]
 }
 interface RecentClient {
@@ -377,6 +378,53 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 accent="#EF4444"
               />
             </div>
+
+            {/* ── Capital recovery section ── */}
+            {(stats.recoveryByCurrency ?? []).length > 0 && (
+              <div className="rounded-2xl bg-white border border-slate-200 p-5"
+                style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    {SECTION_BAR}
+                    <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Recuperación de cartera</h3>
+                  </div>
+                  <span className="text-xs text-slate-400">capital cobrado vs. capital prestado</span>
+                </div>
+                <div className="space-y-4">
+                  {(stats.recoveryByCurrency ?? []).map(r => (
+                    <div key={r.currency}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded"
+                            style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                            {r.currency}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {fmtK(r.totalRecovered)} recuperado de {fmtK(r.totalAmount)}
+                          </span>
+                        </div>
+                        <span className="text-sm font-black tabular-nums"
+                          style={{ color: r.percentage >= 70 ? '#15803D' : r.percentage >= 40 ? '#92400E' : '#0D2B5E' }}>
+                          {r.percentage}%
+                        </span>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
+                        <div className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(r.percentage, 100)}%`,
+                            background: r.percentage >= 70
+                              ? 'linear-gradient(90deg,#16A34A,#22C55E)'
+                              : r.percentage >= 40
+                              ? 'linear-gradient(90deg,#D97706,#F59E0B)'
+                              : 'linear-gradient(90deg,#1565C0,#3B82F6)',
+                          }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── Collection stats strip (today / week / month) ── */}
             <div>
