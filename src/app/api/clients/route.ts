@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse }                    from 'next/server'
 import { getDb, isDbConfigured }                       from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }           from '@/lib/orgAuth'
+import { migrateLegacyStatus }                         from '@/lib/loanDomain'
 import { v4 as uuidv4 }                               from 'uuid'
 
 // ─── GET  /api/clients ────────────────────────────────────────────────────────
@@ -51,8 +52,10 @@ export async function GET() {
       branch:     c.branch     ?? null,
       branchId:   c.branchId   ?? null,
       branchName: c.branchName ?? null,
-      // Estado del préstamo
-      loanStatus: c.loanStatus ?? 'pending',
+      // Estado del préstamo (legacy 3-value + full lifecycle)
+      loanStatus:     c.loanStatus ?? 'pending',
+      lifecycleStatus: migrateLegacyStatus(c.loanStatus),
+      loanId:         c.loan?.id ?? null,
       // Préstamo
       params: c.loan ? {
         amount:            c.loan.amount,
@@ -169,7 +172,7 @@ export async function POST(req: NextRequest) {
       branchName,
       // Loan status
       loanStatus: 'pending',
-      // Loan
+      // Loan (legacy embedded)
       loan: {
         id:                loanId,
         amount:            params.amount,
@@ -190,7 +193,41 @@ export async function POST(req: NextRequest) {
       documents: [],
     })
 
-    return NextResponse.json({ success: true, id: clientId, savedAt })
+    // ── Also create a loans collection record for the new lifecycle layer ──────
+    if (params && result) {
+      await db.collection('loans').insertOne({
+        _id:            loanId as any,
+        organizationId: session.user.organizationId,
+        clientId,
+        status:         'application_submitted',
+        createdAt:      savedAt,
+        updatedAt:      savedAt,
+        loanType:       params.loanType ?? 'amortized',
+        currency:       params.currency,
+        amount:         params.amount,
+        termYears:      params.termYears       ?? undefined,
+        termWeeks:      params.termWeeks       ?? undefined,
+        carritoTerm:    params.carritoTerm     ?? undefined,
+        carritoPayments: params.carritoPayments ?? undefined,
+        carritoFrequency: params.carritoFrequency ?? undefined,
+        profile:        params.profile         ?? undefined,
+        rateMode:       params.rateMode        ?? 'annual',
+        customMonthlyRate: params.customMonthlyRate ?? undefined,
+        annualRate:     result.annualRate      ?? undefined,
+        monthlyRate:    result.monthlyRate     ?? undefined,
+        totalMonths:    result.totalMonths     ?? undefined,
+        scheduledPayment: result.monthlyPayment ?? result.weeklyPayment ?? result.fixedPayment ?? 0,
+        totalPayment:   result.totalPayment,
+        totalInterest:  result.totalInterest,
+        startDate:      params.startDate       ?? undefined,
+        paidPrincipal:  0,
+        paidInterest:   0,
+        paidTotal:      0,
+        remainingBalance: params.amount,
+      } as any)
+    }
+
+    return NextResponse.json({ success: true, id: clientId, loanId, savedAt })
   } catch (err: any) {
     console.error('[POST /api/clients]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -115,11 +115,24 @@ export async function PATCH(
     const body = await req.json()
     const $set: Record<string, any> = {}
 
-    // ── Loan status ────────────────────────────────────────────────────────────
+    // ── Loan status (accepts legacy OR full lifecycle values) ──────────────────
     if (body.loanStatus !== undefined) {
-      if (!['pending', 'approved', 'denied'].includes(body.loanStatus))
+      const lifecycleValues = [
+        'application_submitted', 'under_review', 'approved', 'denied',
+        'disbursed', 'active', 'delinquent', 'paid_off', 'defaulted', 'cancelled',
+        'pending',  // legacy
+      ]
+      if (!lifecycleValues.includes(body.loanStatus))
         return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
-      $set.loanStatus = body.loanStatus
+      // Store legacy 3-value on the clients collection (backward compat)
+      const legacyMap: Record<string, string> = {
+        application_submitted: 'pending', under_review: 'pending',
+        approved: 'approved', denied: 'denied',
+        disbursed: 'approved', active: 'approved',
+        delinquent: 'approved', paid_off: 'approved',
+        defaulted: 'approved', cancelled: 'denied',
+      }
+      $set.loanStatus = legacyMap[body.loanStatus] ?? body.loanStatus
     }
 
     // ── Client info fields ─────────────────────────────────────────────────────

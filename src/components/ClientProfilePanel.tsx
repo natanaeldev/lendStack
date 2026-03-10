@@ -126,13 +126,14 @@ function EditField({ label, children, full }: { label: string; children: React.R
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  clientId: string
-  onBack:   () => void
+  clientId:     string
+  onBack:       () => void
+  onViewLoan?:  (loanId: string) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ClientProfilePanel({ clientId, onBack }: Props) {
+export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Props) {
   const [client,         setClient]        = useState<ClientProfile | null>(null)
   const [loading,        setLoading]       = useState(true)
   const [error,          setError]         = useState('')
@@ -648,6 +649,18 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
 
         </div>
       </div>
+
+      {/* ── View full loan button ── */}
+      {onViewLoan && (client as any).loanId && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => onViewLoan((client as any).loanId)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
+            Ver préstamo completo →
+          </button>
+        </div>
+      )}
 
       {/* ── Loan summary ── */}
       <div className="rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>

@@ -443,6 +443,81 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         )
       })()}
 
+      {/* ══════════════════════════════════════════════════════════════════════
+           OPERATIONAL PORTFOLIO — powered by loans collection
+         ══════════════════════════════════════════════════════════════════════ */}
+      {stats && (stats as any).portfolio && (() => {
+        const p = (stats as any).portfolio as {
+          totalLoansCount: number; totalDisbursed: number; activePortfolio: number
+          totalActiveCount: number; delinquentCount: number; overdueAmountTotal: number
+          paidOffCount: number; pendingApprovalCount: number
+          approvalRate: number; dueTodayCount: number; dueTodayAmount: number
+          collectedMonth: number
+          byLifecycle: { status: string; count: number }[]
+        }
+        if (p.totalLoansCount === 0) return null
+
+        const fmtK = (n: number) =>
+          n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M`
+          : n >= 1_000   ? `$${(n / 1_000).toFixed(0)}K`
+          : `$${Math.round(n).toLocaleString('es-AR')}`
+
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5">
+              {SECTION_BAR}
+              <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Operaciones — cartera activa</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Cartera activa',   value: fmtK(p.activePortfolio),     sub: `${p.totalActiveCount} préstamos`,          icon: '💼', accent: '#10B981', bg: '#ECFDF5' },
+                { label: 'Total desembolsado', value: fmtK(p.totalDisbursed),    sub: 'histórico acumulado',                      icon: '🏦', accent: '#2563EB', bg: '#EFF6FF' },
+                { label: 'Préstamos morosos', value: String(p.delinquentCount),  sub: fmtK(p.overdueAmountTotal) + ' vencido',    icon: '⚠️', accent: '#F97316', bg: '#FFF7ED' },
+                { label: 'Pagados/cerrados',  value: String(p.paidOffCount),     sub: 'completados',                              icon: '✅', accent: '#0284C7', bg: '#F0F9FF' },
+              ].map(({ label, value, sub, icon, accent, bg }) => (
+                <div key={label} className="relative rounded-2xl border overflow-hidden"
+                  style={{ background: bg, borderColor: accent + '33', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accent }} />
+                  <div className="pl-5 pr-4 py-4">
+                    <div className="flex items-start justify-between gap-1 mb-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">{label}</p>
+                      <span className="text-xl flex-shrink-0">{icon}</span>
+                    </div>
+                    <p className="text-2xl font-black leading-none mb-1" style={{ color: accent }}>{value}</p>
+                    <p className="text-xs text-slate-500">{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Operational row: due today + collected + approval */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Cuotas vencen hoy', value: fmtK(p.dueTodayAmount), sub: `${p.dueTodayCount} cuota${p.dueTodayCount !== 1 ? 's' : ''}`, bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', emoji: '📅' },
+                { label: 'Cobrado este mes',  value: fmtK(p.collectedMonth),  sub: 'pagos registrados',                                             bg: '#ECFDF5', border: '#6EE7B7', color: '#064E3B', emoji: '💸' },
+                { label: 'Tasa aprobación',   value: `${Math.round(p.approvalRate * 100)}%`, sub: `${p.pendingApprovalCount} en evaluación`,       bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF', emoji: '📊' },
+              ].map(s => (
+                <div key={s.label} className="rounded-2xl p-3 sm:p-4 border"
+                  style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+                  <div className="flex flex-col items-center gap-0.5 sm:hidden">
+                    <span className="text-xl leading-none mb-0.5">{s.emoji}</span>
+                    <div className="text-lg font-black leading-none text-center" style={{ color: s.color }}>{s.value}</div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-center mt-0.5" style={{ color: s.color }}>{s.label}</p>
+                  </div>
+                  <div className="hidden sm:block">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">{s.emoji}</span>
+                      <p className="text-xs font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
+                    </div>
+                    <p className="font-display text-2xl font-black leading-none" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-xs mt-1" style={{ color: s.color, opacity: 0.7 }}>{s.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Payment status section ── */}
       {clients.length > 0 && (() => {
         const today = new Date()

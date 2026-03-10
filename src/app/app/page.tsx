@@ -13,6 +13,8 @@ import ComparisonPanel from '@/components/ComparisonPanel'
 import MultiLoanPanel from '@/components/MultiLoanPanel'
 import ClientsPanel from '@/components/ClientsPanel'
 import ClientProfilePanel from '@/components/ClientProfilePanel'
+import LoansPanel from '@/components/LoansPanel'
+import LoanDetailPanel from '@/components/LoanDetailPanel'
 import Dashboard from '@/components/Dashboard'
 import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
@@ -27,13 +29,14 @@ import {
   formatCurrency, formatPercent, CURRENCIES,
 } from '@/lib/loan'
 
-export type Tab = 'calculator' | 'dashboard' | 'clients'
+export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
   { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'   },
-  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular' },
+  { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'},
   { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes' },
+  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular' },
 ]
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
@@ -46,6 +49,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [tab,               setTab]               = useState<Tab>(initialTab)
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
+  const [selectedLoanId,    setSelectedLoanId]    = useState<string | null>(null)
   const [showPayment,       setShowPayment]        = useState(false)
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
@@ -76,6 +80,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         dashboard:  '/app',
         calculator: '/app/calculadora',
         clients:    '/app/clientes',
+        loans:      '/app/prestamos',
       }
       window.history.pushState(null, '', paths[newTab])
     }
@@ -87,6 +92,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       const p = window.location.pathname
       if (p.startsWith('/app/calculadora')) setTab('calculator')
       else if (p.startsWith('/app/clientes'))  setTab('clients')
+      else if (p.startsWith('/app/prestamos')) setTab('loans')
       else                                      setTab('dashboard')
     }
     window.addEventListener('popstate', onPopState)
@@ -157,7 +163,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
+            <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
               className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
               style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
               {t.label}
@@ -659,12 +665,34 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
+        {/* ═══ LOANS ═══ */}
+        {tab === 'loans' && (
+          selectedLoanId ? (
+            <LoanDetailPanel
+              loanId={selectedLoanId}
+              onBack={() => setSelectedLoanId(null)}
+              onViewBorrower={(clientId) => {
+                setSelectedClientId(clientId)
+                setTab('clients')
+              }}
+            />
+          ) : (
+            <LoansPanel
+              onViewLoan={(id) => setSelectedLoanId(id)}
+            />
+          )
+        )}
+
         {/* ═══ CLIENTS ═══ */}
         {tab === 'clients' && (
           selectedClientId ? (
             <ClientProfilePanel
               clientId={selectedClientId}
               onBack={() => setSelectedClientId(null)}
+              onViewLoan={(loanId) => {
+                setSelectedLoanId(loanId)
+                setTab('loans')
+              }}
             />
           ) : (
             <ClientsPanel
@@ -701,7 +729,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             const active = tab === t.id
             return (
               <button key={t.id}
-                onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
+                onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all"
                 style={{ color: active ? '#1565C0' : '#94a3b8' }}>
                 <span className="text-2xl leading-none">{t.emoji}</span>
