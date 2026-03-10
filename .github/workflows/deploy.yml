@@ -82,6 +82,12 @@ jobs:
 
       # OIDC: exchange GitHub token for short-lived AWS credentials.
       # No long-lived access keys stored as secrets.
+      - name: Validate AWS role secret
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "Missing secret: AWS_DEPLOY_ROLE_ARN"
+            exit 1
+          fi
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -152,6 +158,12 @@ jobs:
       name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
     steps:
+      - name: Validate AWS role secret
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "Missing secret: AWS_DEPLOY_ROLE_ARN"
+            exit 1
+          fi
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -219,7 +231,7 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
     defaults:
       run:
         working-directory: infra/terraform/environments/prod
@@ -228,6 +240,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate AWS role secret
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "Missing secret: AWS_DEPLOY_ROLE_ARN"
+            exit 1
+          fi
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -271,4 +289,5 @@ jobs:
               repo:         context.repo.repo,
               body: `## Terraform Plan\n\`\`\`hcl\n${truncated}\n\`\`\``
             })
+
 
