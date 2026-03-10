@@ -119,14 +119,11 @@ jobs:
         run: |
           IMAGE="${ECR_WEB_REPO}:${TAG}"
           docker build \
-            --cache-from "${ECR_WEB_REPO}:latest" \
             --build-arg BUILDKIT_INLINE_CACHE=1 \
             -t "${IMAGE}" \
-            -t "${ECR_WEB_REPO}:latest" \
             -f Dockerfile \
             .
           docker push "${IMAGE}"
-          docker push "${ECR_WEB_REPO}:latest"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
 
       # Build and push worker image
@@ -138,14 +135,11 @@ jobs:
         run: |
           IMAGE="${ECR_WORKER_REPO}:${TAG}"
           docker build \
-            --cache-from "${ECR_WORKER_REPO}:latest" \
             --build-arg BUILDKIT_INLINE_CACHE=1 \
             -t "${IMAGE}" \
-            -t "${ECR_WORKER_REPO}:latest" \
             -f Dockerfile.worker \
             .
           docker push "${IMAGE}"
-          docker push "${ECR_WORKER_REPO}:latest"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
 
   # ─── Job 3: Deploy to ECS ─────────────────────────────────────────────────

@@ -246,6 +246,13 @@ resource "aws_iam_role_policy" "github_actions" {
         ]
         Resource = "*"
       },
+      # CloudFront: allow cache invalidation after deploy
+      {
+        Sid      = "CloudFrontInvalidate"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = "*"
+      },
       # IAM PassRole: needed for ECS to accept task definitions with these roles
       {
         Sid    = "PassECSRoles"
@@ -260,4 +267,5 @@ resource "aws_iam_role_policy" "github_actions" {
     ]
   })
 }
+
 
