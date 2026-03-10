@@ -24,6 +24,17 @@ interface StatsData {
   avgPaymentByCurrency:  { currency: string; avgMonthlyPayment: number; count: number }[]
   recoveryByCurrency:    { currency: string; totalAmount: number; totalRecovered: number; percentage: number }[]
   recentClients: RecentClient[]
+  baseCurrency?: 'USD'
+  exchangeRatesPerUsd?: Record<string, number>
+  portfolio?: {
+    totalLoansCount: number; totalDisbursed: number; activePortfolio: number
+    totalActiveCount: number; delinquentCount: number; overdueAmountTotal: number
+    totalPrincipalOriginated?: number
+    paidOffCount: number; pendingApprovalCount: number
+    approvalRate: number; dueTodayCount: number; dueTodayAmount: number
+    collectedMonth: number
+    byLifecycle: { status: string; count: number }[]
+  }
 }
 interface RecentClient {
   id: string; name: string; email: string; savedAt: string
@@ -183,6 +194,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [uploading,setUploading]= useState<string | null>(null)
   const [expandDoc,setExpandDoc]= useState<string | null>(null)
   const [orgInfo,  setOrgInfo]  = useState<OrgInfo | null>(null)
+  const [dashboardCurrency, setDashboardCurrency] = useState<Currency>('USD')
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // ── Fetch on mount ──────────────────────────────────────────────────────────
@@ -236,7 +248,22 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     if (stats) setStats(s => s ? { ...s, totalClients: s.totalClients - 1, totalLoans: s.totalLoans - 1 } : s)
   }
 
-  const fmt = (v: number, cur: Currency = 'USD') => formatCurrency(v, cur)
+  const usdToSelected = (amountUsd: number) => {
+    if (dashboardCurrency === 'USD') return amountUsd
+    const rate = stats?.exchangeRatesPerUsd?.[dashboardCurrency] ?? 1
+    return amountUsd * rate
+  }
+  const fmt = (vUsd: number) => formatCurrency(usdToSelected(vUsd), dashboardCurrency)
+  const fmtLoan = (v: number, cur: Currency = 'USD') => formatCurrency(v, cur)
+  const fmtK = (nUsd: number) => {
+    const n = usdToSelected(nUsd)
+    const symbol = dashboardCurrency === 'DOP' ? 'RD$' : '$'
+    return n >= 1_000_000
+      ? `${symbol}${(n / 1_000_000).toFixed(2)}M`
+      : n >= 1_000
+      ? `${symbol}${(n / 1_000).toFixed(0)}K`
+      : `${symbol}${Math.round(n).toLocaleString('es-AR')}`
+  }
 
   // ── Paid this month helper ──────────────────────────────────────────────────
   const yearMonth = (() => {
@@ -330,14 +357,6 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         const highRisk = stats.byProfile.find(p => p.profile === 'High Risk')?.count ?? 0
         const avgTerm  = Math.round(stats.avgTermMonths || 0)
 
-        // Format helpers
-        const fmtK = (n: number) =>
-          n >= 1_000_000
-            ? `$${(n / 1_000_000).toFixed(2)}M`
-            : n >= 1_000
-            ? `$${(n / 1_000).toFixed(0)}K`
-            : `$${Math.round(n).toLocaleString('es-AR')}`
-
         return (
           <>
             {/* ── Section header ── */}
@@ -346,9 +365,19 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 {SECTION_BAR}
                 <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Resumen de cartera</h3>
               </div>
-              <span className="text-xs text-slate-400">
-                {stats.totalClients} cliente{stats.totalClients !== 1 ? 's' : ''} · actualizado ahora
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">
+                  {stats.totalClients} cliente{stats.totalClients !== 1 ? 's' : ''} · actualizado ahora
+                </span>
+                <select
+                  value={dashboardCurrency}
+                  onChange={e => setDashboardCurrency(e.target.value as Currency)}
+                  className="text-xs font-semibold rounded-lg border border-slate-300 px-2 py-1 bg-white"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="DOP">RD$ (DOP)</option>
+                </select>
+              </div>
             </div>
 
             {/* ── Primary KPIs (4 large cards) ── */}
@@ -362,25 +391,10 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">Cartera total</p>
                     <span className="text-xl flex-shrink-0">💼</span>
                   </div>
-                  {stats.byCurrency.length === 0 ? (
-                    <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>—</p>
-                  ) : (
-                    <div className="space-y-2 mb-1.5">
-                      {stats.byCurrency.map(c => (
-                        <div key={c.currency} className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold px-2 py-0.5 rounded"
-                            style={{ background: '#EEF4FF', color: '#1565C0' }}>
-                            {c.currency}
-                          </span>
-                          <span className="font-display text-xl font-black tabular-nums leading-none"
-                            style={{ color: '#0D2B5E' }}>
-                            {fmtK(c.totalAmount)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-xs text-slate-400">capital otorgado</p>
+                  <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>
+                    {fmtK(stats.portfolio?.totalPrincipalOriginated ?? stats.totalAmount)}
+                  </p>
+                  <p className="text-xs text-slate-400">principal originado (excluye cancelados/denegados/borradores)</p>
                 </div>
               </div>
               <KpiCard
@@ -444,7 +458,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                             {c.currency}
                           </span>
                           <span className="text-sm font-black tabular-nums" style={{ color: '#0D2B5E' }}>
-                            ${Math.round(c.avgMonthlyPayment).toLocaleString('es-AR')}
+                            {fmt(c.avgMonthlyPayment)}
                           </span>
                         </div>
                       ))}
@@ -657,11 +671,6 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         }
         if (p.totalLoansCount === 0) return null
 
-        const fmtK = (n: number) =>
-          n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M`
-          : n >= 1_000   ? `$${(n / 1_000).toFixed(0)}K`
-          : `$${Math.round(n).toLocaleString('es-AR')}`
-
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-2.5">
@@ -827,7 +836,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate" style={{ color: '#0D2B5E' }}>{c.name}</p>
-                          <p className="text-xs text-slate-400">Cuota: {fmt(c.result?.monthlyPayment ?? 0, c.params.currency)} · vence {payDateStr}</p>
+                          <p className="text-xs text-slate-400">Cuota: {fmtLoan(c.result?.monthlyPayment ?? 0, c.params.currency)} · vence {payDateStr}</p>
                         </div>
                         <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
                           style={{ background: pill.bg, color: pill.color, border: `1px solid ${pill.border}` }}>
@@ -1005,9 +1014,9 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                       )}
                     </div>
                     <p className="text-xs text-slate-500">
-                      <strong>{fmt(c.params?.amount ?? 0, cur)}</strong>
+                      <strong>{fmtLoan(c.params?.amount ?? 0, cur)}</strong>
                       {' · '}{c.params?.termYears} años
-                      {c.result && <> · <strong>{fmt(c.result.monthlyPayment, cur)}/mes</strong></>}
+                      {c.result && <> · <strong>{fmtLoan(c.result.monthlyPayment, cur)}/mes</strong></>}
                     </p>
                     {c.savedAt && (
                       <p className="text-xs text-slate-400 mt-0.5">
