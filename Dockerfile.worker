@@ -1,0 +1,46 @@
+# ─── Reminder Worker ─────────────────────────────────────────────────────────
+#
+# Compiles the TypeScript worker to JavaScript and runs it with Node directly.
+# No Next.js involved — this is a plain Node.js long-running process.
+
+FROM node:20-alpine AS builder
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+COPY package.json package-lock.json tsconfig.json ./
+RUN npm ci --ignore-scripts
+
+COPY src/lib/sqs.ts      ./src/lib/
+COPY src/lib/secrets.ts  ./src/lib/
+COPY src/workers/reminder-worker.ts ./src/workers/
+
+# Compile TypeScript → JavaScript
+RUN npx tsc --outDir dist --module commonjs --target es2020 \
+    --moduleResolution node --esModuleInterop true --skipLibCheck true \
+    src/lib/sqs.ts src/lib/secrets.ts src/workers/reminder-worker.ts
+
+# ── Runner ────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+RUN apk add --no-cache dumb-init
+
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 worker && \
+    adduser  --system --uid 1001 worker
+
+# Install only production deps needed by the worker
+COPY package.json package-lock.json ./
+RUN npm ci --only=production --ignore-scripts
+
+COPY --from=builder --chown=worker:worker /app/dist ./dist
+
+USER worker
+
+ENV NODE_ENV=production
+
+# dumb-init forwards SIGTERM correctly to Node.js (important for graceful shutdown)
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/src/workers/reminder-worker.js"]

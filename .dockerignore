@@ -1,0 +1,32 @@
+# Dependencies (reinstalled inside Docker)
+node_modules
+
+# Build output
+.next
+dist
+
+# Environment files — NEVER bake secrets into images
+.env
+.env.local
+.env.*.local
+*.tfvars
+
+# Git
+.git
+.gitignore
+
+# Terraform state and local infra files
+infra/terraform/.terraform
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.backup
+
+# Dev / editor
+.DS_Store
+*.swp
+*.swo
+.vscode
+.idea
+
+# Docs and scripts that don't belong in the image
+README.md
+*.md

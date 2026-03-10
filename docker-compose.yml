@@ -1,0 +1,84 @@
+# ─── Local Development Stack ──────────────────────────────────────────────────
+#
+# Runs the full stack locally without needing AWS.
+# AWS services are simulated:
+#   - LocalStack: S3 + SQS + Secrets Manager (free, offline)
+#
+# Usage:
+#   docker compose up           # start all services
+#   docker compose up web       # start only the Next.js app
+#   docker compose logs -f web  # tail web logs
+
+services:
+
+  # ── LocalStack: AWS service emulation ──────────────────────────────────────
+  localstack:
+    image: localstack/localstack:3.0
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,sqs,secretsmanager,kms
+      - DEBUG=0
+      - PERSISTENCE=1
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/localstack/init:/etc/localstack/init/ready.d  # setup scripts
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js Web App ────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for faster local builds with hot reload
+    command: ["npm", "run", "dev"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules  # Preserve container's node_modules
+      - /app/.next
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=development
+      - AWS_ENDPOINT_URL=http://localstack:4566  # Point SDK to LocalStack
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test                   # LocalStack accepts any credentials
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_S3_DOCUMENTS_BUCKET=lendstack-local-documents
+      - AWS_SQS_REMINDERS_URL=http://localstack:4566/000000000000/lendstack-local-reminders
+    depends_on:
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Reminder Worker ────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - NODE_ENV=development
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_SQS_REMINDERS_URL=http://localstack:4566/000000000000/lendstack-local-reminders
+    env_file:
+      - .env.local
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+volumes:
+  localstack_data:
