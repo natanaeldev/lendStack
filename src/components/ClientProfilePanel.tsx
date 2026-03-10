@@ -36,6 +36,8 @@ interface ClientProfile {
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
   payments: Payment[]
+  loanId?: string | null
+  lifecycleStatus?: string | null
 }
 
 type EditForm = {
@@ -134,13 +136,14 @@ function EditField({ label, children, full }: { label: string; children: React.R
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  clientId: string
-  onBack:   () => void
+  clientId:     string
+  onBack:       () => void
+  onViewLoan?:  (loanId: string) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ClientProfilePanel({ clientId, onBack }: Props) {
+export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Props) {
   const [client,         setClient]        = useState<ClientProfile | null>(null)
   const [loading,        setLoading]       = useState(true)
   const [error,          setError]         = useState('')
@@ -154,6 +157,8 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
   const [branches,  setBranches]  = useState<BranchDoc[]>([])
+
+  const [syncingLoan, setSyncingLoan] = useState(false)
 
   // ── Payment registration ────────────────────────────────────────────────────
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
@@ -220,6 +225,39 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
       setClient(prev => prev ? { ...prev, loanStatus: target } : prev)
     } catch { /* silent */ }
     setUpdatingStatus(false)
+  }
+
+  // ── Sync legacy loan to lifecycle system ───────────────────────────────────
+  const syncLoanToLifecycle = async () => {
+    if (!client || syncingLoan) return
+    setSyncingLoan(true)
+    try {
+      const res = await fetch('/api/loans', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId:         clientId,
+          loanType:         'amortized',
+          currency:         client.params.currency,
+          amount:           client.params.amount,
+          termYears:        client.params.termYears,
+          profile:          client.params.profile,
+          rateMode:         client.params.rateMode,
+          customMonthlyRate: client.params.customMonthlyRate,
+          annualRate:       client.result.annualRate,
+          monthlyRate:      client.result.monthlyRate,
+          totalMonths:      client.result.totalMonths,
+          scheduledPayment: client.result.monthlyPayment,
+          totalPayment:     client.result.totalPayment,
+          totalInterest:    client.result.totalInterest,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showToast('❌', data.error ?? 'Error al sincronizar'); return }
+      showToast('💳', 'Préstamo registrado en el sistema')
+      loadClient()
+    } catch { showToast('❌', 'Error de red') }
+    finally { setSyncingLoan(false) }
   }
 
   // ── Open edit mode ─────────────────────────────────────────────────────────
@@ -723,6 +761,27 @@ export default function ClientProfilePanel({ clientId, onBack }: Props) {
           </div>
 
         </div>
+      </div>
+
+      {/* ── Loan lifecycle actions ── */}
+      <div className="flex flex-wrap gap-2 justify-end">
+        {onViewLoan && client.loanId && (
+          <button
+            onClick={() => onViewLoan(client.loanId!)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
+            Ver préstamo completo →
+          </button>
+        )}
+        {!client.loanId && client.params && (
+          <button
+            onClick={syncLoanToLifecycle}
+            disabled={syncingLoan}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all disabled:opacity-50"
+            style={{ borderColor: '#2563EB', color: '#2563EB', background: '#EFF6FF' }}>
+            {syncingLoan ? 'Registrando…' : '🔗 Registrar en sistema de préstamos'}
+          </button>
+        )}
       </div>
 
       {/* ── Loan summary ── */}
