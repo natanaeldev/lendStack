@@ -106,7 +106,7 @@ function MetricRow({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
         <p className="font-display text-lg font-bold leading-none" style={{ color: '#0D2B5E' }}>{value}</p>
         {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
       </div>
@@ -430,7 +430,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                   💳
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                     Cuota prom. mensual
                   </p>
                   {(stats.avgPaymentByCurrency ?? []).length === 0 ? (
@@ -689,15 +689,15 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 </div>
               ))}
             </div>
-            {/* Operational row: due today + collected + approval */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Operational row: due today + collected + pending */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
               {[
                 { label: 'Cuotas vencen hoy', value: fmtK(p.dueTodayAmount), sub: `${p.dueTodayCount} cuota${p.dueTodayCount !== 1 ? 's' : ''}`, bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', emoji: '📅' },
                 { label: 'Cobrado este mes',  value: fmtK(p.collectedMonth),  sub: 'pagos registrados',                                             bg: '#ECFDF5', border: '#6EE7B7', color: '#064E3B', emoji: '💸' },
-                { label: 'Tasa aprobación',   value: `${Math.round(p.approvalRate * 100)}%`, sub: `${p.pendingApprovalCount} en evaluación`,       bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF', emoji: '📊' },
+                { label: 'En evaluación',     value: String(p.pendingApprovalCount),         sub: 'solicitudes pendientes',                        bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF', emoji: '📋' },
               ].map(s => (
-                <div key={s.label} className="rounded-2xl p-3 sm:p-4 border"
-                  style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+                <div key={s.label} className="rounded-2xl p-3 sm:p-5 border"
+                  style={{ background: s.bg, borderColor: s.border, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
                   <div className="flex flex-col items-center gap-0.5 sm:hidden">
                     <span className="text-xl leading-none mb-0.5">{s.emoji}</span>
                     <div className="text-lg font-black leading-none text-center" style={{ color: s.color }}>{s.value}</div>
