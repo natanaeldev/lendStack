@@ -30,6 +30,8 @@ interface ClientProfile {
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
   payments: Payment[]
+  loanId?: string | null
+  lifecycleStatus?: string | null
 }
 
 type EditForm = {
@@ -147,6 +149,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
 
+  const [syncingLoan, setSyncingLoan] = useState(false)
+
   // ── Payment registration ────────────────────────────────────────────────────
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
   const [payLoading,          setPayLoading]          = useState(false)
@@ -203,6 +207,39 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       setClient(prev => prev ? { ...prev, loanStatus: target } : prev)
     } catch { /* silent */ }
     setUpdatingStatus(false)
+  }
+
+  // ── Sync legacy loan to lifecycle system ───────────────────────────────────
+  const syncLoanToLifecycle = async () => {
+    if (!client || syncingLoan) return
+    setSyncingLoan(true)
+    try {
+      const res = await fetch('/api/loans', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId:         clientId,
+          loanType:         'amortized',
+          currency:         client.params.currency,
+          amount:           client.params.amount,
+          termYears:        client.params.termYears,
+          profile:          client.params.profile,
+          rateMode:         client.params.rateMode,
+          customMonthlyRate: client.params.customMonthlyRate,
+          annualRate:       client.result.annualRate,
+          monthlyRate:      client.result.monthlyRate,
+          totalMonths:      client.result.totalMonths,
+          scheduledPayment: client.result.monthlyPayment,
+          totalPayment:     client.result.totalPayment,
+          totalInterest:    client.result.totalInterest,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showToast('❌', data.error ?? 'Error al sincronizar'); return }
+      showToast('💳', 'Préstamo registrado en el sistema')
+      loadClient()
+    } catch { showToast('❌', 'Error de red') }
+    finally { setSyncingLoan(false) }
   }
 
   // ── Open edit mode ─────────────────────────────────────────────────────────
@@ -650,17 +687,26 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         </div>
       </div>
 
-      {/* ── View full loan button ── */}
-      {onViewLoan && (client as any).loanId && (
-        <div className="flex justify-end">
+      {/* ── Loan lifecycle actions ── */}
+      <div className="flex flex-wrap gap-2 justify-end">
+        {onViewLoan && client.loanId && (
           <button
-            onClick={() => onViewLoan((client as any).loanId)}
+            onClick={() => onViewLoan(client.loanId!)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
             Ver préstamo completo →
           </button>
-        </div>
-      )}
+        )}
+        {!client.loanId && client.params && (
+          <button
+            onClick={syncLoanToLifecycle}
+            disabled={syncingLoan}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all disabled:opacity-50"
+            style={{ borderColor: '#2563EB', color: '#2563EB', background: '#EFF6FF' }}>
+            {syncingLoan ? 'Registrando…' : '🔗 Registrar en sistema de préstamos'}
+          </button>
+        )}
+      </div>
 
       {/* ── Loan summary ── */}
       <div className="rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>

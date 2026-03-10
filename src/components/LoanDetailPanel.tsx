@@ -427,6 +427,7 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
   const [showPay,         setShowPay]         = useState(false)
   const [showCollection,  setShowCollection]  = useState(false)
   const [updatingStatus,  setUpdatingStatus]  = useState(false)
+  const [reversingPayId,  setReversingPayId]  = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true); setError('')
@@ -459,6 +460,18 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
       loadData()
     } catch { showToast('Error de red', 'error') }
     finally { setUpdatingStatus(false) }
+  }
+
+  async function reversePayment(paymentId: string) {
+    if (!confirm('¿Anular este pago? Esta acción revierte las cuotas afectadas.')) return
+    setReversingPayId(paymentId)
+    try {
+      const res = await fetch(`/api/loans/${loanId}/payments/${paymentId}`, { method: 'DELETE' })
+      if (!res.ok) { const d = await res.json(); showToast(d.error ?? 'Error al anular pago', 'error'); return }
+      showToast('Pago anulado', 'success')
+      loadData()
+    } catch { showToast('Error de red', 'error') }
+    finally { setReversingPayId(null) }
   }
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -694,6 +707,7 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
                   <th className="px-3 py-2 text-right">Capital</th>
                   <th className="px-3 py-2 text-right">Interés</th>
                   <th className="px-3 py-2 text-left">Notas</th>
+                  <th className="px-3 py-2 text-center"></th>
                 </tr>
               </thead>
               <tbody>
@@ -704,6 +718,15 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
                     <td className="px-3 py-2.5 text-right font-mono text-slate-600">{formatCurrency(p.appliedPrincipal, cur)}</td>
                     <td className="px-3 py-2.5 text-right font-mono text-slate-600">{formatCurrency(p.appliedInterest, cur)}</td>
                     <td className="px-3 py-2.5 text-slate-500 text-xs">{p.notes ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <button
+                        onClick={() => reversePayment(p._id)}
+                        disabled={reversingPayId === p._id}
+                        title="Anular pago"
+                        className="text-xs text-red-500 hover:text-red-700 font-semibold disabled:opacity-40 transition-colors">
+                        {reversingPayId === p._id ? '…' : 'Anular'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
