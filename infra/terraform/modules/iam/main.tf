@@ -187,19 +187,20 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
+locals {
+  # Ternary extracted so it's not nested inside jsonencode (HCL parser limitation)
+  github_oidc_arn = var.create_github_oidc ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
+}
+
 resource "aws_iam_role" "github_actions" {
   name = "${var.name}-github-actions-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Federated = var.create_github_oidc
-          ? aws_iam_openid_connect_provider.github[0].arn
-          : data.aws_iam_openid_connect_provider.github[0].arn
-      }
-      Action = "sts:AssumeRoleWithWebIdentity"
+      Effect    = "Allow"
+      Principal = { Federated = local.github_oidc_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringLike = {
           "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"

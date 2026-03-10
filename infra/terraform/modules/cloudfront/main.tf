@@ -37,7 +37,9 @@ resource "aws_wafv2_web_acl" "main" {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
 
-    override_action { none {} }
+    override_action {
+      none {}
+    }
 
     statement {
       managed_rule_group_statement {
@@ -46,8 +48,10 @@ resource "aws_wafv2_web_acl" "main" {
 
         # Exclude SizeRestrictions_BODY — Next.js API routes can have large bodies
         rule_action_override {
-          name          = "SizeRestrictions_BODY"
-          action_to_use { count {} }
+          name = "SizeRestrictions_BODY"
+          action_to_use {
+            count {}
+          }
         }
       }
     }
@@ -64,7 +68,9 @@ resource "aws_wafv2_web_acl" "main" {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 2
 
-    override_action { none {} }
+    override_action {
+      none {}
+    }
 
     statement {
       managed_rule_group_statement {
@@ -86,7 +92,9 @@ resource "aws_wafv2_web_acl" "main" {
     name     = "RateLimitRule"
     priority = 3
 
-    action { block {} }
+    action {
+      block {}
+    }
 
     statement {
       rate_based_statement {
