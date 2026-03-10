@@ -1,18 +1,22 @@
 # ─── LendStack Production Environment ────────────────────────────────────────
 #
-# Wires all modules together. Module outputs feed into the next module's inputs.
-# Dependency order:
-#   vpc → (iam needs placeholder arns) → s3 + sqs → kms → iam (real arns) → secrets → ecs
-#
-# Note: IAM has a chicken-and-egg with KMS (KMS needs role ARNs, IAM needs KMS ARNs).
-# Solved by creating IAM roles first with placeholder KMS vars, then updating KMS.
-# Terraform handles this via depends_on and apply ordering.
+# Clean dependency order (no cycles):
+#   vpc  → (nothing)
+#   kms  → (nothing)
+#   s3   → kms
+#   sqs  → kms
+#   iam  → kms, s3, sqs, secrets
+#   secrets → kms, s3, sqs
+#   alb  → vpc, s3
+#   ecs  → iam, secrets, alb, vpc
+#   cloudfront → alb
+#   monitoring → alb, ecs, sqs
 
 locals {
   name = "lendstack-${var.environment}"
 }
 
-# ─── 1. Network Foundation ────────────────────────────────────────────────────
+# ─── 1. Network ───────────────────────────────────────────────────────────────
 
 module "vpc" {
   source = "../../modules/vpc"
@@ -25,21 +29,15 @@ module "vpc" {
   private_subnets = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
-# ─── 2. SQS (needed by IAM for resource ARNs) ────────────────────────────────
-# Create with placeholder roles, update after IAM is created.
+# ─── 2. KMS (no external deps) ───────────────────────────────────────────────
 
-module "sqs" {
-  source = "../../modules/sqs"
+module "kms" {
+  source = "../../modules/kms"
 
-  name                 = local.name
-  kms_key_arn          = module.kms.s3_key_arn  # Reuse S3 key for SQS (or use dedicated)
-  web_task_role_arn    = module.iam.web_task_role_arn
-  worker_task_role_arn = module.iam.worker_task_role_arn
-
-  depends_on = [module.iam]
+  name = local.name
 }
 
-# ─── 3. S3 (needed by IAM for resource ARN) ──────────────────────────────────
+# ─── 3. S3 + SQS (depend only on KMS) ───────────────────────────────────────
 
 module "s3" {
   source = "../../modules/s3"
@@ -47,38 +45,16 @@ module "s3" {
   bucket_name     = var.documents_bucket_name
   kms_key_arn     = module.kms.s3_key_arn
   allowed_origins = ["https://${var.domain_name}"]
-
-  depends_on = [module.kms]
 }
 
-# ─── 4. IAM (needs S3 + SQS ARNs, provides role ARNs for KMS + ECS) ─────────
-# Bootstrap with dummy KMS ARN first apply, then real one flows through.
+module "sqs" {
+  source = "../../modules/sqs"
 
-module "iam" {
-  source = "../../modules/iam"
-
-  name                 = local.name
-  documents_bucket_arn = module.s3.bucket_arn
-  reminders_queue_arn  = module.sqs.reminders_queue_arn
-  reminders_dlq_arn    = module.sqs.reminders_dlq_arn
-  secrets_kms_key_arn  = module.kms.secrets_key_arn
-  s3_kms_key_arn       = module.kms.s3_key_arn
-  secret_arns          = module.secrets.all_secret_arns
-  github_repo          = var.github_repo
-  create_github_oidc   = var.create_github_oidc
+  name        = local.name
+  kms_key_arn = module.kms.s3_key_arn
 }
 
-# ─── 5. KMS (needs IAM role ARNs for key policies) ───────────────────────────
-
-module "kms" {
-  source = "../../modules/kms"
-
-  name                   = local.name
-  ecs_task_role_arn      = module.iam.web_task_role_arn
-  ecs_execution_role_arn = module.iam.execution_role_arn
-}
-
-# ─── 6. Secrets Manager ───────────────────────────────────────────────────────
+# ─── 4. Secrets (depends on KMS, S3, SQS) ────────────────────────────────────
 
 module "secrets" {
   source = "../../modules/secrets"
@@ -96,20 +72,36 @@ module "secrets" {
   sqs_reminders_url     = module.sqs.reminders_queue_url
 }
 
-# ─── 7. ALB ──────────────────────────────────────────────────────────────────
+# ─── 5. IAM (depends on KMS, S3, SQS, Secrets) ───────────────────────────────
+
+module "iam" {
+  source = "../../modules/iam"
+
+  name                 = local.name
+  documents_bucket_arn = module.s3.bucket_arn
+  reminders_queue_arn  = module.sqs.reminders_queue_arn
+  reminders_dlq_arn    = module.sqs.reminders_dlq_arn
+  secrets_kms_key_arn  = module.kms.secrets_key_arn
+  s3_kms_key_arn       = module.kms.s3_key_arn
+  secret_arns          = module.secrets.all_secret_arns
+  github_repo          = var.github_repo
+  create_github_oidc   = var.create_github_oidc
+}
+
+# ─── 6. ALB (depends on VPC) ─────────────────────────────────────────────────
 
 module "alb" {
   source = "../../modules/alb"
 
-  name                      = local.name
-  vpc_id                    = module.vpc.vpc_id
-  public_subnet_ids         = module.vpc.public_subnet_ids
-  acm_certificate_arn       = var.acm_certificate_arn
-  access_logs_bucket        = module.s3.bucket_name  # Or a dedicated logs bucket
+  name                       = local.name
+  vpc_id                     = module.vpc.vpc_id
+  public_subnet_ids          = module.vpc.public_subnet_ids
+  acm_certificate_arn        = var.acm_certificate_arn
+  access_logs_bucket         = module.s3.bucket_name
   enable_deletion_protection = var.environment == "prod"
 }
 
-# ─── 8. ECS ──────────────────────────────────────────────────────────────────
+# ─── 7. ECS (depends on IAM, Secrets, ALB, VPC) ──────────────────────────────
 
 module "ecs" {
   source = "../../modules/ecs"
@@ -127,18 +119,18 @@ module "ecs" {
   aws_region              = var.aws_region
   image_tag               = var.image_tag
 
-  secret_mongodb_uri_arn  = module.secrets.mongodb_uri_arn
-  secret_nextauth_arn     = module.secrets.nextauth_arn
-  secret_resend_arn       = module.secrets.resend_arn
-  secret_stripe_arn       = module.secrets.stripe_arn
-  secret_aws_config_arn   = module.secrets.aws_config_arn
+  secret_mongodb_uri_arn = module.secrets.mongodb_uri_arn
+  secret_nextauth_arn    = module.secrets.nextauth_arn
+  secret_resend_arn      = module.secrets.resend_arn
+  secret_stripe_arn      = module.secrets.stripe_arn
+  secret_aws_config_arn  = module.secrets.aws_config_arn
 
   web_desired_count = var.web_desired_count
   web_min_count     = var.web_min_count
   web_max_count     = var.web_max_count
 }
 
-# ─── 9. CloudFront ───────────────────────────────────────────────────────────
+# ─── 8. CloudFront (depends on ALB) ──────────────────────────────────────────
 
 module "cloudfront" {
   source = "../../modules/cloudfront"
@@ -154,7 +146,7 @@ module "cloudfront" {
   }
 }
 
-# ─── 10. Monitoring ──────────────────────────────────────────────────────────
+# ─── 9. Monitoring (depends on ALB, ECS, SQS) ────────────────────────────────
 
 module "monitoring" {
   source = "../../modules/monitoring"

@@ -36,45 +36,6 @@ resource "aws_sqs_queue" "reminders" {
   tags = { Name = "${var.name}-reminders", Purpose = "payment-reminders" }
 }
 
-# Queue policy: only the web ECS task role can send, only the worker can receive
-resource "aws_sqs_queue_policy" "reminders" {
-  queue_url = aws_sqs_queue.reminders.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowSend"
-        Effect = "Allow"
-        Principal = { AWS = var.web_task_role_arn }
-        Action   = ["sqs:SendMessage"]
-        Resource = aws_sqs_queue.reminders.arn
-      },
-      {
-        Sid    = "AllowConsume"
-        Effect = "Allow"
-        Principal = { AWS = var.worker_task_role_arn }
-        Action = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:ChangeMessageVisibility",
-          "sqs:GetQueueAttributes"
-        ]
-        Resource = aws_sqs_queue.reminders.arn
-      },
-      # Deny all other principals
-      {
-        Sid       = "DenyEverythingElse"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "sqs:*"
-        Resource  = aws_sqs_queue.reminders.arn
-        Condition = {
-          ArnNotLike = {
-            "aws:PrincipalArn" = [var.web_task_role_arn, var.worker_task_role_arn]
-          }
-        }
-      }
-    ]
-  })
-}
+# No resource-based queue policy needed — access is controlled entirely by
+# IAM policies attached to the ECS task roles. Resource policies are only
+# required for cross-account access or AWS service principals.

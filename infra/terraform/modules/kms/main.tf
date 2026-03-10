@@ -1,12 +1,14 @@
 # ─── KMS Keys ────────────────────────────────────────────────────────────────
 #
-# Design decisions:
-#   - Separate keys per service (S3, Secrets) so a compromise of one key
-#     doesn't expose all data. AWS lets you audit each key independently.
-#   - Key rotation enabled: AWS auto-rotates the backing key material annually.
-#     The key ARN stays the same; existing ciphertext is transparently re-wrapped.
-#   - Deletion window: 30 days minimum. This prevents accidental permanent data
-#     loss — you have 30 days to cancel if a key is deleted by mistake.
+# Key policy design — "root delegation" pattern:
+#   The root account statement grants the AWS account full control over the key.
+#   This enables IAM policies on individual roles to grant kms:* access without
+#   those role ARNs needing to appear in the key policy itself.
+#   This is the standard AWS pattern and breaks the KMS ↔ IAM circular dependency.
+#
+#   Specific service principals (s3, secretsmanager) are granted directly here
+#   because they assume the key on behalf of AWS-internal operations that bypass
+#   normal IAM evaluation.
 
 data "aws_caller_identity" "current" {}
 
@@ -18,7 +20,6 @@ resource "aws_kms_key" "s3" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # Root account has full control — required, otherwise you can lock yourself out
       {
         Sid    = "EnableRootAccess"
         Effect = "Allow"
@@ -26,28 +27,11 @@ resource "aws_kms_key" "s3" {
         Action   = "kms:*"
         Resource = "*"
       },
-      # ECS task role can encrypt/decrypt S3 objects
-      {
-        Sid    = "AllowECSTaskS3"
-        Effect = "Allow"
-        Principal = { AWS = var.ecs_task_role_arn }
-        Action = [
-          "kms:GenerateDataKey",
-          "kms:Decrypt",
-          "kms:DescribeKey"
-        ]
-        Resource = "*"
-      },
-      # S3 service can use the key on behalf of bucket operations
       {
         Sid    = "AllowS3Service"
         Effect = "Allow"
         Principal = { Service = "s3.amazonaws.com" }
-        Action = [
-          "kms:GenerateDataKey",
-          "kms:Decrypt",
-          "kms:DescribeKey"
-        ]
+        Action   = ["kms:GenerateDataKey", "kms:Decrypt", "kms:DescribeKey"]
         Resource = "*"
       }
     ]
@@ -76,27 +60,11 @@ resource "aws_kms_key" "secrets" {
         Action   = "kms:*"
         Resource = "*"
       },
-      # ECS execution role needs to decrypt secrets at container startup
-      {
-        Sid    = "AllowECSExecution"
-        Effect = "Allow"
-        Principal = { AWS = var.ecs_execution_role_arn }
-        Action = [
-          "kms:Decrypt",
-          "kms:DescribeKey"
-        ]
-        Resource = "*"
-      },
-      # Secrets Manager service uses the key
       {
         Sid    = "AllowSecretsManager"
         Effect = "Allow"
         Principal = { Service = "secretsmanager.amazonaws.com" }
-        Action = [
-          "kms:GenerateDataKey",
-          "kms:Decrypt",
-          "kms:DescribeKey"
-        ]
+        Action   = ["kms:GenerateDataKey", "kms:Decrypt", "kms:DescribeKey"]
         Resource = "*"
       }
     ]
