@@ -2,6 +2,40 @@ import { NextResponse }                       from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 
+type FxRates = Record<string, number>
+
+const FX_FALLBACK_PER_USD: FxRates = {
+  USD: 1,
+  DOP: 59,
+  EUR: 0.92,
+  ARS: 1100,
+}
+
+async function getLiveRatesPerUsd(): Promise<FxRates> {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=DOP,EUR,ARS', { cache: 'no-store' })
+    if (!res.ok) return FX_FALLBACK_PER_USD
+    const data = await res.json()
+    const rates = data?.rates ?? {}
+    return {
+      USD: 1,
+      DOP: Number(rates.DOP) || FX_FALLBACK_PER_USD.DOP,
+      EUR: Number(rates.EUR) || FX_FALLBACK_PER_USD.EUR,
+      ARS: Number(rates.ARS) || FX_FALLBACK_PER_USD.ARS,
+    }
+  } catch {
+    return FX_FALLBACK_PER_USD
+  }
+}
+
+function toUsd(amount: number, currency: string | undefined, ratesPerUsd: FxRates): number {
+  const cur = (currency ?? 'USD').toUpperCase()
+  if (cur === 'USD') return amount
+  const perUsd = ratesPerUsd[cur]
+  if (!perUsd || perUsd <= 0) return amount
+  return amount / perUsd
+}
+
 // ─── GET /api/stats ───────────────────────────────────────────────────────────
 export async function GET() {
   const session = await requireAuth()
@@ -15,6 +49,7 @@ export async function GET() {
     const col     = db.collection('clients')
     const loansCol = db.collection('loans')
     const orgId   = session.user.organizationId
+    const ratesPerUsd = await getLiveRatesPerUsd()
 
     // ── Aggregate totals from legacy clients collection ────────────────────
     const [totals] = await col.aggregate([
@@ -150,6 +185,28 @@ export async function GET() {
       sede:  byBranchRaw.find(b => b.branch === 'sede')?.count  ?? 0,
       rutas: byBranchRaw.find(b => b.branch === 'rutas')?.count ?? 0,
     }
+
+    const legacyForUsd = await col.find(
+      { organizationId: orgId },
+      { projection: { loan: 1, loanStatus: 1 } },
+    ).toArray()
+
+    let totalAmountUsd = 0
+    let totalInterestUsd = 0
+    let totalMonthlyPaymentsUsd = 0
+    let totalMonthlyIncomeUsd = 0
+    for (const row of legacyForUsd) {
+      totalAmountUsd += toUsd(row.loan?.amount ?? 0, row.loan?.currency, ratesPerUsd)
+      totalInterestUsd += toUsd(row.loan?.totalInterest ?? 0, row.loan?.currency, ratesPerUsd)
+      totalMonthlyPaymentsUsd += toUsd(row.loan?.monthlyPayment ?? 0, row.loan?.currency, ratesPerUsd)
+      if (row.loanStatus === 'approved') {
+        totalMonthlyIncomeUsd += toUsd(row.loan?.monthlyPayment ?? 0, row.loan?.currency, ratesPerUsd)
+      }
+    }
+
+    const totalLoansCountLegacy = legacyForUsd.length || 1
+    const avgAmountUsd = totalAmountUsd / totalLoansCountLegacy
+    const avgMonthlyPaymentUsd = totalMonthlyPaymentsUsd / totalLoansCountLegacy
 
     // ── Date helpers ───────────────────────────────────────────────────────
     const now          = new Date()
@@ -309,19 +366,55 @@ export async function GET() {
     const collectedToday = Math.max(legacyPayStats?.collectedToday ?? 0, newPayStats?.collectedToday ?? 0)
     const collectedMonth = Math.max(legacyPayStats?.collectedMonth ?? 0, newPayStats?.collectedMonth ?? 0)
 
+    const loansForUsd = await loansCol.find(
+      { organizationId: orgId },
+      {
+        projection: {
+          status: 1,
+          amount: 1,
+          currency: 1,
+          disbursedAmount: 1,
+          remainingBalance: 1,
+          overdueAmount: 1,
+        },
+      },
+    ).toArray()
+
+    let totalDisbursedUsd = 0
+    let activePortfolioUsd = 0
+    let overdueAmountTotalUsd = 0
+    let totalPrincipalOriginatedUsd = 0
+    for (const loan of loansForUsd) {
+      const cur = loan.currency ?? 'USD'
+      const status = loan.status ?? ''
+
+      if (!['cancelled', 'denied', 'draft'].includes(status)) {
+        totalPrincipalOriginatedUsd += toUsd(loan.amount ?? 0, cur, ratesPerUsd)
+      }
+      if (['active', 'delinquent', 'paid_off', 'disbursed'].includes(status)) {
+        totalDisbursedUsd += toUsd(loan.disbursedAmount ?? loan.amount ?? 0, cur, ratesPerUsd)
+      }
+      if (['active', 'delinquent'].includes(status)) {
+        activePortfolioUsd += toUsd(loan.remainingBalance ?? 0, cur, ratesPerUsd)
+      }
+      if (status === 'delinquent') {
+        overdueAmountTotalUsd += toUsd(loan.overdueAmount ?? 0, cur, ratesPerUsd)
+      }
+    }
+
     return NextResponse.json({
       configured:           true,
       // Legacy stats (unchanged for backward compat with existing Dashboard)
       totalClients:         totals?.totalClients          ?? 0,
       totalLoans:           totals?.totalLoans            ?? 0,
-      totalAmount:          totals?.totalAmount           ?? 0,
-      avgMonthlyPayment:    totals?.avgMonthlyPayment     ?? 0,
-      avgAmount:            totals?.avgAmount             ?? 0,
-      totalInterest:        totals?.totalInterest         ?? 0,
+      totalAmount:          totalAmountUsd,
+      avgMonthlyPayment:    avgMonthlyPaymentUsd,
+      avgAmount:            avgAmountUsd,
+      totalInterest:        totalInterestUsd,
       avgTermMonths:        totals?.avgTermMonths         ?? 0,
-      totalMonthlyPayments: totals?.totalMonthlyPayments  ?? 0,
-      totalMonthlyIncome:   approvedStats?.totalMonthlyIncome ?? 0,
-      approvedCapital:      approvedStats?.totalCapital       ?? 0,
+      totalMonthlyPayments: totalMonthlyPaymentsUsd,
+      totalMonthlyIncome:   totalMonthlyIncomeUsd,
+      approvedCapital:      toUsd(approvedStats?.totalCapital ?? 0, 'USD', ratesPerUsd),
       byProfile,
       byCurrency,
       byBranch,
@@ -340,11 +433,12 @@ export async function GET() {
       // New operational portfolio stats
       portfolio: {
         totalLoansCount:      portfolio?.totalLoansCount      ?? 0,
-        totalDisbursed:       portfolio?.totalDisbursed       ?? 0,
-        activePortfolio:      portfolio?.activePortfolio      ?? 0,
+        totalDisbursed:       totalDisbursedUsd,
+        activePortfolio:      activePortfolioUsd,
         totalActiveCount:     portfolio?.totalActiveCount     ?? 0,
         delinquentCount:      portfolio?.delinquentCount      ?? 0,
-        overdueAmountTotal:   portfolio?.overdueAmountTotal   ?? 0,
+        overdueAmountTotal:   overdueAmountTotalUsd,
+        totalPrincipalOriginated: totalPrincipalOriginatedUsd,
         paidOffCount:         portfolio?.paidOffCount         ?? 0,
         pendingApprovalCount: portfolio?.pendingApprovalCount ?? 0,
         approvalRate,
@@ -353,6 +447,8 @@ export async function GET() {
         collectedMonth,
         byLifecycle,
       },
+      baseCurrency: 'USD',
+      exchangeRatesPerUsd: ratesPerUsd,
     })
   } catch (err: any) {
     console.error('[GET /api/stats]', err)
