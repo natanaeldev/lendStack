@@ -109,6 +109,7 @@ jobs:
         id: push-web
         env:
           TAG: ${{ steps.meta.outputs.tag }}
+          DOCKER_BUILDKIT: 1
         run: |
           IMAGE="${ECR_WEB_REPO}:${TAG}"
           docker build \
@@ -121,14 +122,13 @@ jobs:
           docker push "${IMAGE}"
           docker push "${ECR_WEB_REPO}:latest"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
-        env:
-          DOCKER_BUILDKIT: 1
 
       # Build and push worker image
       - name: Build & push worker image
         id: push-worker
         env:
           TAG: ${{ steps.meta.outputs.tag }}
+          DOCKER_BUILDKIT: 1
         run: |
           IMAGE="${ECR_WORKER_REPO}:${TAG}"
           docker build \
@@ -141,8 +141,6 @@ jobs:
           docker push "${IMAGE}"
           docker push "${ECR_WORKER_REPO}:latest"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
-        env:
-          DOCKER_BUILDKIT: 1
 
   # ─── Job 3: Deploy to ECS ─────────────────────────────────────────────────
   deploy:
@@ -152,7 +150,6 @@ jobs:
     if: github.event_name == 'push'
     environment:
       name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      url:  ${{ github.ref_name == 'main' && secrets.PROD_URL || secrets.STAGING_URL }}
 
     steps:
       - name: Configure AWS credentials (OIDC)
@@ -274,3 +271,4 @@ jobs:
               repo:         context.repo.repo,
               body: `## Terraform Plan\n\`\`\`hcl\n${truncated}\n\`\`\``
             })
+
