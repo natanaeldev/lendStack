@@ -17,6 +17,7 @@ import LoansPanel from '@/components/LoansPanel'
 import LoanDetailPanel from '@/components/LoanDetailPanel'
 import Dashboard from '@/components/Dashboard'
 import BranchesPanel from '@/components/BranchesPanel'
+import OrganizationReport from '@/components/OrganizationReport'
 import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
@@ -30,7 +31,7 @@ import {
   formatCurrency, formatPercent, CURRENCIES,
 } from '@/lib/loan'
 
-export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches'
+export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
@@ -38,6 +39,7 @@ const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
   { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'  },
   { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes'   },
   { id: 'branches',   label: '🏢 Sucursales',   emoji: '🏢', mobileLabel: 'Sucursales' },
+  { id: 'reports',    label: '📑 Reportes',     emoji: '📑', mobileLabel: 'Reportes' },
   { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
 ]
 
@@ -84,6 +86,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         clients:    '/app/clientes',
         loans:      '/app/prestamos',
         branches:   '/app/sucursales',
+        reports:    '/app/reportes',
       }
       window.history.pushState(null, '', paths[newTab])
     }
@@ -97,6 +100,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       else if (p.startsWith('/app/clientes'))   setTab('clients')
       else if (p.startsWith('/app/prestamos'))  setTab('loans')
       else if (p.startsWith('/app/sucursales')) setTab('branches')
+      else if (p.startsWith('/app/reportes'))   setTab('reports')
       else                                       setTab('dashboard')
     }
     window.addEventListener('popstate', onPopState)
@@ -742,6 +746,9 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             }}
           />
         )}
+
+        {/* ═══ REPORTS ═══ */}
+        {tab === 'reports' && <OrganizationReport />}
 
       </main>
 
