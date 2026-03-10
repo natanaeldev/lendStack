@@ -50,21 +50,39 @@ export async function PATCH(
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const { password } = await req.json()
-    if (!password || password.length < 8)
-      return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
+    const { password, role, allowedBranchIds } = await req.json()
+    const $set: Record<string, any> = {}
+
+    if (password !== undefined) {
+      if (!password || password.length < 8)
+        return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
+      const bcrypt = (await import('bcryptjs')).default
+      $set.passwordHash = await bcrypt.hash(password, 12)
+    }
+
+    if (role !== undefined) {
+      const ALLOWED = ['user', 'operator', 'manager']
+      if (!ALLOWED.includes(role))
+        return NextResponse.json({ error: 'Rol inválido.' }, { status: 400 })
+      $set.role = role
+    }
+
+    // allowedBranchIds: null = all branches; string[] = restricted to those
+    if (allowedBranchIds !== undefined) {
+      $set.allowedBranchIds = Array.isArray(allowedBranchIds) ? allowedBranchIds : null
+    }
+
+    if (Object.keys($set).length === 0)
+      return NextResponse.json({ error: 'Sin cambios.' }, { status: 400 })
 
     // Resolve _id — users use MongoDB ObjectId
     let targetId: any
     try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
 
-    const bcrypt       = (await import('bcryptjs')).default
-    const passwordHash = await bcrypt.hash(password, 12)
-
     const db  = await getDb()
     const res = await db.collection('users').updateOne(
-      { _id: targetId, organizationId: session.user.organizationId },
-      { $set: { passwordHash } }
+      { _id: targetId, organizationId: session.user.organizationId, role: { $ne: 'master' } },
+      { $set }
     )
     if (res.matchedCount === 0)
       return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 })

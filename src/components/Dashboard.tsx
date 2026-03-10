@@ -17,9 +17,12 @@ interface StatsData {
   totalMonthlyIncome: number; approvedCapital: number
   pendingCount: number; approvedCount: number; deniedCount: number
   collectedToday: number; collectedWeek: number; collectedMonth: number
+  collectionRate: number; paidPeriodsCount: number
+  overdueAmountByCurrency: { currency: string; amount: number }[]
   byProfile:            { profile: string; count: number; totalAmount: number }[]
   byCurrency:           { currency: string; count: number; totalAmount: number }[]
-  avgPaymentByCurrency: { currency: string; avgMonthlyPayment: number; count: number }[]
+  avgPaymentByCurrency:  { currency: string; avgMonthlyPayment: number; count: number }[]
+  recoveryByCurrency:    { currency: string; totalAmount: number; totalRecovered: number; percentage: number }[]
   recentClients: RecentClient[]
 }
 interface RecentClient {
@@ -162,6 +165,15 @@ interface DashboardProps {
   onViewProfile?: (id: string) => void
 }
 
+interface OrgInfo {
+  plan:        string
+  clientCount: number
+  maxClients:  number | null
+  isAtLimit:   boolean
+  isNearLimit: boolean
+  orgName:     string
+}
+
 export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [stats,    setStats]    = useState<StatsData | null>(null)
   const [clients,  setClients]  = useState<ClientRow[]>([])
@@ -170,6 +182,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [search,   setSearch]   = useState('')
   const [uploading,setUploading]= useState<string | null>(null)
   const [expandDoc,setExpandDoc]= useState<string | null>(null)
+  const [orgInfo,  setOrgInfo]  = useState<OrgInfo | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // ── Fetch on mount ──────────────────────────────────────────────────────────
@@ -177,12 +190,14 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     Promise.all([
       fetch('/api/stats').then(r => r.json()),
       fetch('/api/clients').then(r => r.json()),
+      fetch('/api/org').then(r => r.json()).catch(() => null),
     ])
-      .then(([s, c]) => {
+      .then(([s, c, org]) => {
         // configured is false (503) OR undefined (500 error) → show setup screen
         if (!s.configured) { setNotConf(true); return }
         setStats(s)
         setClients(c.clients ?? [])
+        if (org && !org.error) setOrgInfo(org)
       })
       .catch(() => setNotConf(true))
       .finally(() => setLoading(false))
@@ -251,6 +266,59 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   return (
     <div className="space-y-6">
 
+      {/* ── Plan banner (Starter limit warning / Pro badge) ── */}
+      {orgInfo && orgInfo.plan === 'starter' && orgInfo.maxClients !== null && (
+        <div
+          className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap"
+          style={{
+            background:  orgInfo.isAtLimit  ? '#FFF1F2' : orgInfo.isNearLimit ? '#FFFBEB' : '#F0F9FF',
+            border:      `1.5px solid ${orgInfo.isAtLimit ? '#FECDD3' : orgInfo.isNearLimit ? '#FDE68A' : '#BAE6FD'}`,
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">{orgInfo.isAtLimit ? '🚫' : orgInfo.isNearLimit ? '⚠️' : '📊'}</span>
+            <div>
+              <p
+                className="text-sm font-bold"
+                style={{ color: orgInfo.isAtLimit ? '#9F1239' : orgInfo.isNearLimit ? '#92400E' : '#0C4A6E' }}
+              >
+                Plan Starter — {orgInfo.clientCount} / {orgInfo.maxClients} clientes
+              </p>
+              <p
+                className="text-xs"
+                style={{ color: orgInfo.isAtLimit ? '#BE123C' : orgInfo.isNearLimit ? '#B45309' : '#0369A1' }}
+              >
+                {orgInfo.isAtLimit
+                  ? 'Límite alcanzado. Actualizá al plan Pro para agregar más clientes.'
+                  : orgInfo.isNearLimit
+                    ? 'Estás cerca del límite del plan gratuito.'
+                    : `Te quedan ${orgInfo.maxClients - orgInfo.clientCount} clientes disponibles en el plan gratuito.`}
+              </p>
+            </div>
+          </div>
+          {(orgInfo.isAtLimit || orgInfo.isNearLimit) && (
+            <a
+              href="mailto:ventas@lendstack.app?subject=Actualizar%20a%20Pro"
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}
+            >
+              ⭐ Actualizar a Pro
+            </a>
+          )}
+        </div>
+      )}
+      {orgInfo && orgInfo.plan !== 'starter' && (
+        <div
+          className="rounded-2xl px-5 py-3 flex items-center gap-3"
+          style={{ background: '#F0FDF4', border: '1.5px solid #86EFAC' }}
+        >
+          <span className="text-base">✅</span>
+          <p className="text-sm font-semibold" style={{ color: '#14532D' }}>
+            Plan {orgInfo.plan.charAt(0).toUpperCase() + orgInfo.plan.slice(1)} activo — clientes y usuarios ilimitados
+          </p>
+        </div>
+      )}
+
       {/* ══════════════════════════════════════════════════════════════════════
            KPI SECTION
          ══════════════════════════════════════════════════════════════════════ */}
@@ -285,13 +353,36 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
             {/* ── Primary KPIs (4 large cards) ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard
-                label="Cartera total"
-                value={fmtK(stats.totalAmount)}
-                sub="capital otorgado"
-                accent="#1565C0"
-                icon="💼"
-              />
+              {/* Cartera total — desglosada por moneda */}
+              <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: '#1565C0' }} />
+                <div className="pl-6 pr-5 py-5">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">Cartera total</p>
+                    <span className="text-xl flex-shrink-0">💼</span>
+                  </div>
+                  {stats.byCurrency.length === 0 ? (
+                    <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>—</p>
+                  ) : (
+                    <div className="space-y-2 mb-1.5">
+                      {stats.byCurrency.map(c => (
+                        <div key={c.currency} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded"
+                            style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                            {c.currency}
+                          </span>
+                          <span className="font-display text-xl font-black tabular-nums leading-none"
+                            style={{ color: '#0D2B5E' }}>
+                            {fmtK(c.totalAmount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400">capital otorgado</p>
+                </div>
+              </div>
               <KpiCard
                 label="Tasa de aprobación"
                 value={`${approvalRate}%`}
@@ -378,6 +469,53 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               />
             </div>
 
+            {/* ── Capital recovery section ── */}
+            {(stats.recoveryByCurrency ?? []).length > 0 && (
+              <div className="rounded-2xl bg-white border border-slate-200 p-5"
+                style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    {SECTION_BAR}
+                    <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Recuperación de cartera</h3>
+                  </div>
+                  <span className="text-xs text-slate-400">capital cobrado vs. capital prestado</span>
+                </div>
+                <div className="space-y-4">
+                  {(stats.recoveryByCurrency ?? []).map(r => (
+                    <div key={r.currency}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded"
+                            style={{ background: '#EEF4FF', color: '#1565C0' }}>
+                            {r.currency}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {fmtK(r.totalRecovered)} recuperado de {fmtK(r.totalAmount)}
+                          </span>
+                        </div>
+                        <span className="text-sm font-black tabular-nums"
+                          style={{ color: r.percentage >= 70 ? '#15803D' : r.percentage >= 40 ? '#92400E' : '#0D2B5E' }}>
+                          {r.percentage}%
+                        </span>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
+                        <div className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(r.percentage, 100)}%`,
+                            background: r.percentage >= 70
+                              ? 'linear-gradient(90deg,#16A34A,#22C55E)'
+                              : r.percentage >= 40
+                              ? 'linear-gradient(90deg,#D97706,#F59E0B)'
+                              : 'linear-gradient(90deg,#1565C0,#3B82F6)',
+                          }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── Collection stats strip (today / week / month) ── */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
@@ -407,6 +545,68 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* ── Collection rate + overdue amount ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Tasa de cobranza */}
+              {(() => {
+                const rate   = stats.collectionRate ?? 0
+                const paid   = stats.paidPeriodsCount ?? 0
+                const total  = stats.approvedCount ?? 0
+                const badge  = rate >= 80
+                  ? { text: 'Excelente', color: '#14532D', bg: '#F0FDF4' }
+                  : rate >= 50
+                  ? { text: 'Normal',    color: '#92400E', bg: '#FFFBEB' }
+                  : { text: 'Atención',  color: '#881337', bg: '#FFF1F2' }
+                const accent = rate >= 80 ? '#16A34A' : rate >= 50 ? '#D97706' : '#DC2626'
+                return (
+                  <KpiCard
+                    label="Tasa de cobranza del mes"
+                    value={`${rate}%`}
+                    sub={total > 0 ? `${paid} de ${total} préstamos aprobados pagaron este mes` : 'sin préstamos aprobados'}
+                    accent={accent}
+                    icon="📊"
+                    badge={total > 0 ? badge : undefined}
+                  />
+                )
+              })()}
+
+              {/* Atraso estimado */}
+              <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: '#DC2626' }} />
+                <div className="pl-6 pr-5 py-5">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">Atraso estimado</p>
+                    <span className="text-xl flex-shrink-0">⚠️</span>
+                  </div>
+                  {(stats.overdueAmountByCurrency ?? []).length === 0 ? (
+                    <>
+                      <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>$0</p>
+                      <p className="text-xs text-slate-400">sin atrasos detectados</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2 mb-1.5">
+                        {(stats.overdueAmountByCurrency ?? []).map(r => (
+                          <div key={r.currency} className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded"
+                              style={{ background: '#FFF1F2', color: '#DC2626' }}>
+                              {r.currency}
+                            </span>
+                            <span className="font-display text-xl font-black tabular-nums leading-none"
+                              style={{ color: '#DC2626' }}>
+                              {fmtK(r.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-400">cuotas pendientes acumuladas</p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 

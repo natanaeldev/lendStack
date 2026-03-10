@@ -32,8 +32,9 @@ export default function Header() {
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
 
-        {/* Logo */}
-        <Link href="/app" className="flex items-center">
+        {/* Logo — also dispatches event so the app shell can reset to dashboard tab */}
+        <Link href="/app" className="flex items-center"
+          onClick={() => window.dispatchEvent(new Event('lendstack:goto-dashboard'))}>
           <LendStackLogo variant="light" size={36} />
         </Link>
 
@@ -42,6 +43,13 @@ export default function Header() {
           {session?.user ? (
             <>
               <div className="flex items-center gap-2">
+                {/* ── New loan CTA ── */}
+                <button
+                  onClick={() => window.dispatchEvent(new Event('lendstack:new-loan'))}
+                  className="flex items-center gap-1.5 text-xs font-black px-4 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95"
+                  style={{ background: '#fff', color: '#0D2B5E', boxShadow: '0 2px 12px rgba(255,255,255,.25)' }}>
+                  + Nuevo préstamo
+                </button>
                 <span className="text-xs px-2.5 py-1 rounded-full font-medium"
                   style={{ background: 'rgba(255,255,255,.12)', color: '#c5d5ea', border: '1px solid rgba(255,255,255,.2)' }}>
                   {isMaster ? '👑' : '👤'} {session.user.name || session.user.email}
@@ -80,7 +88,16 @@ export default function Header() {
         </div>
 
         {/* ── Mobile right side (below sm) ── */}
-        <div className="flex sm:hidden items-center" ref={menuRef}>
+        <div className="flex sm:hidden items-center gap-2" ref={menuRef}>
+          {/* Compact new-loan button always visible on mobile */}
+          {session?.user && (
+            <button
+              onClick={() => window.dispatchEvent(new Event('lendstack:new-loan'))}
+              className="flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-full transition-all active:scale-95"
+              style={{ background: '#fff', color: '#0D2B5E', boxShadow: '0 2px 8px rgba(255,255,255,.2)' }}>
+              + Préstamo
+            </button>
+          )}
           {session?.user ? (
             <div className="relative">
               {/* Hamburger button */}
@@ -110,6 +127,13 @@ export default function Header() {
 
                   {/* Menu items */}
                   <div className="py-1.5">
+                    <button
+                      onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event('lendstack:new-loan')) }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-black transition-colors hover:bg-white/10"
+                      style={{ color: '#fff' }}>
+                      ✦ Nuevo préstamo
+                    </button>
+                    <div className="mx-4 my-1 h-px" style={{ background: 'rgba(255,255,255,.1)' }} />
                     {isMaster && (
                       <>
                         <Link href="/admin/branches" onClick={() => setMenuOpen(false)}

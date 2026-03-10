@@ -149,16 +149,23 @@ export async function PATCH(
 
     // ── Branch update (resolve named branch → derive type + name) ──────────────
     if (body.branchId !== undefined) {
-      const db2 = await getDb()
-      const branchDoc = await db2.collection('branches').findOne({
-        _id:            body.branchId as any,
-        organizationId: session.user.organizationId,
-      })
-      if (!branchDoc)
-        return NextResponse.json({ error: 'Sucursal no encontrada.' }, { status: 404 })
-      $set.branchId   = body.branchId
-      $set.branch     = branchDoc.type
-      $set.branchName = branchDoc.name
+      if (!body.branchId) {
+        // null / '' → clear branch assignment
+        $set.branchId   = null
+        $set.branchName = null
+        $set.branch     = null
+      } else {
+        const db2 = await getDb()
+        const branchDoc = await db2.collection('branches').findOne({
+          _id:            body.branchId as any,
+          organizationId: session.user.organizationId,
+        })
+        if (!branchDoc)
+          return NextResponse.json({ error: 'Sucursal no encontrada.' }, { status: 404 })
+        $set.branchId   = body.branchId
+        $set.branch     = branchDoc.type
+        $set.branchName = branchDoc.name
+      }
     }
 
     if (Object.keys($set).length === 0)

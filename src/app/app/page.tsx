@@ -16,6 +16,7 @@ import ClientProfilePanel from '@/components/ClientProfilePanel'
 import LoansPanel from '@/components/LoansPanel'
 import LoanDetailPanel from '@/components/LoanDetailPanel'
 import Dashboard from '@/components/Dashboard'
+import BranchesPanel from '@/components/BranchesPanel'
 import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
@@ -29,14 +30,15 @@ import {
   formatCurrency, formatPercent, CURRENCIES,
 } from '@/lib/loan'
 
-export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans'
+export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
-  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'   },
-  { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'},
-  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes' },
-  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular' },
+  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'      },
+  { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'  },
+  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes'   },
+  { id: 'branches',   label: '🏢 Sucursales',   emoji: '🏢', mobileLabel: 'Sucursales' },
+  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
 ]
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
@@ -81,6 +83,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         calculator: '/app/calculadora',
         clients:    '/app/clientes',
         loans:      '/app/prestamos',
+        branches:   '/app/sucursales',
       }
       window.history.pushState(null, '', paths[newTab])
     }
@@ -90,14 +93,31 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   useEffect(() => {
     const onPopState = () => {
       const p = window.location.pathname
-      if (p.startsWith('/app/calculadora')) setTab('calculator')
-      else if (p.startsWith('/app/clientes'))  setTab('clients')
-      else if (p.startsWith('/app/prestamos')) setTab('loans')
-      else                                      setTab('dashboard')
+      if (p.startsWith('/app/calculadora'))     setTab('calculator')
+      else if (p.startsWith('/app/clientes'))   setTab('clients')
+      else if (p.startsWith('/app/prestamos'))  setTab('loans')
+      else if (p.startsWith('/app/sucursales')) setTab('branches')
+      else                                       setTab('dashboard')
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  // Reset to dashboard when the Header logo is clicked.
+  // Needed because Next.js skips navigation when the real route is
+  // already /app (even if pushState changed the visible URL to a sub-path).
+  useEffect(() => {
+    const onGotoDashboard = () => changeTab('dashboard')
+    window.addEventListener('lendstack:goto-dashboard', onGotoDashboard)
+    return () => window.removeEventListener('lendstack:goto-dashboard', onGotoDashboard)
+  }, [changeTab])
+
+  // Navigate to clients tab (new loan form) when header button is clicked
+  useEffect(() => {
+    const onNewLoan = () => changeTab('clients')
+    window.addEventListener('lendstack:new-loan', onNewLoan)
+    return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
+  }, [changeTab])
 
   // Always pass termYears to the calculation layer (convert months → fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
@@ -698,10 +718,29 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             <ClientsPanel
               currentParams={params}
               currentResult={result}
+              currentLoanType={loanType}
+              weeklyResult={weeklyResult}
+              weeklyTermWeeks={weeklyTermWeeks}
+              weeklyMonthlyRate={weeklyMonthlyRate}
+              carritoResult={carritoResult}
+              carritoFlatRate={carritoFlatRate}
+              carritoTerm={carritoTerm}
+              carritoPayments={carritoPayments}
+              carritoFreq={carritoFreq}
               onLoadClient={handleLoadClient}
               onViewProfile={(id) => setSelectedClientId(id)}
             />
           )
+        )}
+
+        {/* ═══ BRANCHES ═══ */}
+        {tab === 'branches' && (
+          <BranchesPanel
+            onViewProfile={(id) => {
+              setSelectedClientId(id)
+              changeTab('clients')
+            }}
+          />
         )}
 
       </main>

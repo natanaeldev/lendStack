@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { formatCurrency } from '@/lib/loan'
+import { PaymentReceiptModal } from '@/components/PaymentReceipt'
+import type { ReceiptData } from '@/components/PaymentReceipt'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -8,6 +10,7 @@ interface ClientOption {
   id: string
   name: string
   currency: string
+  loanAmount: number
   monthlyPayment: number
   totalPayment: number
   totalMonths: number
@@ -34,6 +37,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
   const [submitting,          setSubmitting]          = useState(false)
   const [success,             setSuccess]             = useState(false)
   const [error,               setError]               = useState('')
+  const [receiptData,         setReceiptData]         = useState<ReceiptData | null>(null)
   const [comprobanteFile,     setComprobanteFile]     = useState<File | null>(null)
   const [comprobantePreview,  setComprobantePreview]  = useState<string | null>(null)
   const amountRef      = useRef<HTMLInputElement>(null)
@@ -52,6 +56,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
           id:             c.id,
           name:           c.name,
           currency:       c.params?.currency ?? 'USD',
+          loanAmount:     c.params?.amount ?? 0,
           monthlyPayment: c.result?.monthlyPayment ?? 0,
           totalPayment:   c.result?.totalPayment ?? 0,
           totalMonths:    c.result?.totalMonths ?? 0,
@@ -128,7 +133,25 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
         setError(d.error ?? 'Error al registrar el pago.')
         return
       }
+      const { payment } = await res.json()
       setSuccess(true)
+      // Show receipt modal (rendered at z-60, above this modal's z-50)
+      setReceiptData({
+        clientName:     selected.name,
+        clientIdType:   '',
+        clientId:       '',
+        clientEmail:    '',
+        paymentId:      payment.id,
+        date:           payment.date,
+        amount:         payment.amount,
+        cuotaNumber:    payment.cuotaNumber,
+        notes:          payment.notes,
+        currency:       selected.currency,
+        loanAmount:     selected.loanAmount,
+        monthlyPayment: selected.monthlyPayment,
+        totalMonths:    selected.totalMonths,
+        profile:        '',
+      })
       // Reset for next payment after a moment
       setTimeout(() => {
         setSelected(null)
@@ -155,6 +178,15 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
   if (!isOpen) return null
 
   const fmt = (v: number, cur: string) => formatCurrency(v, cur as any)
+
+  // Receipt modal renders on top of this modal (z-60 > z-50)
+  if (receiptData) return (
+    <PaymentReceiptModal
+      data={receiptData}
+      onClose={() => setReceiptData(null)}
+      zIndex={60}
+    />
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"

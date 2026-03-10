@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { formatCurrency, formatPercent, RISK_PROFILES, Currency, buildAmortization, getRiskConfig, LoanParams, RateMode, RiskProfile } from '@/lib/loan'
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
+import PrintReceiptButton, { PaymentReceiptModal } from '@/components/PaymentReceipt'
+import type { ReceiptData } from '@/components/PaymentReceipt'
 import EmailModal       from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
 
@@ -17,6 +19,9 @@ interface Payment {
   id: string; date: string; amount: number; registeredAt: string
   cuotaNumber?: number; notes?: string; comprobanteUrl?: string
 }
+interface BranchDoc {
+  id: string; name: string; type: 'sede' | 'rutas'; createdAt: string
+}
 interface ClientProfile {
   id: string; savedAt: string; loanStatus: LoanStatus
   name: string; email: string; phone: string
@@ -26,6 +31,7 @@ interface ClientProfile {
   currentDebts: string; totalDebtValue: string; paymentCapacity: string
   collateral: string; territorialTies: string
   creditHistory: string; reference1: string; reference2: string; notes: string
+  branch: string | null; branchId: string | null; branchName: string | null
   params: { amount: number; termYears: number; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number }
   result: { monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number }
   documents: ClientDoc[]
@@ -42,6 +48,7 @@ type EditForm = {
   currentDebts: string; totalDebtValue: string; paymentCapacity: string
   collateral: string; territorialTies: string
   creditHistory: string; reference1: string; reference2: string; notes: string
+  branchId: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -73,6 +80,7 @@ function clientToForm(c: ClientProfile): EditForm {
     currentDebts: c.currentDebts, totalDebtValue: c.totalDebtValue, paymentCapacity: c.paymentCapacity,
     collateral: c.collateral, territorialTies: c.territorialTies,
     creditHistory: c.creditHistory, reference1: c.reference1, reference2: c.reference2, notes: c.notes,
+    branchId: c.branchId ?? '',
   }
 }
 
@@ -148,6 +156,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const [editMode,  setEditMode]  = useState(false)
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
+  const [branches,  setBranches]  = useState<BranchDoc[]>([])
 
   const [syncingLoan, setSyncingLoan] = useState(false)
 
@@ -155,6 +164,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
   const [payLoading,          setPayLoading]          = useState(false)
   const [deletingPayId,       setDeletingPayId]       = useState<string | null>(null)
+  const [receiptData,         setReceiptData]         = useState<ReceiptData | null>(null)
   const [payComprobanteFile,  setPayComprobanteFile]  = useState<File | null>(null)
   const [payComprobantePreview, setPayComprobantePreview] = useState<string | null>(null)
   const [lightboxUrl,         setLightboxUrl]         = useState<string | null>(null)
@@ -192,6 +202,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   }, [clientId])
 
   useEffect(() => { loadClient() }, [loadClient])
+
+  // Load named branches (master-only endpoint; silently ignore 403 for non-masters)
+  useEffect(() => {
+    fetch('/api/admin/branches')
+      .then(r => r.ok ? r.json() : { branches: [] })
+      .then(d => setBranches(d.branches ?? []))
+      .catch(() => {})
+  }, [])
 
   // ── Update status ──────────────────────────────────────────────────────────
   const updateStatus = async (next: LoanStatus) => {
@@ -260,18 +278,27 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     if (!editForm.name.trim()) { showToast('⚠️', 'El nombre es obligatorio'); return }
     setSaving(true)
     try {
+      // Transform branchId: '' → null (empty string = "clear branch assignment")
+      const { branchId: rawBranchId, ...rest } = editForm
+      const branchId = rawBranchId || null
       const res = await fetch(`/api/clients/${clientId}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(editForm),
+        body:    JSON.stringify({ ...rest, branchId }),
       })
       if (!res.ok) {
         const data = await res.json()
         showToast('❌', data.error ?? 'Error al guardar')
         return
       }
-      // Apply locally
-      setClient(prev => prev ? { ...prev, ...editForm } : prev)
+      // Optimistic update — derive branch type + name from local branches cache
+      const selectedBranch = branchId ? branches.find(b => b.id === branchId) : null
+      setClient(prev => prev ? {
+        ...prev, ...rest,
+        branchId,
+        branch:     branchId ? (selectedBranch?.type ?? prev.branch) : null,
+        branchName: branchId ? (selectedBranch?.name ?? prev.branchName) : null,
+      } : prev)
       setEditMode(false)
       setEditForm(null)
       showToast('✅', 'Datos del cliente actualizados')
@@ -309,6 +336,23 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       setPayForm({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
       clearPayComprobante()
       showToast('✅', 'Pago registrado correctamente')
+      // Show inline receipt modal (avoids browser popup blockers)
+      if (client) setReceiptData({
+        clientName:     client.name,
+        clientIdType:   client.idType,
+        clientId:       client.idNumber,
+        clientEmail:    client.email,
+        paymentId:      payment.id,
+        date:           payment.date,
+        amount:         payment.amount,
+        cuotaNumber:    payment.cuotaNumber,
+        notes:          payment.notes,
+        currency:       client.params.currency,
+        loanAmount:     client.params.amount,
+        monthlyPayment: client.result.monthlyPayment,
+        totalMonths:    client.result.totalMonths,
+        profile:        client.params.profile,
+      })
     } catch { showToast('❌', 'No se pudo conectar') }
     finally  { setPayLoading(false) }
   }
@@ -546,6 +590,32 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
           </div>
 
+          {/* Sección 5 — Sucursal */}
+          <EditSectionHeader emoji="🏢" title="Sección 5 — Sucursal Asignada" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <EditField label="Sucursal" full>
+              {branches.length > 0 ? (
+                <select value={editForm.branchId} onChange={e => sf('branchId')(e.target.value)}
+                  className={inputCls} style={{ color: editForm.branchId ? '#374151' : '#94a3b8' }}>
+                  <option value="">— Sin asignar —</option>
+                  {(['sede', 'rutas'] as const).map(type => {
+                    const group = branches.filter(b => b.type === type)
+                    if (!group.length) return null
+                    return (
+                      <optgroup key={type} label={type === 'sede' ? '🏢 Sede' : '🛣️ Rutas'}>
+                        {group.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </optgroup>
+                    )
+                  })}
+                </select>
+              ) : (
+                <p className="text-sm text-slate-400 px-4 py-2.5 rounded-xl border-2 border-slate-100 bg-slate-50">
+                  No hay sucursales creadas — creá una en <span className="font-semibold">Admin → Sucursales</span>.
+                </p>
+              )}
+            </EditField>
+          </div>
+
           {/* Bottom save row */}
           <div className="flex items-center gap-3 mt-8 pt-6 border-t border-slate-100">
             <button onClick={saveEdit} disabled={saving}
@@ -615,6 +685,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                   style={{ background: sCfg.bg, color: sCfg.color, border: `1.5px solid ${sCfg.border}` }}>
                   {sCfg.emoji} {sCfg.label}
                 </span>
+                {(client.branchName || client.branch) && (
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
+                    style={{ background: '#e8eef7', color: '#0D2B5E', border: '1.5px solid #c5d5ea' }}>
+                    🏢 {client.branchName ?? (client.branch === 'sede' ? 'Sede' : 'Rutas')}
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs sm:text-sm text-slate-500">
                 {client.email    && <span>✉️ {client.email}</span>}
@@ -803,91 +879,179 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         </SectionCard>
       </div>
 
-      {/* ── Pagos de cuotas ── */}
+      {/* ── Historial de pagos ── */}
       {(() => {
-        const payments = client.payments ?? []
-        const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
+        const payments    = client.payments ?? []
+        const totalPaid   = payments.reduce((s, p) => s + p.amount, 0)
         const totalMonths = client.result.totalMonths
         const paidCount   = payments.length
+        const remaining   = Math.max(0, totalMonths - paidCount)
         const progress    = Math.min(100, Math.round((totalPaid / client.result.totalPayment) * 100))
         return (
           <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
             style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+
+            {/* Header */}
             <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2"
               style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
               <span className="text-base">💵</span>
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Pagos de cuotas</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Historial de pagos</span>
               <span className="ml-auto text-xs text-slate-400">
                 {paidCount} pago{paidCount !== 1 ? 's' : ''} registrado{paidCount !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="px-5 py-4 space-y-4">
 
-              {/* Progress bar */}
-              <div>
-                <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                  <span>Total pagado: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(totalPaid)}</span></span>
-                  <span>Total préstamo: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(client.result.totalPayment)}</span></span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${progress}%`, background: progress >= 100 ? '#16A34A' : 'linear-gradient(90deg,#1565C0,#0D2B5E)' }} />
-                </div>
-                <p className="text-xs text-slate-400 mt-1">{progress}% cubierto · {totalMonths} cuotas totales</p>
+            <div className="px-5 py-4 space-y-5">
+
+              {/* ── Quota KPI cards ── */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {([
+                  {
+                    label: 'Cuotas pagadas',
+                    value: String(paidCount),
+                    bg:     paidCount > 0 ? '#f0fdf4' : '#f8fafc',
+                    color:  paidCount > 0 ? '#15803d' : '#64748b',
+                    border: paidCount > 0 ? '#86efac' : '#e2e8f0',
+                  },
+                  {
+                    label: 'Cuotas restantes',
+                    value: String(remaining),
+                    bg:     remaining === 0 ? '#f0fdf4' : remaining <= 3 ? '#fffbeb' : '#f8fafc',
+                    color:  remaining === 0 ? '#15803d' : remaining <= 3 ? '#92400e' : '#0D2B5E',
+                    border: remaining === 0 ? '#86efac' : remaining <= 3 ? '#fde68a' : '#e2e8f0',
+                  },
+                  {
+                    label: 'Cuotas totales',
+                    value: String(totalMonths),
+                    bg: '#f8fafc', color: '#0D2B5E', border: '#e2e8f0',
+                  },
+                  {
+                    label: 'Monto pagado',
+                    value: fmt(totalPaid),
+                    bg: '#EEF4FF', color: '#1565C0', border: 'rgba(21,101,192,.15)',
+                  },
+                ] as const).map(k => (
+                  <div key={k.label} className="rounded-xl px-3 py-3 text-center border"
+                    style={{ background: k.bg, borderColor: k.border }}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5 text-slate-400">{k.label}</p>
+                    <p className="text-xl font-black leading-none" style={{ color: k.color }}>{k.value}</p>
+                  </div>
+                ))}
               </div>
 
-              {/* Payment list */}
+              {/* ── Progress bar ── */}
+              <div>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${progress}%`, background: progress >= 100 ? '#16A34A' : 'linear-gradient(90deg,#1565C0,#0D2B5E)' }} />
+                </div>
+                <div className="flex justify-between text-xs mt-1.5">
+                  <span className="font-semibold" style={{ color: progress >= 100 ? '#15803d' : '#64748b' }}>
+                    {progress}% del total cubierto
+                  </span>
+                  <span className="text-slate-400">
+                    Total préstamo: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(client.result.totalPayment)}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Payment history table ── */}
               {payments.length > 0 ? (
-                <div className="space-y-2">
-                  {[...payments].reverse().map(p => (
-                    <div key={p.id} className="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{fmt(p.amount)}</span>
-                            {p.cuotaNumber && (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                                style={{ background: '#e8eef7', color: '#1565C0' }}>
-                                Cuota #{p.cuotaNumber}
-                              </span>
-                            )}
-                            {p.comprobanteUrl && (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac' }}>
-                                📸 Comprobante
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 flex-wrap">
-                            <span>📅 {formatDate(p.date)}</span>
-                            {p.notes && <span>· {p.notes}</span>}
-                          </div>
-                        </div>
-                        {/* Comprobante thumbnail (click to enlarge) */}
-                        {p.comprobanteUrl && (
-                          <button
-                            onClick={() => setLightboxUrl(p.comprobanteUrl!)}
-                            className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 border-slate-200 hover:border-blue-400 transition-colors"
-                            title="Ver comprobante">
-                            <img src={p.comprobanteUrl} alt="Comprobante" className="w-full h-full object-cover" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => deletePayment(p.id)}
-                          disabled={deletingPayId === p.id}
-                          className="text-xs text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40 flex-shrink-0"
-                          title="Eliminar pago">
-                          {deletingPayId === p.id ? '⏳' : '✕'}
-                        </button>
-                      </div>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2">Detalle de cobros</p>
+                  <div className="rounded-xl border border-slate-100 overflow-hidden">
+
+                    {/* Column headers — desktop */}
+                    <div className="hidden sm:flex items-center gap-4 px-4 py-2 bg-slate-50 border-b border-slate-100">
+                      <span className="w-14 flex-shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400">Cuota</span>
+                      <span className="w-28 flex-shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400">Monto</span>
+                      <span className="w-36 flex-shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400">Fecha</span>
+                      <span className="flex-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Notas</span>
+                      <span className="w-20 flex-shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</span>
                     </div>
-                  ))}
+
+                    {[...payments].reverse().map((p, i) => (
+                      <div key={p.id}
+                        className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4 px-4 py-3 border-b border-slate-50 last:border-0"
+                        style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+
+                        {/* Cuota badge */}
+                        <div className="w-14 flex-shrink-0">
+                          {p.cuotaNumber ? (
+                            <span className="inline-block text-xs font-black px-2 py-1 rounded-lg"
+                              style={{ background: '#e8eef7', color: '#1565C0' }}>
+                              #{p.cuotaNumber}
+                            </span>
+                          ) : (
+                            <span className="inline-block text-xs font-semibold px-2 py-1 rounded-lg"
+                              style={{ background: '#f1f5f9', color: '#94a3b8' }}>
+                              —
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Amount */}
+                        <p className="w-28 text-sm font-black flex-shrink-0" style={{ color: '#0D2B5E' }}>
+                          {fmt(p.amount)}
+                        </p>
+
+                        {/* Date */}
+                        <p className="w-36 text-xs text-slate-500 flex-shrink-0">
+                          📅 {formatDate(p.date)}
+                        </p>
+
+                        {/* Notes */}
+                        <p className="flex-1 text-xs text-slate-400 truncate min-w-0">
+                          {p.notes ?? ''}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                          {p.comprobanteUrl && (
+                            <button
+                              onClick={() => setLightboxUrl(p.comprobanteUrl!)}
+                              className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 hover:border-blue-400 transition-colors flex-shrink-0"
+                              title="Ver comprobante">
+                              <img src={p.comprobanteUrl} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          )}
+                          <PrintReceiptButton data={{
+                            clientName:     client.name,
+                            clientIdType:   client.idType,
+                            clientId:       client.idNumber,
+                            clientEmail:    client.email,
+                            paymentId:      p.id,
+                            date:           p.date,
+                            amount:         p.amount,
+                            cuotaNumber:    p.cuotaNumber,
+                            notes:          p.notes,
+                            currency:       client.params.currency,
+                            loanAmount:     client.params.amount,
+                            monthlyPayment: client.result.monthlyPayment,
+                            totalMonths:    client.result.totalMonths,
+                            profile:        client.params.profile,
+                          }} />
+                          <button
+                            onClick={() => deletePayment(p.id)}
+                            disabled={deletingPayId === p.id}
+                            className="text-xs text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40 flex-shrink-0"
+                            title="Eliminar pago">
+                            {deletingPayId === p.id ? '⏳' : '✕'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">Sin pagos registrados todavía.</p>
+                <div className="text-center py-6 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-2xl mb-2">📭</p>
+                  <p className="text-sm font-medium text-slate-400">Sin pagos registrados todavía.</p>
+                  <p className="text-xs text-slate-400 mt-1">Usá el formulario de abajo para registrar el primer pago.</p>
+                </div>
               )}
 
-              {/* Register new payment form */}
+              {/* ── Register new payment form ── */}
               <div className="rounded-xl border-2 border-dashed border-slate-200 p-4 space-y-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Registrar nuevo pago</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -910,7 +1074,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                     <label className="block text-xs text-slate-500 mb-1">N.º de cuota (opcional)</label>
                     <input type="number" min="1" max={totalMonths} value={payForm.cuotaNumber}
                       onChange={e => setPayForm(f => ({ ...f, cuotaNumber: e.target.value }))}
-                      placeholder={`1 – ${totalMonths}`}
+                      placeholder={paidCount < totalMonths ? `Siguiente: ${paidCount + 1}` : `1 – ${totalMonths}`}
                       className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
                       style={{ color: '#374151' }} />
                   </div>
@@ -1027,6 +1191,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         config={riskCfg}
         defaultTo={client.email ?? ''}
       />
+
+      {/* Payment receipt modal */}
+      {receiptData && (
+        <PaymentReceiptModal
+          data={receiptData}
+          onClose={() => setReceiptData(null)}
+        />
+      )}
 
       {/* Comprobante lightbox */}
       {lightboxUrl && (
