@@ -49,7 +49,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 
 resource "aws_cloudwatch_metric_alarm" "alb_latency_p99" {
   alarm_name          = "${var.name}-alb-latency-p99"
-  alarm_description   = "ALB P99 latency > 3s — app is slow"
+  alarm_description   = "ALB P99 latency > 3s - app is slow"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 3
   threshold           = 3
@@ -57,7 +57,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_latency_p99" {
   metric_name         = "TargetResponseTime"
   namespace           = "AWS/ApplicationELB"
   period              = 60
-  statistic           = "p99"
+  extended_statistic  = "p99"
   dimensions          = { LoadBalancer = var.alb_arn_suffix }
 
   alarm_actions = [aws_sns_topic.alerts.arn]
@@ -179,9 +179,9 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type = "metric"
         properties = {
-          title  = "ALB Request Count"
-          period = 60
-          stat   = "Sum"
+          title   = "ALB Request Count"
+          period  = 60
+          stat    = "Sum"
           metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix]]
         }
       },
@@ -200,9 +200,9 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type = "metric"
         properties = {
-          title  = "ALB P99 Latency (ms)"
-          period = 60
-          stat   = "p99"
+          title   = "ALB P99 Latency (ms)"
+          period  = 60
+          stat    = "p99"
           metrics = [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix]]
         }
       },
@@ -212,7 +212,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           title  = "ECS CPU & Memory"
           period = 60
           metrics = [
-            ["AWS/ECS", "CPUUtilization",    "ClusterName", var.ecs_cluster_name, "ServiceName", var.ecs_web_service_name, { stat = "Average", label = "CPU %" }],
+            ["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", var.ecs_web_service_name, { stat = "Average", label = "CPU %" }],
             ["AWS/ECS", "MemoryUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", var.ecs_web_service_name, { stat = "Average", label = "Memory %" }]
           ]
         }
@@ -224,17 +224,17 @@ resource "aws_cloudwatch_dashboard" "main" {
           period = 60
           metrics = [
             ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", var.sqs_queue_name, { label = "Reminders Queue" }],
-            ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", var.sqs_dlq_name,   { label = "DLQ" }]
+            ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", var.sqs_dlq_name, { label = "DLQ" }]
           ]
         }
       },
       {
         type = "log"
         properties = {
-          title   = "Application Errors (last 1h)"
-          query   = "SOURCE '/ecs/${var.name}/web' | filter @message like /ERROR/ | sort @timestamp desc | limit 50"
-          region  = var.aws_region
-          view    = "table"
+          title  = "Application Errors (last 1h)"
+          query  = "SOURCE '/ecs/${var.name}/web' | filter @message like /ERROR/ | sort @timestamp desc | limit 50"
+          region = var.aws_region
+          view   = "table"
         }
       }
     ]
@@ -269,3 +269,4 @@ resource "aws_cloudwatch_log_metric_filter" "payment_events" {
     default_value = "0"
   }
 }
+

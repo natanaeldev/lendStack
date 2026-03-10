@@ -72,7 +72,7 @@ resource "aws_lb_target_group" "web" {
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
-  target_type = "ip"  # Fargate uses IP mode, not instance mode
+  target_type = "ip" # Fargate uses IP mode, not instance mode
 
   health_check {
     enabled             = true
@@ -114,7 +114,7 @@ resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.main.arn
   port              = 443
   protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"  # TLS 1.3 + 1.2, no 1.0/1.1
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06" # TLS 1.3 + 1.2, no 1.0/1.1
   certificate_arn   = var.acm_certificate_arn
 
   default_action {

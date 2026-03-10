@@ -57,7 +57,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "documents" {
       kms_master_key_id = var.kms_key_arn
     }
     # Force all uploads to use SSE-KMS (reject unencrypted puts)
-    bucket_key_enabled = true  # Reduces KMS API call cost by ~99%
+    bucket_key_enabled = true # Reduces KMS API call cost by ~99%
   }
 }
 
@@ -81,16 +81,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
 
     transition {
       days          = 30
-      storage_class = "STANDARD_IA"  # ~40% cheaper for infrequently accessed
+      storage_class = "STANDARD_IA" # ~40% cheaper for infrequently accessed
     }
 
     transition {
       days          = 90
-      storage_class = "GLACIER_IR"   # ~68% cheaper — instant retrieval available
+      storage_class = "GLACIER_IR" # ~68% cheaper — instant retrieval available
     }
 
     expiration {
-      days = 2555  # 7 years — typical financial record retention requirement
+      days = 2555 # 7 years — typical financial record retention requirement
     }
   }
 
@@ -150,7 +150,7 @@ resource "aws_s3_bucket_policy" "documents" {
         Effect    = "Deny"
         Principal = "*"
         Action    = "s3:*"
-        Resource  = [
+        Resource = [
           "${aws_s3_bucket.documents.arn}",
           "${aws_s3_bucket.documents.arn}/*"
         ]

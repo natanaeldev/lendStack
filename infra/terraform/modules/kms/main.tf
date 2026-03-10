@@ -20,16 +20,16 @@ resource "aws_kms_key" "s3" {
     Statement = [
       # Root account has full control — required, otherwise you can lock yourself out
       {
-        Sid    = "EnableRootAccess"
-        Effect = "Allow"
+        Sid       = "EnableRootAccess"
+        Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
-        Action   = "kms:*"
-        Resource = "*"
+        Action    = "kms:*"
+        Resource  = "*"
       },
       # ECS task role can encrypt/decrypt S3 objects
       {
-        Sid    = "AllowECSTaskS3"
-        Effect = "Allow"
+        Sid       = "AllowECSTaskS3"
+        Effect    = "Allow"
         Principal = { AWS = var.ecs_task_role_arn }
         Action = [
           "kms:GenerateDataKey",
@@ -40,8 +40,8 @@ resource "aws_kms_key" "s3" {
       },
       # S3 service can use the key on behalf of bucket operations
       {
-        Sid    = "AllowS3Service"
-        Effect = "Allow"
+        Sid       = "AllowS3Service"
+        Effect    = "Allow"
         Principal = { Service = "s3.amazonaws.com" }
         Action = [
           "kms:GenerateDataKey",
@@ -70,16 +70,16 @@ resource "aws_kms_key" "secrets" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "EnableRootAccess"
-        Effect = "Allow"
+        Sid       = "EnableRootAccess"
+        Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
-        Action   = "kms:*"
-        Resource = "*"
+        Action    = "kms:*"
+        Resource  = "*"
       },
       # ECS execution role needs to decrypt secrets at container startup
       {
-        Sid    = "AllowECSExecution"
-        Effect = "Allow"
+        Sid       = "AllowECSExecution"
+        Effect    = "Allow"
         Principal = { AWS = var.ecs_execution_role_arn }
         Action = [
           "kms:Decrypt",
@@ -89,8 +89,8 @@ resource "aws_kms_key" "secrets" {
       },
       # Secrets Manager service uses the key
       {
-        Sid    = "AllowSecretsManager"
-        Effect = "Allow"
+        Sid       = "AllowSecretsManager"
+        Effect    = "Allow"
         Principal = { Service = "secretsmanager.amazonaws.com" }
         Action = [
           "kms:GenerateDataKey",

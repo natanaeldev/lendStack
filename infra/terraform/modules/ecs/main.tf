@@ -33,7 +33,7 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
   default_capacity_provider_strategy {
     capacity_provider = "FARGATE"
     weight            = 1
-    base              = 1  # Always keep at least 1 FARGATE task (not SPOT) for stability
+    base              = 1 # Always keep at least 1 FARGATE task (not SPOT) for stability
   }
 }
 
@@ -55,10 +55,10 @@ resource "aws_cloudwatch_log_group" "worker" {
 
 resource "aws_ecr_repository" "web" {
   name                 = "${var.name}/web"
-  image_tag_mutability = "IMMUTABLE"  # Prevents tag overwriting — force new image = new tag
+  image_tag_mutability = "IMMUTABLE" # Prevents tag overwriting — force new image = new tag
 
   image_scanning_configuration {
-    scan_on_push = true  # Free basic vulnerability scanning on every push
+    scan_on_push = true # Free basic vulnerability scanning on every push
   }
 
   encryption_configuration {
@@ -131,7 +131,7 @@ resource "aws_security_group" "ecs_tasks" {
   }
 
   egress {
-    description = "All outbound (NAT → internet for MongoDB, Stripe, Resend)"
+    description = "All outbound (NAT to internet for MongoDB, Stripe, Resend)"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -165,21 +165,21 @@ resource "aws_ecs_task_definition" "web" {
     # Secrets injected as environment variables from Secrets Manager.
     # The ECS agent decrypts them at startup — your app code just reads process.env.
     secrets = [
-      { name = "MONGODB_URI",              valueFrom = "${var.secret_mongodb_uri_arn}:MONGODB_URI::" },
-      { name = "NEXTAUTH_SECRET",          valueFrom = "${var.secret_nextauth_arn}:NEXTAUTH_SECRET::" },
-      { name = "NEXTAUTH_URL",             valueFrom = "${var.secret_nextauth_arn}:NEXTAUTH_URL::" },
-      { name = "RESEND_API_KEY",           valueFrom = "${var.secret_resend_arn}:RESEND_API_KEY::" },
-      { name = "STRIPE_SECRET_KEY",        valueFrom = "${var.secret_stripe_arn}:STRIPE_SECRET_KEY::" },
-      { name = "STRIPE_WEBHOOK_SECRET",    valueFrom = "${var.secret_stripe_arn}:STRIPE_WEBHOOK_SECRET::" },
-      { name = "AWS_S3_DOCUMENTS_BUCKET",  valueFrom = "${var.secret_aws_config_arn}:AWS_S3_DOCUMENTS_BUCKET::" },
-      { name = "AWS_SQS_REMINDERS_URL",    valueFrom = "${var.secret_aws_config_arn}:AWS_SQS_REMINDERS_URL::" },
+      { name = "MONGODB_URI", valueFrom = "${var.secret_mongodb_uri_arn}:MONGODB_URI::" },
+      { name = "NEXTAUTH_SECRET", valueFrom = "${var.secret_nextauth_arn}:NEXTAUTH_SECRET::" },
+      { name = "NEXTAUTH_URL", valueFrom = "${var.secret_nextauth_arn}:NEXTAUTH_URL::" },
+      { name = "RESEND_API_KEY", valueFrom = "${var.secret_resend_arn}:RESEND_API_KEY::" },
+      { name = "STRIPE_SECRET_KEY", valueFrom = "${var.secret_stripe_arn}:STRIPE_SECRET_KEY::" },
+      { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.secret_stripe_arn}:STRIPE_WEBHOOK_SECRET::" },
+      { name = "AWS_S3_DOCUMENTS_BUCKET", valueFrom = "${var.secret_aws_config_arn}:AWS_S3_DOCUMENTS_BUCKET::" },
+      { name = "AWS_SQS_REMINDERS_URL", valueFrom = "${var.secret_aws_config_arn}:AWS_SQS_REMINDERS_URL::" },
     ]
 
     # Non-sensitive runtime config passed as plain env vars
     environment = [
-      { name = "NODE_ENV",      value = "production" },
-      { name = "PORT",          value = "3000" },
-      { name = "AWS_REGION",    value = var.aws_region },
+      { name = "NODE_ENV", value = "production" },
+      { name = "PORT", value = "3000" },
+      { name = "AWS_REGION", value = var.aws_region },
     ]
 
     logConfiguration = {
@@ -197,12 +197,12 @@ resource "aws_ecs_task_definition" "web" {
       interval    = 30
       timeout     = 5
       retries     = 3
-      startPeriod = 60  # Give Next.js 60 seconds to compile and start
+      startPeriod = 60 # Give Next.js 60 seconds to compile and start
     }
 
     # Read-only root filesystem — container can't write to disk (security hardening)
     # Next.js needs /tmp for cache, so we add a tmpfs mount
-    readonlyRootFilesystem = false  # Set true + add tmpfs once you've tested startup
+    readonlyRootFilesystem = false # Set true + add tmpfs once you've tested startup
 
     ulimits = [{
       name      = "nofile"
@@ -234,7 +234,7 @@ resource "aws_ecs_service" "web" {
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = false  # Tasks are in private subnet, access internet via NAT
+    assign_public_ip = false # Tasks are in private subnet, access internet via NAT
   }
 
   load_balancer {
@@ -251,7 +251,7 @@ resource "aws_ecs_service" "web" {
   }
 
   deployment_controller {
-    type = "ECS"  # Use CODE_DEPLOY for blue/green deployments
+    type = "ECS" # Use CODE_DEPLOY for blue/green deployments
   }
 
   # Spread tasks across AZs for resilience
@@ -286,13 +286,13 @@ resource "aws_ecs_task_definition" "worker" {
     essential = true
 
     secrets = [
-      { name = "MONGODB_URI",     valueFrom = "${var.secret_mongodb_uri_arn}:MONGODB_URI::" },
-      { name = "RESEND_API_KEY",  valueFrom = "${var.secret_resend_arn}:RESEND_API_KEY::" },
+      { name = "MONGODB_URI", valueFrom = "${var.secret_mongodb_uri_arn}:MONGODB_URI::" },
+      { name = "RESEND_API_KEY", valueFrom = "${var.secret_resend_arn}:RESEND_API_KEY::" },
       { name = "AWS_SQS_REMINDERS_URL", valueFrom = "${var.secret_aws_config_arn}:AWS_SQS_REMINDERS_URL::" },
     ]
 
     environment = [
-      { name = "NODE_ENV",   value = "production" },
+      { name = "NODE_ENV", value = "production" },
       { name = "AWS_REGION", value = var.aws_region },
     ]
 
@@ -316,7 +316,7 @@ resource "aws_ecs_service" "worker" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
-  deployment_minimum_healthy_percent = 0   # Worker can have 0 tasks during deploy
+  deployment_minimum_healthy_percent = 0 # Worker can have 0 tasks during deploy
   deployment_maximum_percent         = 100
 
   network_configuration {
@@ -356,9 +356,9 @@ resource "aws_appautoscaling_policy" "web_requests" {
   scalable_dimension = aws_appautoscaling_target.web.scalable_dimension
 
   target_tracking_scaling_policy_configuration {
-    target_value       = 500  # 500 requests per target per minute
-    scale_in_cooldown  = 300  # Wait 5 min before scaling in (avoid flapping)
-    scale_out_cooldown = 60   # Scale out quickly when load spikes
+    target_value       = 500 # 500 requests per target per minute
+    scale_in_cooldown  = 300 # Wait 5 min before scaling in (avoid flapping)
+    scale_out_cooldown = 60  # Scale out quickly when load spikes
 
     predefined_metric_specification {
       predefined_metric_type = "ALBRequestCountPerTarget"
@@ -376,7 +376,7 @@ resource "aws_appautoscaling_policy" "web_cpu" {
   scalable_dimension = aws_appautoscaling_target.web.scalable_dimension
 
   target_tracking_scaling_policy_configuration {
-    target_value       = 70  # Scale when average CPU > 70%
+    target_value       = 70 # Scale when average CPU > 70%
     scale_in_cooldown  = 300
     scale_out_cooldown = 60
 
@@ -385,3 +385,4 @@ resource "aws_appautoscaling_policy" "web_cpu" {
     }
   }
 }
+

@@ -31,12 +31,8 @@ module "vpc" {
 module "sqs" {
   source = "../../modules/sqs"
 
-  name                 = local.name
-  kms_key_arn          = module.kms.s3_key_arn  # Reuse S3 key for SQS (or use dedicated)
-  web_task_role_arn    = module.iam.web_task_role_arn
-  worker_task_role_arn = module.iam.worker_task_role_arn
-
-  depends_on = [module.iam]
+  name        = local.name
+  kms_key_arn = module.kms.s3_key_arn # Reuse S3 key for SQS (or use dedicated)
 }
 
 # ─── 3. S3 (needed by IAM for resource ARN) ──────────────────────────────────
@@ -101,11 +97,11 @@ module "secrets" {
 module "alb" {
   source = "../../modules/alb"
 
-  name                      = local.name
-  vpc_id                    = module.vpc.vpc_id
-  public_subnet_ids         = module.vpc.public_subnet_ids
-  acm_certificate_arn       = var.acm_certificate_arn
-  access_logs_bucket        = module.s3.bucket_name  # Or a dedicated logs bucket
+  name                       = local.name
+  vpc_id                     = module.vpc.vpc_id
+  public_subnet_ids          = module.vpc.public_subnet_ids
+  acm_certificate_arn        = var.acm_certificate_arn
+  access_logs_bucket         = module.s3.bucket_name # Or a dedicated logs bucket
   enable_deletion_protection = var.environment == "prod"
 }
 
@@ -127,11 +123,11 @@ module "ecs" {
   aws_region              = var.aws_region
   image_tag               = var.image_tag
 
-  secret_mongodb_uri_arn  = module.secrets.mongodb_uri_arn
-  secret_nextauth_arn     = module.secrets.nextauth_arn
-  secret_resend_arn       = module.secrets.resend_arn
-  secret_stripe_arn       = module.secrets.stripe_arn
-  secret_aws_config_arn   = module.secrets.aws_config_arn
+  secret_mongodb_uri_arn = module.secrets.mongodb_uri_arn
+  secret_nextauth_arn    = module.secrets.nextauth_arn
+  secret_resend_arn      = module.secrets.resend_arn
+  secret_stripe_arn      = module.secrets.stripe_arn
+  secret_aws_config_arn  = module.secrets.aws_config_arn
 
   web_desired_count = var.web_desired_count
   web_min_count     = var.web_min_count
@@ -169,3 +165,7 @@ module "monitoring" {
   sqs_dlq_name            = "${local.name}-reminders-dlq"
   alert_emails            = var.alert_emails
 }
+
+
+
+

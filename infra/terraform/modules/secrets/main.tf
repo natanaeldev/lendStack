@@ -17,13 +17,13 @@ resource "aws_secretsmanager_secret" "mongodb_uri" {
   name                    = "${var.name}/mongodb-uri"
   description             = "MongoDB Atlas connection string"
   kms_key_id              = var.kms_key_arn
-  recovery_window_in_days = 7  # 7-day recovery window before permanent deletion
+  recovery_window_in_days = 7 # 7-day recovery window before permanent deletion
 
   tags = { Name = "${var.name}-mongodb-uri", Sensitive = "true" }
 }
 
 resource "aws_secretsmanager_secret_version" "mongodb_uri" {
-  secret_id     = aws_secretsmanager_secret.mongodb_uri.id
+  secret_id = aws_secretsmanager_secret.mongodb_uri.id
   # Placeholder — set the real value with:
   # aws secretsmanager put-secret-value --secret-id <arn> --secret-string "mongodb+srv://..."
   secret_string = jsonencode({ MONGODB_URI = var.mongodb_uri })
@@ -85,8 +85,8 @@ resource "aws_secretsmanager_secret" "stripe" {
 resource "aws_secretsmanager_secret_version" "stripe" {
   secret_id = aws_secretsmanager_secret.stripe.id
   secret_string = jsonencode({
-    STRIPE_SECRET_KEY      = var.stripe_secret_key
-    STRIPE_WEBHOOK_SECRET  = var.stripe_webhook_secret
+    STRIPE_SECRET_KEY     = var.stripe_secret_key
+    STRIPE_WEBHOOK_SECRET = var.stripe_webhook_secret
   })
 
   lifecycle {

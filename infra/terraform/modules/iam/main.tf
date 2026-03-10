@@ -58,9 +58,9 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
         Resource = var.secret_arns
       },
       {
-        Sid    = "DecryptSecrets"
-        Effect = "Allow"
-        Action = ["kms:Decrypt", "kms:DescribeKey"]
+        Sid      = "DecryptSecrets"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:DescribeKey"]
         Resource = [var.secrets_kms_key_arn]
       }
     ]
@@ -94,30 +94,30 @@ resource "aws_iam_role_policy" "ecs_web_task_policy" {
         Resource = "${var.documents_bucket_arn}/*"
       },
       {
-        Sid    = "S3ListBucket"
-        Effect = "Allow"
-        Action = "s3:ListBucket"
+        Sid      = "S3ListBucket"
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
         Resource = var.documents_bucket_arn
       },
       # KMS: decrypt/encrypt S3 objects
       {
-        Sid    = "S3KMS"
-        Effect = "Allow"
-        Action = ["kms:GenerateDataKey", "kms:Decrypt", "kms:DescribeKey"]
+        Sid      = "S3KMS"
+        Effect   = "Allow"
+        Action   = ["kms:GenerateDataKey", "kms:Decrypt", "kms:DescribeKey"]
         Resource = [var.s3_kms_key_arn]
       },
       # SQS: web can SEND payment reminder jobs to the queue
       {
-        Sid    = "SQSSendReminders"
-        Effect = "Allow"
-        Action = ["sqs:SendMessage", "sqs:GetQueueUrl", "sqs:GetQueueAttributes"]
+        Sid      = "SQSSendReminders"
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage", "sqs:GetQueueUrl", "sqs:GetQueueAttributes"]
         Resource = var.reminders_queue_arn
       },
       # CloudWatch: emit custom metrics from the app
       {
-        Sid    = "CloudWatchMetrics"
-        Effect = "Allow"
-        Action = ["cloudwatch:PutMetricData"]
+        Sid      = "CloudWatchMetrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
         Resource = "*"
         Condition = {
           StringEquals = { "cloudwatch:namespace" = "LendStack/App" }
@@ -156,9 +156,9 @@ resource "aws_iam_role_policy" "ecs_worker_task_policy" {
       },
       # CloudWatch: worker emits processing metrics
       {
-        Sid    = "CloudWatchMetrics"
-        Effect = "Allow"
-        Action = ["cloudwatch:PutMetricData"]
+        Sid      = "CloudWatchMetrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
         Resource = "*"
         Condition = {
           StringEquals = { "cloudwatch:namespace" = "LendStack/Worker" }
@@ -195,9 +195,7 @@ resource "aws_iam_role" "github_actions" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = var.create_github_oidc
-          ? aws_iam_openid_connect_provider.github[0].arn
-          : data.aws_iam_openid_connect_provider.github[0].arn
+        Federated = var.create_github_oidc ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
@@ -262,3 +260,4 @@ resource "aws_iam_role_policy" "github_actions" {
     ]
   })
 }
+

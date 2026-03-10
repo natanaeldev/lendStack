@@ -28,7 +28,9 @@ resource "aws_wafv2_web_acl" "main" {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
 
-    override_action { none {} }
+    override_action {
+      none {}
+    }
 
     statement {
       managed_rule_group_statement {
@@ -37,8 +39,10 @@ resource "aws_wafv2_web_acl" "main" {
 
         # Exclude SizeRestrictions_BODY — Next.js API routes can have large bodies
         rule_action_override {
-          name          = "SizeRestrictions_BODY"
-          action_to_use { count {} }
+          name = "SizeRestrictions_BODY"
+          action_to_use {
+            count {}
+          }
         }
       }
     }
@@ -55,7 +59,9 @@ resource "aws_wafv2_web_acl" "main" {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 2
 
-    override_action { none {} }
+    override_action {
+      none {}
+    }
 
     statement {
       managed_rule_group_statement {
@@ -77,7 +83,9 @@ resource "aws_wafv2_web_acl" "main" {
     name     = "RateLimitRule"
     priority = 3
 
-    action { block {} }
+    action {
+      block {}
+    }
 
     statement {
       rate_based_statement {
@@ -110,7 +118,7 @@ resource "aws_cloudfront_distribution" "main" {
   comment             = "LendStack CDN"
   default_root_object = ""
   aliases             = var.domain_names
-  price_class         = "PriceClass_100"  # US, Canada, Europe — cheapest
+  price_class         = "PriceClass_100" # US, Canada, Europe — cheapest
   web_acl_id          = aws_wafv2_web_acl.main.arn
 
   # Origin: the ALB
@@ -121,7 +129,7 @@ resource "aws_cloudfront_distribution" "main" {
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "https-only"  # Always talk to ALB over HTTPS
+      origin_protocol_policy = "https-only" # Always talk to ALB over HTTPS
       origin_ssl_protocols   = ["TLSv1.2"]
 
       # Connection timeout settings
@@ -146,13 +154,13 @@ resource "aws_cloudfront_distribution" "main" {
     cached_methods         = ["GET", "HEAD"]
 
     # Use managed CachingDisabled policy for dynamic content
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"  # CachingDisabled
-    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"  # AllViewerExceptHostHeader
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
 
-    compress               = true
-    min_ttl                = 0
-    default_ttl            = 0
-    max_ttl                = 0
+    compress    = true
+    min_ttl     = 0
+    default_ttl = 0
+    max_ttl     = 0
   }
 
   # Static assets cache behavior: long TTL
@@ -163,16 +171,16 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"  # CachingOptimized
+    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
     compress        = true
-    min_ttl         = 86400     # 1 day
-    default_ttl     = 604800    # 7 days
-    max_ttl         = 31536000  # 1 year — Next.js static assets have content hashes
+    min_ttl         = 86400    # 1 day
+    default_ttl     = 604800   # 7 days
+    max_ttl         = 31536000 # 1 year — Next.js static assets have content hashes
   }
 
   restrictions {
     geo_restriction {
-      restriction_type = "none"  # No geo-blocking by default
+      restriction_type = "none" # No geo-blocking by default
     }
   }
 
@@ -199,3 +207,4 @@ resource "aws_cloudfront_distribution" "main" {
 
   tags = { Name = "${var.name}-cloudfront" }
 }
+

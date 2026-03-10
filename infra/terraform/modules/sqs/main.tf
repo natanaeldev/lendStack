@@ -14,23 +14,23 @@
 #     but don't get lost immediately.
 
 resource "aws_sqs_queue" "reminders_dlq" {
-  name                       = "${var.name}-reminders-dlq"
-  message_retention_seconds  = 1209600  # 14 days — inspect why messages failed
-  kms_master_key_id          = var.kms_key_arn
+  name                      = "${var.name}-reminders-dlq"
+  message_retention_seconds = 1209600 # 14 days — inspect why messages failed
+  kms_master_key_id         = var.kms_key_arn
 
   tags = { Name = "${var.name}-reminders-dlq", Purpose = "dead-letter" }
 }
 
 resource "aws_sqs_queue" "reminders" {
   name                       = "${var.name}-reminders"
-  message_retention_seconds  = 1209600  # 14 days
-  visibility_timeout_seconds = 300      # 5 minutes — match your worker timeout
-  receive_wait_time_seconds  = 20       # Long polling: reduces empty receives + cost
+  message_retention_seconds  = 1209600 # 14 days
+  visibility_timeout_seconds = 300     # 5 minutes — match your worker timeout
+  receive_wait_time_seconds  = 20      # Long polling: reduces empty receives + cost
   kms_master_key_id          = var.kms_key_arn
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.reminders_dlq.arn
-    maxReceiveCount     = 3  # Try 3 times before sending to DLQ
+    maxReceiveCount     = 3 # Try 3 times before sending to DLQ
   })
 
   tags = { Name = "${var.name}-reminders", Purpose = "payment-reminders" }
@@ -38,21 +38,22 @@ resource "aws_sqs_queue" "reminders" {
 
 # Queue policy: only the web ECS task role can send, only the worker can receive
 resource "aws_sqs_queue_policy" "reminders" {
+  count     = var.web_task_role_arn != null && var.worker_task_role_arn != null ? 1 : 0
   queue_url = aws_sqs_queue.reminders.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowSend"
-        Effect = "Allow"
+        Sid       = "AllowSend"
+        Effect    = "Allow"
         Principal = { AWS = var.web_task_role_arn }
-        Action   = ["sqs:SendMessage"]
-        Resource = aws_sqs_queue.reminders.arn
+        Action    = ["sqs:SendMessage"]
+        Resource  = aws_sqs_queue.reminders.arn
       },
       {
-        Sid    = "AllowConsume"
-        Effect = "Allow"
+        Sid       = "AllowConsume"
+        Effect    = "Allow"
         Principal = { AWS = var.worker_task_role_arn }
         Action = [
           "sqs:ReceiveMessage",
@@ -78,3 +79,4 @@ resource "aws_sqs_queue_policy" "reminders" {
     ]
   })
 }
+
