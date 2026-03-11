@@ -67,6 +67,15 @@ const SECTION_BAR = (
     style={{ background: 'linear-gradient(180deg,#1565C0,#0D2B5E)' }} />
 )
 
+type DashboardSectionId = 'resumen' | 'recaudacion' | 'operaciones' | 'vencimientos'
+
+const DASHBOARD_SECTIONS: { id: DashboardSectionId; label: string; emoji: string }[] = [
+  { id: 'resumen',     label: 'Resumen de cartera',              emoji: '📊' },
+  { id: 'recaudacion', label: 'Recaudación',                     emoji: '💸' },
+  { id: 'operaciones', label: 'Operaciones de cartera activa',   emoji: '🏦' },
+  { id: 'vencimientos',label: 'Estado de vencimiento',           emoji: '⏰' },
+]
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // ─── KPI card variants ────────────────────────────────────────────────────────
@@ -195,7 +204,11 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [expandDoc,setExpandDoc]= useState<string | null>(null)
   const [orgInfo,  setOrgInfo]  = useState<OrgInfo | null>(null)
   const [dashboardCurrency, setDashboardCurrency] = useState<Currency>('USD')
+  const [activeSection, setActiveSection] = useState<DashboardSectionId>('resumen')
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const sectionRefs = useRef<Record<DashboardSectionId, HTMLElement | null>>({
+    resumen: null, recaudacion: null, operaciones: null, vencimientos: null,
+  })
 
   // ── Fetch on mount ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -277,6 +290,29 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const docIcon = (type: string) =>
     type.includes('pdf') ? '📄' : type.includes('image') ? '🖼️' : type.includes('word') ? '📝' : '📁'
 
+  const scrollToSection = (id: DashboardSectionId) => {
+    setActiveSection(id)
+    sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        const id = visible?.target.getAttribute('data-dashboard-section') as DashboardSectionId | null
+        if (id) setActiveSection(id)
+      },
+      { root: null, rootMargin: '-20% 0px -55% 0px', threshold: [0.2, 0.45, 0.7] }
+    )
+
+    const sections = Object.values(sectionRefs.current).filter(Boolean) as HTMLElement[]
+    sections.forEach(el => observer.observe(el))
+    return () => observer.disconnect()
+  }, [stats, clients])
+
   // ── Early returns ───────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center py-24">
@@ -291,18 +327,18 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
   // ── Full dashboard ──────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
 
       {/* ── Plan banner (Starter limit warning / Pro badge) ── */}
       {orgInfo && orgInfo.plan === 'starter' && orgInfo.maxClients !== null && (
         <div
-          className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap"
+          className="rounded-2xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
           style={{
             background:  orgInfo.isAtLimit  ? '#FFF1F2' : orgInfo.isNearLimit ? '#FFFBEB' : '#F0F9FF',
             border:      `1.5px solid ${orgInfo.isAtLimit ? '#FECDD3' : orgInfo.isNearLimit ? '#FDE68A' : '#BAE6FD'}`,
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto">
             <span className="text-xl">{orgInfo.isAtLimit ? '🚫' : orgInfo.isNearLimit ? '⚠️' : '📊'}</span>
             <div>
               <p
@@ -326,7 +362,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
           {(orgInfo.isAtLimit || orgInfo.isNearLimit) && (
             <a
               href="mailto:ventas@lendstack.app?subject=Actualizar%20a%20Pro"
-              className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+              className="w-full sm:w-auto text-center flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
               style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}
             >
               ⭐ Actualizar a Pro
@@ -346,6 +382,35 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         </div>
       )}
 
+      {stats && (
+        <div className="sticky top-2 z-20 -mx-1 px-1">
+          <div className="rounded-2xl border border-slate-200 bg-white/90 backdrop-blur px-2 py-2"
+            style={{ boxShadow: '0 6px 18px rgba(13,43,94,.08)' }}>
+            <div className="flex gap-2 overflow-x-auto pb-0.5">
+              {DASHBOARD_SECTIONS.map(section => {
+                const active = activeSection === section.id
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => scrollToSection(section.id)}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all"
+                    style={{
+                      background: active ? 'linear-gradient(135deg,#0D2B5E,#1565C0)' : '#F8FAFC',
+                      color: active ? '#fff' : '#334155',
+                      border: active ? '1px solid transparent' : '1px solid #E2E8F0',
+                    }}
+                  >
+                    <span>{section.emoji}</span>
+                    <span className="whitespace-nowrap">{section.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══════════════════════════════════════════════════════════════════════
            KPI SECTION
          ══════════════════════════════════════════════════════════════════════ */}
@@ -359,20 +424,25 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
         return (
           <>
+            <section
+              ref={el => { sectionRefs.current.resumen = el }}
+              data-dashboard-section="resumen"
+              className="space-y-4"
+            >
             {/* ── Section header ── */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 {SECTION_BAR}
                 <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Resumen de cartera</h3>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-400">
+              <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                <span className="text-xs text-slate-400 leading-tight">
                   {stats.totalClients} cliente{stats.totalClients !== 1 ? 's' : ''} · actualizado ahora
                 </span>
                 <select
                   value={dashboardCurrency}
                   onChange={e => setDashboardCurrency(e.target.value as Currency)}
-                  className="text-xs font-semibold rounded-lg border border-slate-300 px-2 py-1 bg-white"
+                  className="text-xs font-semibold rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
                 >
                   <option value="USD">USD ($)</option>
                   <option value="DOP">RD$ (DOP)</option>
@@ -381,7 +451,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Primary KPIs (4 large cards) ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {/* Cartera total — desglosada por moneda */}
               <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
                 style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
@@ -428,7 +498,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Secondary metrics (2×4 grid) ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <MetricRow
                 label="Interés proyectado"
                 value={fmtK(stats.totalInterest)}
@@ -530,13 +600,20 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               </div>
             )}
 
+            </section>
+
+            <section
+              ref={el => { sectionRefs.current.recaudacion = el }}
+              data-dashboard-section="recaudacion"
+              className="space-y-4"
+            >
             {/* ── Collection stats strip (today / week / month) ── */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
                 {SECTION_BAR}
                 <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Recaudación</h3>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                 {[
                   { label: 'Hoy',       value: fmtK(stats.collectedToday), sub: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }),    bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', emoji: '📅' },
                   { label: 'Esta semana', value: fmtK(stats.collectedWeek),  sub: 'lunes → hoy', bg: '#EEF4FF', border: '#BFDBFE', color: '#1E40AF', emoji: '📆' },
@@ -625,7 +702,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Loan status strip ── */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
               {[
                 { count: stats.pendingCount,  label: 'Pendientes', sub: 'en evaluación', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', sub2: '#B45309', emoji: '⏳' },
                 { count: stats.approvedCount, label: 'Aprobados',  sub: 'créditos activos', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', sub2: '#16A34A', emoji: '✅' },
@@ -653,6 +730,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 </div>
               ))}
             </div>
+            </section>
           </>
         )
       })()}
@@ -672,12 +750,16 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         if (p.totalLoansCount === 0) return null
 
         return (
-          <div className="space-y-4">
+          <div
+            ref={el => { sectionRefs.current.operaciones = el }}
+            data-dashboard-section="operaciones"
+            className="space-y-4"
+          >
             <div className="flex items-center gap-2.5">
               {SECTION_BAR}
               <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Operaciones — cartera activa</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: 'Cartera activa',   value: fmtK(p.activePortfolio),     sub: `${p.totalActiveCount} préstamos`,          icon: '💼', accent: '#10B981', bg: '#ECFDF5' },
                 { label: 'Total desembolsado', value: fmtK(p.totalDisbursed),    sub: 'histórico acumulado',                      icon: '🏦', accent: '#2563EB', bg: '#EFF6FF' },
@@ -699,7 +781,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               ))}
             </div>
             {/* Operational row: due today + collected + pending */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
               {[
                 { label: 'Cuotas vencen hoy', value: fmtK(p.dueTodayAmount), sub: `${p.dueTodayCount} cuota${p.dueTodayCount !== 1 ? 's' : ''}`, bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', emoji: '📅' },
                 { label: 'Cobrado este mes',  value: fmtK(p.collectedMonth),  sub: 'pagos registrados',                                             bg: '#ECFDF5', border: '#6EE7B7', color: '#064E3B', emoji: '💸' },
@@ -773,14 +855,18 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         const alertClients = [...dueToday, ...overdue, ...upcoming, ...paidThisMonth]
 
         return (
-          <div className="space-y-4">
+          <div
+            ref={el => { sectionRefs.current.vencimientos = el }}
+            data-dashboard-section="vencimientos"
+            className="space-y-4"
+          >
             <div className="flex items-center gap-2.5">
               {SECTION_BAR}
               <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Estado de vencimientos</h3>
             </div>
 
             {/* 4 KPI pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: 'Vencidos / atrasados', count: overdue.length,       emoji: '🔴', bg: '#FFF1F2', border: '#FECDD3', color: '#881337' },
                 { label: 'Cuota hoy',            count: dueToday.length,      emoji: '🟡', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E' },
@@ -1058,7 +1144,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
                 {/* Documents panel (collapsible) */}
                 {isExpanded && (
-                  <div className="mt-3 ml-14 rounded-xl border border-slate-200 p-4 bg-slate-50">
+                  <div className="mt-3 ml-0 sm:ml-14 rounded-xl border border-slate-200 p-4 bg-slate-50">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
                       Documentos del cliente
                     </p>
