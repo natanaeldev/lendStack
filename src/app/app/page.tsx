@@ -172,26 +172,27 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     showToast(m === 'monthly' ? '🗓️' : '📅', m === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
   }
 
-  const card = 'rounded-2xl p-4 sm:p-6 bg-white border border-slate-200 mb-5'
-  const cardShadow = { boxShadow: '0 2px 18px rgba(0,0,0,.06)' }
+  const card = 'rounded-2xl p-4 sm:p-6 bg-slate-950/75 border border-cyan-400/25 backdrop-blur mb-5'
+  const cardShadow = { boxShadow: '0 12px 26px rgba(2,6,23,.48)' }
   const sectionTitle = (text: string) => (
     <div className="flex items-center gap-2.5 mb-5">
       <div className="w-1 h-6 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(180deg, #1565C0, #0D2B5E)' }} />
-      <h2 className="font-display text-base" style={{ color: '#0D2B5E' }}>{text}</h2>
+      <h2 className="font-display text-base" style={{ color: '#E2E8F0' }}>{text}</h2>
     </div>
   )
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden" style={{ background: 'linear-gradient(180deg,#071a3e 0%,#0D2B5E 45%,#062e6c 100%)' }}>
+      <div className="pointer-events-none absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '36px 36px' }} />
       <Header />
 
       {/* ── Desktop tab bar (sm+) ── */}
-      <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
+      <div className="hidden sm:block sticky top-0 z-40 border-b border-cyan-400/20 bg-slate-950/75 backdrop-blur" style={{ boxShadow: '0 8px 24px rgba(2,6,23,.45)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
               className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
-              style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
+              style={{ borderBottomColor: tab === t.id ? '#38BDF8' : 'transparent', color: tab === t.id ? '#E0F2FE' : '#93C5FD', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
               {t.label}
             </button>
           ))}
@@ -200,26 +201,26 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               onClick={() => setShowPayment(true)}
               title="Registrar pago de cuota"
               className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
-              style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
+              style={{ background: 'linear-gradient(135deg,#0ea5e9,#1d4ed8)', boxShadow: '0 4px 14px rgba(14,165,233,.45)' }}>
               +
             </button>
           </div>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
+      <main className="relative max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
 
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
           <>
             {/* Sub-nav */}
-            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-100 border border-slate-200 w-full sm:w-fit">
+            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-950/70 border border-cyan-400/25 backdrop-blur w-full sm:w-fit">
               {CALC_SUBTABS.map(s => (
                 <button key={s.id} onClick={() => setCalcSubTab(s.id)}
                   className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all text-center"
                   style={{
                     background: calcSubTab === s.id ? '#fff' : 'transparent',
-                    color:      calcSubTab === s.id ? '#0D2B5E' : '#64748b',
+                    color:      calcSubTab === s.id ? '#0D2B5E' : '#93C5FD',
                     boxShadow:  calcSubTab === s.id ? '0 1px 6px rgba(0,0,0,.1)' : 'none',
                     fontFamily: "'DM Sans', sans-serif",
                   }}>
@@ -327,8 +328,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                   {/* Show equivalent in the other unit */}
                   <p className="text-xs text-slate-400 mt-1.5">
                     {termUnit === 'months'
-                      ? <>≈ <strong style={{ color: '#0D2B5E' }}>{(termValue / 12).toFixed(1)}</strong> años · <strong style={{ color: '#0D2B5E' }}>{termValue}</strong> cuotas</>
-                      : <><strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> meses · <strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> cuotas</>
+                      ? <>≈ <strong style={{ color: '#E2E8F0' }}>{(termValue / 12).toFixed(1)}</strong> años · <strong style={{ color: '#E2E8F0' }}>{termValue}</strong> cuotas</>
+                      : <><strong style={{ color: '#E2E8F0' }}>{termValue * 12}</strong> meses · <strong style={{ color: '#E2E8F0' }}>{termValue * 12}</strong> cuotas</>
                     }
                   </p>
                 </div>
@@ -368,7 +369,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                           </div>
                           <span className="text-xs font-semibold" style={{ color: '#1565C0' }}>/ mes</span>
                           <span className="text-xs text-slate-400 ml-auto">
-                            ≈ <strong style={{ color: '#0D2B5E' }}>{(customMonthlyRate * 12 * 100).toFixed(2)}%</strong> anual equivalente
+                            ≈ <strong style={{ color: '#E2E8F0' }}>{(customMonthlyRate * 12 * 100).toFixed(2)}%</strong> anual equivalente
                           </span>
                         </div>
                         <input type="range" min={0.01} max={20} step={0.01}
@@ -414,7 +415,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                       <input type="range" min={1} max={520} step={1} value={weeklyTermWeeks}
                         onChange={e => setWeeklyTermWeeks(Number(e.target.value))}
                         className="w-full mt-2 accent-blue-600" style={{ height: 4 }} />
-                      <p className="text-xs text-slate-400 mt-1">≈ <strong style={{ color: '#0D2B5E' }}>{(weeklyTermWeeks / 4.33).toFixed(1)}</strong> meses</p>
+                      <p className="text-xs text-slate-400 mt-1">≈ <strong style={{ color: '#E2E8F0' }}>{(weeklyTermWeeks / 4.33).toFixed(1)}</strong> meses</p>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
@@ -431,8 +432,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                         onChange={e => setWeeklyMonthlyRate(parseFloat(e.target.value) / 100)}
                         className="w-full mt-2 accent-blue-600" style={{ height: 4 }} />
                       <p className="text-xs text-slate-400 mt-1">
-                        Tasa semanal: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate / 4.33, 4)}</strong>
-                        &nbsp;·&nbsp;Anual equiv.: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate * 12)}</strong>
+                        Tasa semanal: <strong style={{ color: '#E2E8F0' }}>{formatPercent(weeklyMonthlyRate / 4.33, 4)}</strong>
+                        &nbsp;·&nbsp;Anual equiv.: <strong style={{ color: '#E2E8F0' }}>{formatPercent(weeklyMonthlyRate * 12)}</strong>
                       </p>
                     </div>
                   </div>
@@ -663,7 +664,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               <>
                 <div className="rounded-2xl p-5 bg-white border border-slate-200 mb-5 flex items-center gap-5 flex-wrap" style={cardShadow}>
                   <div className="flex items-center gap-2">
-                    <div className="w-1 h-5 rounded-full" style={{ background: '#1565C0' }} />
+                    <div className="w-1 h-5 rounded-full" style={{ background: '#38BDF8' }} />
                     <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>Préstamo base:</span>
                   </div>
                   <div className="flex gap-6">
@@ -755,15 +756,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       </main>
 
       {/* Footer — hidden on mobile (bottom nav takes the space) */}
-      <footer className="hidden sm:block bg-white border-t border-slate-200 text-center py-5 text-xs text-slate-400 mt-4">
-        <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero ·
+      <footer className="hidden sm:block bg-slate-950/70 border-t border-cyan-400/20 text-center py-5 text-xs text-blue-200/75 mt-4 backdrop-blur">
+        <strong style={{ color: '#E2E8F0' }}>LendStack</strong> · Herramienta de análisis financiero ·
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
       {/* ── Mobile report shortcut (above quick-pay) ── */}
       <button
         className="sm:hidden fixed z-50 w-10 h-10 rounded-full flex items-center justify-center text-white text-base transition-all active:scale-95"
-        style={{ bottom: '144px', right: '21px', background: 'linear-gradient(135deg,#0D2B5E,#1565C0)', boxShadow: '0 4px 16px rgba(13,43,94,.45)' }}
+        style={{ bottom: '144px', right: '21px', background: 'linear-gradient(135deg,#0284C7,#1D4ED8)', boxShadow: '0 8px 18px rgba(14,165,233,.4)' }}
         onClick={() => changeTab('reports')}
         title="Abrir reportes"
         aria-label="Abrir reportes">
@@ -773,15 +774,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
       <button
         className="sm:hidden fixed z-50 w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
-        style={{ bottom: '88px', right: '20px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 4px 16px rgba(21,101,192,.5)' }}
+        style={{ bottom: '88px', right: '20px', background: 'linear-gradient(135deg,#0ea5e9,#1d4ed8)', boxShadow: '0 8px 18px rgba(14,165,233,.45)' }}
         onClick={() => setShowPayment(true)}
         title="Registrar pago de cuota">
         +
       </button>
 
       {/* ── Mobile bottom tab bar (below sm) ── */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
-        style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/85 border-t border-cyan-400/20 pb-safe backdrop-blur"
+        style={{ boxShadow: '0 -6px 18px rgba(2,6,23,.6)' }}>
         <div className="flex">
           {MOBILE_TABS.map(t => {
             const active = tab === t.id
@@ -789,11 +790,11 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               <button key={t.id}
                 onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all"
-                style={{ color: active ? '#1565C0' : '#94a3b8' }}>
+                style={{ color: active ? '#7DD3FC' : '#93C5FD' }}>
                 <span className="text-2xl leading-none">{t.emoji}</span>
                 <span className="text-[10px] font-bold tracking-wide">{t.mobileLabel}</span>
                 {active && (
-                  <span className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ background: '#1565C0' }} />
+                  <span className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ background: '#38BDF8' }} />
                 )}
               </button>
             )
