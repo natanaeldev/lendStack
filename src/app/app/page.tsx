@@ -17,6 +17,7 @@ import LoansPanel from '@/components/LoansPanel'
 import LoanDetailPanel from '@/components/LoanDetailPanel'
 import Dashboard from '@/components/Dashboard'
 import BranchesPanel from '@/components/BranchesPanel'
+import OrganizationReport from '@/components/OrganizationReport'
 import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
@@ -30,7 +31,7 @@ import {
   formatCurrency, formatPercent, CURRENCIES,
 } from '@/lib/loan'
 
-export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches'
+export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
@@ -38,8 +39,11 @@ const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
   { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'  },
   { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes'   },
   { id: 'branches',   label: '🏢 Sucursales',   emoji: '🏢', mobileLabel: 'Sucursales' },
+  { id: 'reports',    label: '📑 Reportes',     emoji: '📑', mobileLabel: 'Reportes' },
   { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
 ]
+
+const MOBILE_TABS = TABS.filter(t => t.id !== 'reports')
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'single',     label: 'Simulación'     },
@@ -84,6 +88,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         clients:    '/app/clientes',
         loans:      '/app/prestamos',
         branches:   '/app/sucursales',
+        reports:    '/app/reportes',
       }
       window.history.pushState(null, '', paths[newTab])
     }
@@ -97,6 +102,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       else if (p.startsWith('/app/clientes'))   setTab('clients')
       else if (p.startsWith('/app/prestamos'))  setTab('loans')
       else if (p.startsWith('/app/sucursales')) setTab('branches')
+      else if (p.startsWith('/app/reportes'))   setTab('reports')
       else                                       setTab('dashboard')
     }
     window.addEventListener('popstate', onPopState)
@@ -743,6 +749,9 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
+        {/* ═══ REPORTS ═══ */}
+        {tab === 'reports' && <OrganizationReport />}
+
       </main>
 
       {/* Footer — hidden on mobile (bottom nav takes the space) */}
@@ -750,6 +759,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero ·
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
+
+      {/* ── Mobile report shortcut (above quick-pay) ── */}
+      <button
+        className="sm:hidden fixed z-50 px-3 h-9 rounded-full flex items-center justify-center gap-1.5 text-white font-bold text-xs transition-all active:scale-95"
+        style={{ bottom: '144px', right: '20px', background: 'linear-gradient(135deg,#0D2B5E,#1565C0)', boxShadow: '0 4px 16px rgba(13,43,94,.45)' }}
+        onClick={() => changeTab('reports')}
+        title="Abrir reportes">
+        📑 Reportes
+      </button>
 
       {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
       <button
@@ -764,7 +782,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
         style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
         <div className="flex">
-          {TABS.map(t => {
+          {MOBILE_TABS.map(t => {
             const active = tab === t.id
             return (
               <button key={t.id}
