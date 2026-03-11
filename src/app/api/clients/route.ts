@@ -8,6 +8,23 @@ import { v4 as uuidv4 }                               from 'uuid'
 // Starter plan: max 50 clients
 const STARTER_CLIENT_LIMIT = 50
 
+function inferLoanType(loan: any): 'amortized' | 'weekly' | 'carrito' {
+  if (!loan) return 'amortized'
+  const raw = String(loan.loanType ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_')
+  if (raw === 'weekly') return 'weekly'
+  if (['carrito', 'flat', 'flat_rate', 'interes_plano'].includes(raw)) return 'carrito'
+
+  const hasWeeklySignals = loan.termWeeks != null || loan.weeklyRate != null || loan.weeklyPayment != null
+  if (hasWeeklySignals) return 'weekly'
+
+  const hasCarritoSignals =
+    loan.flatRate != null || loan.carritoTerm != null || loan.numPayments != null || loan.frequency != null || loan.fixedPayment != null
+  if (hasCarritoSignals) return 'carrito'
+
+  return 'amortized'
+}
+
+
 // ─── GET  /api/clients ────────────────────────────────────────────────────────
 export async function GET() {
   const session = await requireAuth()
@@ -80,7 +97,7 @@ export async function GET() {
       lifecycleStatus: migrateLegacyStatus(c.loanStatus),
       loanId:          c.loan?.id ?? null,
       // Tipo de préstamo
-      loanType: c.loan?.loanType ?? 'amortized',
+      loanType: inferLoanType(c.loan),
       // Préstamo
       params: c.loan ? {
         amount:            c.loan.amount,
