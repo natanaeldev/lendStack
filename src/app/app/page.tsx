@@ -43,6 +43,8 @@ const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
   { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
 ]
 
+const DESKTOP_TABS = TABS.filter(t => t.id !== 'reports')
+
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'single',     label: 'Simulación'     },
   { id: 'multiloan',  label: 'Multi-préstamo' },
@@ -186,14 +188,24 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       {/* ── Desktop tab bar (sm+) ── */}
       <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
-          {TABS.map(t => (
+          {DESKTOP_TABS.map(t => (
             <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
               className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
               style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
               {t.label}
             </button>
           ))}
-          <div className="ml-auto pl-4 flex-shrink-0">
+          <div className="ml-auto pl-4 flex-shrink-0 flex flex-col items-end gap-2 py-1">
+            <button
+              onClick={() => changeTab('reports')}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
+              style={{
+                color: tab === 'reports' ? '#1565C0' : '#64748b',
+                borderColor: tab === 'reports' ? '#1565C0' : '#cbd5e1',
+                background: tab === 'reports' ? '#EEF4FF' : '#fff',
+              }}>
+              📑 Reportes
+            </button>
             <button
               onClick={() => setShowPayment(true)}
               title="Registrar pago de cuota"
