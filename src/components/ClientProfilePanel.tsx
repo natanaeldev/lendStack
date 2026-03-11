@@ -1280,7 +1280,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 <a key={doc.id}
                   href={doc.url.startsWith('data:')
                     ? doc.url
-                    : `/api/blob-download?url=${encodeURIComponent(doc.url)}`}
+                    : `/api/clients/${clientId}/documents/${doc.id}/presign`}
                   target="_blank" rel="noopener noreferrer"
                   className="group inline-flex flex-col gap-1 px-4 py-3 rounded-xl border bg-slate-50 hover:border-blue-300 hover:bg-blue-50 transition-all"
                   style={{ borderColor: '#e2e8f0', minWidth: '140px' }}>

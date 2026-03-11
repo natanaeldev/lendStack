@@ -2,11 +2,12 @@ import { NextRequest, NextResponse }          from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { getPresignedDownloadUrl }           from '@/lib/s3'
+import { getDownloadUrl }                    from '@vercel/blob'
 
 /**
  * GET /api/clients/[id]/documents/[docId]/presign
  *
- * Generates a 15-minute presigned S3 download URL for a specific document.
+ * Redirects to a short-lived signed download URL for a specific document.
  *
  * Security model:
  *   1. Caller must be authenticated (valid session).
@@ -15,7 +16,7 @@ import { getPresignedDownloadUrl }           from '@/lib/s3'
  *   4. S3 URL is generated server-side — the client never has AWS credentials.
  *   5. URL expires in 15 minutes — even if leaked, it's short-lived.
  *
- * For base64-stored documents (local dev), returns the data URL directly.
+ * For base64-stored documents (local dev), redirects to the data URL directly.
  */
 export async function GET(
   _req: NextRequest,
@@ -44,9 +45,15 @@ export async function GET(
     if (!doc)
       return NextResponse.json({ error: 'Documento no encontrado' }, { status: 404 })
 
-    // Base64 documents (local dev): return URL directly
+    // Base64 documents (local dev): redirect directly
     if (doc.url?.startsWith('data:') || doc.storageType === 'base64') {
-      return NextResponse.json({ url: doc.url, expiresIn: null })
+      return NextResponse.redirect(doc.url)
+    }
+
+    // Legacy Vercel Blob documents
+    if (doc.url?.startsWith('https://') && doc.url.includes('blob.vercel-storage.com')) {
+      const downloadUrl = await getDownloadUrl(doc.url)
+      return NextResponse.redirect(downloadUrl)
     }
 
     // S3 documents: extract key from stored s3:// URI and generate presigned URL
@@ -60,11 +67,7 @@ export async function GET(
 
     const presignedUrl = await getPresignedDownloadUrl(key, 900)  // 15 min
 
-    return NextResponse.json({
-      url:       presignedUrl,
-      expiresIn: 900,
-      name:      doc.name,
-    })
+    return NextResponse.redirect(presignedUrl)
   } catch (err: any) {
     console.error('[GET presign]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

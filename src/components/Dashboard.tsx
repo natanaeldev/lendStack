@@ -1067,7 +1067,10 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     {c.documents?.length > 0 ? (
                       <div className="flex flex-wrap gap-2 mb-3">
                         {c.documents.map(doc => (
-                          <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+                          <a key={doc.id}
+                            href={doc.url.startsWith('data:')
+                              ? doc.url
+                              : `/api/clients/${c.id}/documents/${doc.id}/presign`} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-all"
                             style={{ color: '#0D2B5E' }}>
                             {docIcon(doc.type)} {doc.name}

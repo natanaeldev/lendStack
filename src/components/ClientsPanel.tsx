@@ -1046,7 +1046,7 @@ export default function ClientsPanel({
                               <a key={doc.id}
                                 href={doc.url.startsWith('data:')
                                   ? doc.url
-                                  : `/api/blob-download?url=${encodeURIComponent(doc.url)}`}
+                                  : `/api/clients/${c.id}/documents/${doc.id}/presign`}
                                 target="_blank" rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border bg-white hover:border-blue-300 hover:bg-blue-50 transition-all"
                                 style={{ color: '#0D2B5E', borderColor: '#e2e8f0' }}>
