@@ -2,6 +2,23 @@ import { NextRequest, NextResponse }                  from 'next/server'
 import { getDb, isDbConfigured }                     from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }         from '@/lib/orgAuth'
 
+
+function inferLoanType(loan: any): 'amortized' | 'weekly' | 'carrito' {
+  if (!loan) return 'amortized'
+  const raw = String(loan.loanType ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_')
+  if (raw === 'weekly') return 'weekly'
+  if (['carrito', 'flat', 'flat_rate', 'interes_plano'].includes(raw)) return 'carrito'
+
+  const hasWeeklySignals = loan.termWeeks != null || loan.weeklyRate != null || loan.weeklyPayment != null
+  if (hasWeeklySignals) return 'weekly'
+
+  const hasCarritoSignals =
+    loan.flatRate != null || loan.carritoTerm != null || loan.numPayments != null || loan.frequency != null || loan.fixedPayment != null
+  if (hasCarritoSignals) return 'carrito'
+
+  return 'amortized'
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -49,7 +66,7 @@ export async function GET(
         branchId:        c.branchId        ?? null,
         branchName:      c.branchName      ?? null,
         loanStatus:      c.loanStatus      ?? 'pending',
-        loanType:        c.loan?.loanType  ?? 'amortized',
+        loanType:        inferLoanType(c.loan),
         params: c.loan ? {
           amount:            c.loan.amount,
           termYears:         c.loan.termYears ?? null,

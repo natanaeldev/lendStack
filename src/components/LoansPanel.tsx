@@ -12,6 +12,12 @@ interface LoanRow {
   amount: number; scheduledPayment: number; remainingBalance: number
   paidTotal: number; disbursedAt?: string; createdAt: string
   daysPastDue?: number; overdueAmount?: number
+  // Legacy / variant fields used for resilient loan-type labeling
+  flatRate?: number
+  carritoTerm?: number
+  carritoPayments?: number
+  numPayments?: number
+  frequency?: string
 }
 
 interface Props {
@@ -47,9 +53,32 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
 }
 
 const LOAN_TYPE_LABELS: Record<string, string> = {
-  amortized: 'Amortizado',
-  weekly:    'Semanal',
-  carrito:   'Carrito',
+  amortized:     'Amortizado',
+  weekly:        'Semanal',
+  carrito:       'Interés plano',
+  flat:          'Interés plano',
+  flat_rate:     'Interés plano',
+  interes_plano: 'Interés plano',
+}
+
+function loanTypeLabel(loan: LoanRow) {
+  const rawType = loan.loanType
+  if (!rawType) return '—'
+
+  const normalized = rawType.toLowerCase().trim().replace(/[\s-]+/g, '_')
+
+  // Legacy data can be saved as "amortized" even for flat-rate carrito loans.
+  // Infer flat-rate when carrito-specific fields are present.
+  const hasFlatSignals = [
+    loan.flatRate,
+    loan.carritoTerm,
+    loan.carritoPayments,
+    loan.numPayments,
+    loan.frequency,
+  ].some(v => v !== undefined && v !== null && v !== '')
+
+  if (normalized === 'amortized' && hasFlatSignals) return 'Interés plano'
+  return LOAN_TYPE_LABELS[normalized] ?? rawType
 }
 
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -199,7 +228,7 @@ export default function LoansPanel({ onViewLoan }: Props) {
                     value={formatCurrency(loan.remainingBalance, loan.currency)}
                     color={loan.status === 'delinquent' ? '#EA580C' : undefined} />
                   <MiniStat label="Cuota" value={formatCurrency(loan.scheduledPayment, loan.currency)} />
-                  <MiniStat label="Tipo" value={LOAN_TYPE_LABELS[loan.loanType] ?? loan.loanType} />
+                  <MiniStat label="Tipo" value={loanTypeLabel(loan)} />
                 </div>
                 {/* Footer row */}
                 <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
@@ -243,7 +272,7 @@ export default function LoansPanel({ onViewLoan }: Props) {
                         )}
                       </td>
                       <td className="px-3 py-3"><StatusBadge status={loan.status} /></td>
-                      <td className="px-3 py-3 text-slate-600">{LOAN_TYPE_LABELS[loan.loanType] ?? loan.loanType}</td>
+                      <td className="px-3 py-3 text-slate-600">{loanTypeLabel(loan)}</td>
                       <td className="px-3 py-3 text-right font-mono text-slate-700">
                         {formatCurrency(loan.amount, loan.currency)}
                       </td>
