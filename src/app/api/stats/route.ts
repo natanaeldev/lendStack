@@ -186,6 +186,23 @@ export async function GET() {
       rutas: byBranchRaw.find(b => b.branch === 'rutas')?.count ?? 0,
     }
 
+    const totalBranchClients = byBranch.sede + byBranch.rutas
+    const byBranchPerformance = {
+      sede: {
+        count: byBranch.sede,
+        percentage: totalBranchClients > 0 ? Math.round((byBranch.sede / totalBranchClients) * 100) : 0,
+      },
+      rutas: {
+        count: byBranch.rutas,
+        percentage: totalBranchClients > 0 ? Math.round((byBranch.rutas / totalBranchClients) * 100) : 0,
+      },
+      topBranch: byBranch.sede === byBranch.rutas
+        ? 'tie'
+        : byBranch.sede > byBranch.rutas
+          ? 'sede'
+          : 'rutas',
+    }
+
     const legacyForUsd = await col.find(
       { organizationId: orgId },
       { projection: { loan: 1, loanStatus: 1 } },
@@ -209,13 +226,21 @@ export async function GET() {
     const avgMonthlyPaymentUsd = totalMonthlyPaymentsUsd / totalLoansCountLegacy
 
     // ── Date helpers ───────────────────────────────────────────────────────
-    const now          = new Date()
-    const todayStr     = now.toISOString().slice(0, 10)
-    const daysToMon    = now.getDay() === 0 ? 6 : now.getDay() - 1
-    const weekStart    = new Date(now)
+    const now           = new Date()
+    const todayStr      = now.toISOString().slice(0, 10)
+    const daysToMon     = now.getDay() === 0 ? 6 : now.getDay() - 1
+    const weekStart     = new Date(now)
     weekStart.setDate(now.getDate() - daysToMon)
-    const weekStartStr  = weekStart.toISOString().slice(0, 10)
-    const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const prevWeekStart = new Date(weekStart)
+    prevWeekStart.setDate(weekStart.getDate() - 7)
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+
+    const weekStartStr      = weekStart.toISOString().slice(0, 10)
+    const prevWeekStartStr  = prevWeekStart.toISOString().slice(0, 10)
+    const monthStartStr     = monthStart.toISOString().slice(0, 10)
+    const prevMonthStartStr = prevMonthStart.toISOString().slice(0, 10)
 
     // ── Legacy payment collection stats ────────────────────────────────────
     const [legacyPayStats] = await col.aggregate([
@@ -224,9 +249,29 @@ export async function GET() {
       {
         $group: {
           _id: null,
-          collectedToday: { $sum: { $cond: [{ $eq:  ['$payments.date', todayStr]    }, '$payments.amount', 0] } },
+          collectedToday: { $sum: { $cond: [{ $eq:  ['$payments.date', todayStr] }, '$payments.amount', 0] } },
           collectedWeek:  { $sum: { $cond: [{ $gte: ['$payments.date', weekStartStr] }, '$payments.amount', 0] } },
-          collectedMonth: { $sum: { $cond: [{ $gte: ['$payments.date', monthStartStr]}, '$payments.amount', 0] } },
+          collectedWeekPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$payments.date', prevWeekStartStr] },
+                  { $lt:  ['$payments.date', weekStartStr] },
+                ],
+              }, '$payments.amount', 0],
+            },
+          },
+          collectedMonth: { $sum: { $cond: [{ $gte: ['$payments.date', monthStartStr] }, '$payments.amount', 0] } },
+          collectedMonthPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$payments.date', prevMonthStartStr] },
+                  { $lt:  ['$payments.date', monthStartStr] },
+                ],
+              }, '$payments.amount', 0],
+            },
+          },
         },
       },
     ]).toArray()
@@ -237,8 +282,29 @@ export async function GET() {
       {
         $group: {
           _id: null,
-          collectedToday: { $sum: { $cond: [{ $eq:  ['$date', todayStr]    }, '$amount', 0] } },
-          collectedMonth: { $sum: { $cond: [{ $gte: ['$date', monthStartStr]}, '$amount', 0] } },
+          collectedToday: { $sum: { $cond: [{ $eq: ['$date', todayStr] }, '$amount', 0] } },
+          collectedWeek:  { $sum: { $cond: [{ $gte: ['$date', weekStartStr] }, '$amount', 0] } },
+          collectedWeekPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$date', prevWeekStartStr] },
+                  { $lt:  ['$date', weekStartStr] },
+                ],
+              }, '$amount', 0],
+            },
+          },
+          collectedMonth: { $sum: { $cond: [{ $gte: ['$date', monthStartStr] }, '$amount', 0] } },
+          collectedMonthPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$date', prevMonthStartStr] },
+                  { $lt:  ['$date', monthStartStr] },
+                ],
+              }, '$amount', 0],
+            },
+          },
         },
       },
     ]).toArray()
@@ -364,7 +430,10 @@ export async function GET() {
     }))
 
     const collectedToday = Math.max(legacyPayStats?.collectedToday ?? 0, newPayStats?.collectedToday ?? 0)
+    const collectedWeek = Math.max(legacyPayStats?.collectedWeek ?? 0, newPayStats?.collectedWeek ?? 0)
+    const collectedWeekPrev = Math.max(legacyPayStats?.collectedWeekPrev ?? 0, newPayStats?.collectedWeekPrev ?? 0)
     const collectedMonth = Math.max(legacyPayStats?.collectedMonth ?? 0, newPayStats?.collectedMonth ?? 0)
+    const collectedMonthPrev = Math.max(legacyPayStats?.collectedMonthPrev ?? 0, newPayStats?.collectedMonthPrev ?? 0)
 
     const loansForUsd = await loansCol.find(
       { organizationId: orgId },
@@ -418,6 +487,7 @@ export async function GET() {
       byProfile,
       byCurrency,
       byBranch,
+      byBranchPerformance,
       avgPaymentByCurrency,
       recoveryByCurrency,
       recentClients,
@@ -425,8 +495,10 @@ export async function GET() {
       approvedCount,
       deniedCount,
       collectedToday,
-      collectedWeek:        legacyPayStats?.collectedWeek ?? 0,
+      collectedWeek,
+      collectedWeekPrev,
       collectedMonth,
+      collectedMonthPrev,
       collectionRate,
       paidPeriodsCount,
       overdueAmountByCurrency,

@@ -133,6 +133,11 @@ export default function Header() {
                       style={{ color: '#fff' }}>
                       ✦ Nuevo préstamo
                     </button>
+                    <Link href="/app/reportes" onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/10"
+                      style={{ color: '#c5d5ea' }}>
+                      📑 Reportes
+                    </Link>
                     <div className="mx-4 my-1 h-px" style={{ background: 'rgba(255,255,255,.1)' }} />
                     {isMaster && (
                       <>
