@@ -8,6 +8,8 @@ import {
   type CollectionActionType,
 } from '@/lib/loanDomain'
 import { showToast }                        from '@/components/Toast'
+import { PaymentReceiptModal }              from '@/components/PaymentReceipt'
+import type { ReceiptData }                 from '@/components/PaymentReceipt'
 import type { Currency }                    from '@/lib/loan'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -241,18 +243,23 @@ function DisburseModal({
 
 function PayModal({
   loanId, scheduledPayment, currency, remaining,
-  installments, onClose, onSuccess,
+  installments, borrower, loanAmount, totalInstallments, profile, onClose, onSuccess,
 }: {
   loanId: string; scheduledPayment: number; currency: Currency
   remaining: number; installments: Installment[]
+  borrower?: Borrower | null
+  loanAmount: number
+  totalInstallments: number
+  profile?: string
   onClose: () => void; onSuccess: () => void
 }) {
   const [date,     setDate]     = useState(new Date().toISOString().slice(0, 10))
   const [amount,   setAmount]   = useState(scheduledPayment.toFixed(2))
   const [targetId, setTargetId] = useState('')
   const [notes,    setNotes]    = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [err,      setErr]      = useState('')
+  const [loading,     setLoading]     = useState(false)
+  const [err,         setErr]         = useState('')
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
 
   async function submit() {
     const amt = parseFloat(amount)
@@ -271,13 +278,34 @@ function PayModal({
       })
       const data = await res.json()
       if (!res.ok) { setErr(data.error ?? 'Error'); return }
+      setReceiptData({
+        clientName:     borrower?.name ?? data.receipt?.customerName ?? 'Cliente',
+        clientIdType:   borrower?.idType ?? '',
+        clientId:       borrower?.idNumber ?? '',
+        clientEmail:    borrower?.email ?? '',
+        paymentId:      data.paymentId ?? '',
+        date:           data.receipt?.date ?? date,
+        amount:         amt,
+        notes:          notes || undefined,
+        currency,
+        loanAmount,
+        monthlyPayment: scheduledPayment,
+        totalMonths:    totalInstallments,
+        profile:        profile ?? '',
+      })
       showToast('Pago registrado', 'success')
-      onSuccess()
     } catch { setErr('Error de red') }
     finally { setLoading(false) }
   }
 
   const unpaidInstallments = installments.filter(i => i.remainingAmount > 0)
+
+  if (receiptData) return (
+    <PaymentReceiptModal
+      data={receiptData}
+      onClose={() => { setReceiptData(null); onSuccess() }}
+      zIndex={60} />
+  )
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -903,6 +931,10 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
           loanId={loanId} scheduledPayment={loan.scheduledPayment}
           currency={cur} remaining={loan.remainingBalance}
           installments={installments}
+          borrower={borrower}
+          loanAmount={loan.amount}
+          totalInstallments={installments.length}
+          profile=""
           onClose={() => setShowPay(false)}
           onSuccess={() => { setShowPay(false); loadData() }} />
       )}

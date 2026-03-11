@@ -133,7 +133,15 @@ export async function POST(
       },
     )
 
-    return NextResponse.json({ success: true, paymentId, overpayment: result.overpayment })
+    return NextResponse.json({
+      success: true,
+      paymentId,
+      overpayment: result.overpayment,
+      receipt: {
+        customerName: loan.borrowerName ?? 'Cliente',
+        date,
+      },
+    })
   } catch (err: any) {
     console.error('[POST /api/loans/[id]/payments]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
