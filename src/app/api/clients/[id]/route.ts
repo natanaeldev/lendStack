@@ -2,7 +2,6 @@ import { NextRequest, NextResponse }                  from 'next/server'
 import { getDb, isDbConfigured }                     from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }         from '@/lib/orgAuth'
 
-// ─── GET /api/clients/[id] — fetch single client ──────────────────────────────
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -50,17 +49,32 @@ export async function GET(
         branchId:        c.branchId        ?? null,
         branchName:      c.branchName      ?? null,
         loanStatus:      c.loanStatus      ?? 'pending',
+        loanType:        c.loan?.loanType  ?? 'amortized',
         params: c.loan ? {
-          amount: c.loan.amount, termYears: c.loan.termYears,
-          profile: c.loan.profile, currency: c.loan.currency,
-          rateMode: c.loan.rateMode, customMonthlyRate: c.loan.customMonthlyRate,
-          startDate: c.loan.startDate ?? '',
+          amount:            c.loan.amount,
+          termYears:         c.loan.termYears ?? null,
+          profile:           c.loan.profile,
+          currency:          c.loan.currency,
+          rateMode:          c.loan.rateMode,
+          customMonthlyRate: c.loan.customMonthlyRate,
+          startDate:         c.loan.startDate ?? '',
+          termWeeks:         c.loan.termWeeks ?? null,
+          carritoTerm:       c.loan.carritoTerm ?? null,
+          numPayments:       c.loan.numPayments ?? null,
+          frequency:         c.loan.frequency ?? null,
         } : null,
         result: c.loan ? {
-          monthlyPayment: c.loan.monthlyPayment, totalPayment: c.loan.totalPayment,
-          totalInterest: c.loan.totalInterest, annualRate: c.loan.annualRate,
-          monthlyRate: c.loan.monthlyRate, totalMonths: c.loan.totalMonths,
-          interestRatio: c.loan.interestRatio,
+          monthlyPayment: c.loan.monthlyPayment,
+          totalPayment:   c.loan.totalPayment,
+          totalInterest:  c.loan.totalInterest,
+          annualRate:     c.loan.annualRate,
+          monthlyRate:    c.loan.monthlyRate,
+          totalMonths:    c.loan.totalMonths,
+          interestRatio:  c.loan.interestRatio,
+          weeklyPayment:  c.loan.weeklyPayment ?? null,
+          totalWeeks:     c.loan.termWeeks ?? null,
+          fixedPayment:   c.loan.fixedPayment ?? null,
+          numPayments:    c.loan.numPayments ?? null,
         } : null,
         documents: c.documents ?? [],
         payments:  c.payments  ?? [],
@@ -72,7 +86,6 @@ export async function GET(
   }
 }
 
-// ─── DELETE /api/clients/[id] ─────────────────────────────────────────────────
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -87,7 +100,6 @@ export async function DELETE(
     const db  = await getDb()
     const col = db.collection('clients')
 
-    // Only delete if it belongs to this org (prevents cross-tenant deletes)
     await col.deleteOne({
       _id:            params.id as any,
       organizationId: session.user.organizationId,
@@ -100,7 +112,6 @@ export async function DELETE(
   }
 }
 
-// ─── PATCH /api/clients/[id] — update status or client info ─────────────────
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -115,16 +126,14 @@ export async function PATCH(
     const body = await req.json()
     const $set: Record<string, any> = {}
 
-    // ── Loan status (accepts legacy OR full lifecycle values) ──────────────────
     if (body.loanStatus !== undefined) {
       const lifecycleValues = [
         'application_submitted', 'under_review', 'approved', 'denied',
         'disbursed', 'active', 'delinquent', 'paid_off', 'defaulted', 'cancelled',
-        'pending',  // legacy
+        'pending',
       ]
       if (!lifecycleValues.includes(body.loanStatus))
-        return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
-      // Store legacy 3-value on the clients collection (backward compat)
+        return NextResponse.json({ error: 'Estado invalido' }, { status: 400 })
       const legacyMap: Record<string, string> = {
         application_submitted: 'pending', under_review: 'pending',
         approved: 'approved', denied: 'denied',
@@ -135,7 +144,6 @@ export async function PATCH(
       $set.loanStatus = legacyMap[body.loanStatus] ?? body.loanStatus
     }
 
-    // ── Client info fields ─────────────────────────────────────────────────────
     const ALLOWED: string[] = [
       'name', 'email', 'phone', 'idType', 'idNumber', 'birthDate',
       'nationality', 'address', 'occupation', 'monthlyIncome', 'hasIncomeProof',
@@ -147,10 +155,8 @@ export async function PATCH(
     }
     if (body.loanStartDate !== undefined) $set['loan.startDate'] = body.loanStartDate
 
-    // ── Branch update (resolve named branch → derive type + name) ──────────────
     if (body.branchId !== undefined) {
       if (!body.branchId) {
-        // null / '' → clear branch assignment
         $set.branchId   = null
         $set.branchName = null
         $set.branch     = null
