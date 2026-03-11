@@ -4,6 +4,37 @@ import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { migrateLegacyStatus }               from '@/lib/loanDomain'
 import { v4 as uuidv4 }                      from 'uuid'
 
+
+function inferLoanType(loan: any, clientLoan?: any): 'amortized' | 'weekly' | 'carrito' {
+  const normalize = (value: any) => String(value ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_')
+
+  const explicit = normalize(loan?.loanType)
+  if (explicit === 'weekly') return 'weekly'
+  if (['carrito', 'flat', 'flat_rate', 'interes_plano'].includes(explicit)) return 'carrito'
+
+  const hasWeeklySignals =
+    loan?.termWeeks != null || loan?.weeklyRate != null || loan?.totalWeeks != null
+  if (hasWeeklySignals) return 'weekly'
+
+  const hasCarritoSignals =
+    loan?.flatRate != null || loan?.carritoTerm != null || loan?.carritoPayments != null || loan?.numPayments != null || loan?.carritoFrequency != null || loan?.frequency != null
+  if (hasCarritoSignals) return 'carrito'
+
+  const clientType = normalize(clientLoan?.loanType)
+  if (clientType === 'weekly') return 'weekly'
+  if (['carrito', 'flat', 'flat_rate', 'interes_plano'].includes(clientType)) return 'carrito'
+
+  const clientHasWeeklySignals = clientLoan?.termWeeks != null || clientLoan?.weeklyRate != null || clientLoan?.weeklyPayment != null
+  if (clientHasWeeklySignals) return 'weekly'
+
+  const clientHasCarritoSignals =
+    clientLoan?.flatRate != null || clientLoan?.carritoTerm != null || clientLoan?.numPayments != null || clientLoan?.frequency != null || clientLoan?.fixedPayment != null
+  if (clientHasCarritoSignals) return 'carrito'
+
+  return 'amortized'
+}
+
+
 // ─── GET /api/loans — list loans for the org ──────────────────────────────────
 export async function GET(req: NextRequest) {
   const session = await requireAuth()
@@ -35,8 +66,9 @@ export async function GET(req: NextRequest) {
 
     const enriched = loans.map(l => ({
       ...l,
-      _id:          String(l._id),
-      borrowerName: clientMap[l.clientId]?.name ?? '—',
+      _id:           String(l._id),
+      loanType:      inferLoanType(l, clientMap[l.clientId]?.loan),
+      borrowerName:  clientMap[l.clientId]?.name ?? '—',
       borrowerPhone: clientMap[l.clientId]?.phone ?? '',
     }))
 
@@ -100,6 +132,16 @@ export async function POST(req: NextRequest) {
     })
     if (!client) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
 
+    const normalizedLoanType = inferLoanType({
+      loanType,
+      termWeeks,
+      weeklyRate,
+      totalWeeks,
+      carritoTerm,
+      carritoPayments,
+      carritoFrequency,
+    }, client.loan)
+
     const now    = new Date().toISOString()
     const loanId = uuidv4()
 
@@ -110,7 +152,7 @@ export async function POST(req: NextRequest) {
       status:         'application_submitted',
       createdAt:      now,
       updatedAt:      now,
-      loanType,
+      loanType: normalizedLoanType,
       currency,
       amount,
       termYears:         termYears         ?? undefined,
