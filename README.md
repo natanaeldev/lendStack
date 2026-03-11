@@ -1,4 +1,4 @@
-# JVF Inversiones SRL — Calculadora de Préstamos Pro
+# lendStack — Esta es una app para manejar prestamos
 
 Aplicación Next.js para análisis de préstamos con perfiles de riesgo.
 
