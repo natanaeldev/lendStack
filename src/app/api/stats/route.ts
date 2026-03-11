@@ -2,6 +2,40 @@ import { NextResponse }                       from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 
+type FxRates = Record<string, number>
+
+const FX_FALLBACK_PER_USD: FxRates = {
+  USD: 1,
+  DOP: 59,
+  EUR: 0.92,
+  ARS: 1100,
+}
+
+async function getLiveRatesPerUsd(): Promise<FxRates> {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=DOP,EUR,ARS', { cache: 'no-store' })
+    if (!res.ok) return FX_FALLBACK_PER_USD
+    const data = await res.json()
+    const rates = data?.rates ?? {}
+    return {
+      USD: 1,
+      DOP: Number(rates.DOP) || FX_FALLBACK_PER_USD.DOP,
+      EUR: Number(rates.EUR) || FX_FALLBACK_PER_USD.EUR,
+      ARS: Number(rates.ARS) || FX_FALLBACK_PER_USD.ARS,
+    }
+  } catch {
+    return FX_FALLBACK_PER_USD
+  }
+}
+
+function toUsd(amount: number, currency: string | undefined, ratesPerUsd: FxRates): number {
+  const cur = (currency ?? 'USD').toUpperCase()
+  if (cur === 'USD') return amount
+  const perUsd = ratesPerUsd[cur]
+  if (!perUsd || perUsd <= 0) return amount
+  return amount / perUsd
+}
+
 // ─── GET /api/stats ───────────────────────────────────────────────────────────
 export async function GET() {
   const session = await requireAuth()
@@ -15,6 +49,7 @@ export async function GET() {
     const col     = db.collection('clients')
     const loansCol = db.collection('loans')
     const orgId   = session.user.organizationId
+    const ratesPerUsd = await getLiveRatesPerUsd()
 
     // ── Aggregate totals from legacy clients collection ────────────────────
     const [totals] = await col.aggregate([
@@ -151,14 +186,61 @@ export async function GET() {
       rutas: byBranchRaw.find(b => b.branch === 'rutas')?.count ?? 0,
     }
 
+    const totalBranchClients = byBranch.sede + byBranch.rutas
+    const byBranchPerformance = {
+      sede: {
+        count: byBranch.sede,
+        percentage: totalBranchClients > 0 ? Math.round((byBranch.sede / totalBranchClients) * 100) : 0,
+      },
+      rutas: {
+        count: byBranch.rutas,
+        percentage: totalBranchClients > 0 ? Math.round((byBranch.rutas / totalBranchClients) * 100) : 0,
+      },
+      topBranch: byBranch.sede === byBranch.rutas
+        ? 'tie'
+        : byBranch.sede > byBranch.rutas
+          ? 'sede'
+          : 'rutas',
+    }
+
+    const legacyForUsd = await col.find(
+      { organizationId: orgId },
+      { projection: { loan: 1, loanStatus: 1 } },
+    ).toArray()
+
+    let totalAmountUsd = 0
+    let totalInterestUsd = 0
+    let totalMonthlyPaymentsUsd = 0
+    let totalMonthlyIncomeUsd = 0
+    for (const row of legacyForUsd) {
+      totalAmountUsd += toUsd(row.loan?.amount ?? 0, row.loan?.currency, ratesPerUsd)
+      totalInterestUsd += toUsd(row.loan?.totalInterest ?? 0, row.loan?.currency, ratesPerUsd)
+      totalMonthlyPaymentsUsd += toUsd(row.loan?.monthlyPayment ?? 0, row.loan?.currency, ratesPerUsd)
+      if (row.loanStatus === 'approved') {
+        totalMonthlyIncomeUsd += toUsd(row.loan?.monthlyPayment ?? 0, row.loan?.currency, ratesPerUsd)
+      }
+    }
+
+    const totalLoansCountLegacy = legacyForUsd.length || 1
+    const avgAmountUsd = totalAmountUsd / totalLoansCountLegacy
+    const avgMonthlyPaymentUsd = totalMonthlyPaymentsUsd / totalLoansCountLegacy
+
     // ── Date helpers ───────────────────────────────────────────────────────
-    const now          = new Date()
-    const todayStr     = now.toISOString().slice(0, 10)
-    const daysToMon    = now.getDay() === 0 ? 6 : now.getDay() - 1
-    const weekStart    = new Date(now)
+    const now           = new Date()
+    const todayStr      = now.toISOString().slice(0, 10)
+    const daysToMon     = now.getDay() === 0 ? 6 : now.getDay() - 1
+    const weekStart     = new Date(now)
     weekStart.setDate(now.getDate() - daysToMon)
-    const weekStartStr  = weekStart.toISOString().slice(0, 10)
-    const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const prevWeekStart = new Date(weekStart)
+    prevWeekStart.setDate(weekStart.getDate() - 7)
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+
+    const weekStartStr      = weekStart.toISOString().slice(0, 10)
+    const prevWeekStartStr  = prevWeekStart.toISOString().slice(0, 10)
+    const monthStartStr     = monthStart.toISOString().slice(0, 10)
+    const prevMonthStartStr = prevMonthStart.toISOString().slice(0, 10)
 
     // ── Legacy payment collection stats ────────────────────────────────────
     const [legacyPayStats] = await col.aggregate([
@@ -167,9 +249,29 @@ export async function GET() {
       {
         $group: {
           _id: null,
-          collectedToday: { $sum: { $cond: [{ $eq:  ['$payments.date', todayStr]    }, '$payments.amount', 0] } },
+          collectedToday: { $sum: { $cond: [{ $eq:  ['$payments.date', todayStr] }, '$payments.amount', 0] } },
           collectedWeek:  { $sum: { $cond: [{ $gte: ['$payments.date', weekStartStr] }, '$payments.amount', 0] } },
-          collectedMonth: { $sum: { $cond: [{ $gte: ['$payments.date', monthStartStr]}, '$payments.amount', 0] } },
+          collectedWeekPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$payments.date', prevWeekStartStr] },
+                  { $lt:  ['$payments.date', weekStartStr] },
+                ],
+              }, '$payments.amount', 0],
+            },
+          },
+          collectedMonth: { $sum: { $cond: [{ $gte: ['$payments.date', monthStartStr] }, '$payments.amount', 0] } },
+          collectedMonthPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$payments.date', prevMonthStartStr] },
+                  { $lt:  ['$payments.date', monthStartStr] },
+                ],
+              }, '$payments.amount', 0],
+            },
+          },
         },
       },
     ]).toArray()
@@ -180,8 +282,29 @@ export async function GET() {
       {
         $group: {
           _id: null,
-          collectedToday: { $sum: { $cond: [{ $eq:  ['$date', todayStr]    }, '$amount', 0] } },
-          collectedMonth: { $sum: { $cond: [{ $gte: ['$date', monthStartStr]}, '$amount', 0] } },
+          collectedToday: { $sum: { $cond: [{ $eq: ['$date', todayStr] }, '$amount', 0] } },
+          collectedWeek:  { $sum: { $cond: [{ $gte: ['$date', weekStartStr] }, '$amount', 0] } },
+          collectedWeekPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$date', prevWeekStartStr] },
+                  { $lt:  ['$date', weekStartStr] },
+                ],
+              }, '$amount', 0],
+            },
+          },
+          collectedMonth: { $sum: { $cond: [{ $gte: ['$date', monthStartStr] }, '$amount', 0] } },
+          collectedMonthPrev: {
+            $sum: {
+              $cond: [{
+                $and: [
+                  { $gte: ['$date', prevMonthStartStr] },
+                  { $lt:  ['$date', monthStartStr] },
+                ],
+              }, '$amount', 0],
+            },
+          },
         },
       },
     ]).toArray()
@@ -307,24 +430,64 @@ export async function GET() {
     }))
 
     const collectedToday = Math.max(legacyPayStats?.collectedToday ?? 0, newPayStats?.collectedToday ?? 0)
+    const collectedWeek = Math.max(legacyPayStats?.collectedWeek ?? 0, newPayStats?.collectedWeek ?? 0)
+    const collectedWeekPrev = Math.max(legacyPayStats?.collectedWeekPrev ?? 0, newPayStats?.collectedWeekPrev ?? 0)
     const collectedMonth = Math.max(legacyPayStats?.collectedMonth ?? 0, newPayStats?.collectedMonth ?? 0)
+    const collectedMonthPrev = Math.max(legacyPayStats?.collectedMonthPrev ?? 0, newPayStats?.collectedMonthPrev ?? 0)
+
+    const loansForUsd = await loansCol.find(
+      { organizationId: orgId },
+      {
+        projection: {
+          status: 1,
+          amount: 1,
+          currency: 1,
+          disbursedAmount: 1,
+          remainingBalance: 1,
+          overdueAmount: 1,
+        },
+      },
+    ).toArray()
+
+    let totalDisbursedUsd = 0
+    let activePortfolioUsd = 0
+    let overdueAmountTotalUsd = 0
+    let totalPrincipalOriginatedUsd = 0
+    for (const loan of loansForUsd) {
+      const cur = loan.currency ?? 'USD'
+      const status = loan.status ?? ''
+
+      if (!['cancelled', 'denied', 'draft'].includes(status)) {
+        totalPrincipalOriginatedUsd += toUsd(loan.amount ?? 0, cur, ratesPerUsd)
+      }
+      if (['active', 'delinquent', 'paid_off', 'disbursed'].includes(status)) {
+        totalDisbursedUsd += toUsd(loan.disbursedAmount ?? loan.amount ?? 0, cur, ratesPerUsd)
+      }
+      if (['active', 'delinquent'].includes(status)) {
+        activePortfolioUsd += toUsd(loan.remainingBalance ?? 0, cur, ratesPerUsd)
+      }
+      if (status === 'delinquent') {
+        overdueAmountTotalUsd += toUsd(loan.overdueAmount ?? 0, cur, ratesPerUsd)
+      }
+    }
 
     return NextResponse.json({
       configured:           true,
       // Legacy stats (unchanged for backward compat with existing Dashboard)
       totalClients:         totals?.totalClients          ?? 0,
       totalLoans:           totals?.totalLoans            ?? 0,
-      totalAmount:          totals?.totalAmount           ?? 0,
-      avgMonthlyPayment:    totals?.avgMonthlyPayment     ?? 0,
-      avgAmount:            totals?.avgAmount             ?? 0,
-      totalInterest:        totals?.totalInterest         ?? 0,
+      totalAmount:          totalAmountUsd,
+      avgMonthlyPayment:    avgMonthlyPaymentUsd,
+      avgAmount:            avgAmountUsd,
+      totalInterest:        totalInterestUsd,
       avgTermMonths:        totals?.avgTermMonths         ?? 0,
-      totalMonthlyPayments: totals?.totalMonthlyPayments  ?? 0,
-      totalMonthlyIncome:   approvedStats?.totalMonthlyIncome ?? 0,
-      approvedCapital:      approvedStats?.totalCapital       ?? 0,
+      totalMonthlyPayments: totalMonthlyPaymentsUsd,
+      totalMonthlyIncome:   totalMonthlyIncomeUsd,
+      approvedCapital:      toUsd(approvedStats?.totalCapital ?? 0, 'USD', ratesPerUsd),
       byProfile,
       byCurrency,
       byBranch,
+      byBranchPerformance,
       avgPaymentByCurrency,
       recoveryByCurrency,
       recentClients,
@@ -332,19 +495,22 @@ export async function GET() {
       approvedCount,
       deniedCount,
       collectedToday,
-      collectedWeek:        legacyPayStats?.collectedWeek ?? 0,
+      collectedWeek,
+      collectedWeekPrev,
       collectedMonth,
+      collectedMonthPrev,
       collectionRate,
       paidPeriodsCount,
       overdueAmountByCurrency,
       // New operational portfolio stats
       portfolio: {
         totalLoansCount:      portfolio?.totalLoansCount      ?? 0,
-        totalDisbursed:       portfolio?.totalDisbursed       ?? 0,
-        activePortfolio:      portfolio?.activePortfolio      ?? 0,
+        totalDisbursed:       totalDisbursedUsd,
+        activePortfolio:      activePortfolioUsd,
         totalActiveCount:     portfolio?.totalActiveCount     ?? 0,
         delinquentCount:      portfolio?.delinquentCount      ?? 0,
-        overdueAmountTotal:   portfolio?.overdueAmountTotal   ?? 0,
+        overdueAmountTotal:   overdueAmountTotalUsd,
+        totalPrincipalOriginated: totalPrincipalOriginatedUsd,
         paidOffCount:         portfolio?.paidOffCount         ?? 0,
         pendingApprovalCount: portfolio?.pendingApprovalCount ?? 0,
         approvalRate,
@@ -353,6 +519,8 @@ export async function GET() {
         collectedMonth,
         byLifecycle,
       },
+      baseCurrency: 'USD',
+      exchangeRatesPerUsd: ratesPerUsd,
     })
   } catch (err: any) {
     console.error('[GET /api/stats]', err)
