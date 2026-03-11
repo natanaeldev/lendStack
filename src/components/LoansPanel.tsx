@@ -47,9 +47,18 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
 }
 
 const LOAN_TYPE_LABELS: Record<string, string> = {
-  amortized: 'Amortizado',
-  weekly:    'Semanal',
-  carrito:   'Carrito',
+  amortized:     'Amortizado',
+  weekly:        'Semanal',
+  carrito:       'Interés plano',
+  flat:          'Interés plano',
+  flat_rate:     'Interés plano',
+  interes_plano: 'Interés plano',
+}
+
+function loanTypeLabel(loanType?: string) {
+  if (!loanType) return '—'
+  const normalized = loanType.toLowerCase().trim().replace(/[\s-]+/g, '_')
+  return LOAN_TYPE_LABELS[normalized] ?? loanType
 }
 
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -199,7 +208,7 @@ export default function LoansPanel({ onViewLoan }: Props) {
                     value={formatCurrency(loan.remainingBalance, loan.currency)}
                     color={loan.status === 'delinquent' ? '#EA580C' : undefined} />
                   <MiniStat label="Cuota" value={formatCurrency(loan.scheduledPayment, loan.currency)} />
-                  <MiniStat label="Tipo" value={LOAN_TYPE_LABELS[loan.loanType] ?? loan.loanType} />
+                  <MiniStat label="Tipo" value={loanTypeLabel(loan.loanType)} />
                 </div>
                 {/* Footer row */}
                 <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
@@ -243,7 +252,7 @@ export default function LoansPanel({ onViewLoan }: Props) {
                         )}
                       </td>
                       <td className="px-3 py-3"><StatusBadge status={loan.status} /></td>
-                      <td className="px-3 py-3 text-slate-600">{LOAN_TYPE_LABELS[loan.loanType] ?? loan.loanType}</td>
+                      <td className="px-3 py-3 text-slate-600">{loanTypeLabel(loan.loanType)}</td>
                       <td className="px-3 py-3 text-right font-mono text-slate-700">
                         {formatCurrency(loan.amount, loan.currency)}
                       </td>
