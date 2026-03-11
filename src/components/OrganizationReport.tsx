@@ -1,6 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from 'recharts'
 
 interface OrgData {
   orgName?: string
@@ -107,6 +117,32 @@ export default function OrganizationReport() {
     timeStyle: 'short',
   })
 
+  const revenueCompareData = useMemo(() => {
+    if (!stats) return []
+    return [
+      { period: 'Semana anterior', amount: stats.collectedWeekPrev },
+      { period: 'Semana actual', amount: stats.collectedWeek },
+      { period: 'Mes anterior', amount: stats.collectedMonthPrev },
+      { period: 'Mes actual', amount: stats.collectedMonth },
+    ]
+  }, [stats])
+
+  const branchCompareData = useMemo(() => {
+    if (!stats) return []
+    return [
+      {
+        branch: 'Sede',
+        clients: stats.byBranch.sede,
+        percentage: stats.byBranchPerformance.sede.percentage,
+      },
+      {
+        branch: 'Rutas',
+        clients: stats.byBranch.rutas,
+        percentage: stats.byBranchPerformance.rutas.percentage,
+      },
+    ]
+  }, [stats])
+
   return (
     <section className="rounded-2xl p-5 sm:p-6 bg-white border border-slate-200" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
@@ -193,6 +229,40 @@ export default function OrganizationReport() {
               <Row label="Pendientes" value={String(stats.pendingCount)} />
               <Row label="Denegados" value={String(stats.deniedCount)} />
               <Row label="Uso de cupo" value={utilization !== null ? `${utilization}%` : 'Sin límite'} />
+            </Info>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <Info title="Gráfico de comparación de ingresos">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueCompareData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+                    <Tooltip formatter={(v: number) => money.format(v)} />
+                    <Legend />
+                    <Bar dataKey="amount" name="Ingresos" fill="#1565C0" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Info>
+
+            <Info title="Gráfico Sede vs Rutas">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={branchCompareData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="branch" tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <YAxis yAxisId="left" tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fill: '#64748b', fontSize: 12 }} unit="%" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="clients" name="Clientes" fill="#0D2B5E" radius={[8, 8, 0, 0]} />
+                    <Bar yAxisId="right" dataKey="percentage" name="Participación" fill="#2E7D32" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </Info>
           </div>
         </>
