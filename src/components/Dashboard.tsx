@@ -67,6 +67,15 @@ const SECTION_BAR = (
     style={{ background: 'linear-gradient(180deg,#1565C0,#0D2B5E)' }} />
 )
 
+type DashboardSectionId = 'resumen' | 'recaudacion' | 'operaciones' | 'vencimientos'
+
+const DASHBOARD_SECTIONS: { id: DashboardSectionId; label: string; emoji: string }[] = [
+  { id: 'resumen',     label: 'Resumen de cartera',              emoji: '📊' },
+  { id: 'recaudacion', label: 'Recaudación',                     emoji: '💸' },
+  { id: 'operaciones', label: 'Operaciones de cartera activa',   emoji: '🏦' },
+  { id: 'vencimientos',label: 'Estado de vencimiento',           emoji: '⏰' },
+]
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // ─── KPI card variants ────────────────────────────────────────────────────────
@@ -79,20 +88,20 @@ function KpiCard({
   accent: string; icon: string; badge?: { text: string; color: string; bg: string }
 }) {
   return (
-    <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
-      style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+    <div className="relative rounded-2xl border border-cyan-400/30 overflow-hidden bg-slate-950/90 backdrop-blur"
+      style={{ boxShadow: '0 0 0 1px rgba(34,211,238,.08), 0 12px 28px rgba(2,6,23,.55)' }}>
       {/* Left accent strip */}
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accent }} />
       <div className="pl-6 pr-5 py-5">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">{label}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-200/70 leading-tight">{label}</p>
           <span className="text-xl flex-shrink-0">{icon}</span>
         </div>
-        <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>
+        <p className="font-display text-3xl font-black leading-none mb-1.5 text-slate-50">
           {value}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
-          {sub && <p className="text-xs text-slate-400">{sub}</p>}
+          {sub && <p className="text-xs text-cyan-100/70">{sub}</p>}
           {badge && (
             <span className="text-xs font-bold px-2 py-0.5 rounded-full"
               style={{ background: badge.bg, color: badge.color }}>
@@ -110,16 +119,16 @@ function MetricRow({
   label, value, sub, icon, accent,
 }: { label: string; value: string; sub?: string; icon: string; accent: string }) {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-200"
-      style={{ boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+    <div className="flex items-center gap-4 p-4 rounded-2xl border border-blue-400/30 bg-slate-900/80 backdrop-blur"
+      style={{ boxShadow: '0 0 0 1px rgba(96,165,250,.08), 0 10px 24px rgba(2,6,23,.45)' }}>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
         style={{ background: accent + '18' }}>
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
-        <p className="font-display text-lg font-bold leading-none" style={{ color: '#0D2B5E' }}>{value}</p>
-        {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-100/70 mb-0.5">{label}</p>
+        <p className="font-display text-lg font-bold leading-none text-slate-50">{value}</p>
+        {sub && <p className="text-xs text-cyan-100/70 mt-0.5">{sub}</p>}
       </div>
     </div>
   )
@@ -195,6 +204,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [expandDoc,setExpandDoc]= useState<string | null>(null)
   const [orgInfo,  setOrgInfo]  = useState<OrgInfo | null>(null)
   const [dashboardCurrency, setDashboardCurrency] = useState<Currency>('USD')
+  const [activeSection, setActiveSection] = useState<DashboardSectionId>('resumen')
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // ── Fetch on mount ──────────────────────────────────────────────────────────
@@ -221,6 +231,11 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email?.toLowerCase().includes(search.toLowerCase())
     ), [clients, search])
+
+  const clientsWithSchedule = useMemo(() =>
+    clients.filter(c => c.params?.startDate && c.loanStatus !== 'denied'),
+    [clients]
+  )
 
   // ── Document upload ─────────────────────────────────────────────────────────
   const handleUpload = async (clientId: string, file: File) => {
@@ -291,18 +306,18 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
   // ── Full dashboard ──────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6 rounded-3xl p-3 sm:p-4 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-cyan-500/20" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px rgba(2,6,23,.55)' }}>
 
       {/* ── Plan banner (Starter limit warning / Pro badge) ── */}
       {orgInfo && orgInfo.plan === 'starter' && orgInfo.maxClients !== null && (
         <div
-          className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap"
+          className="rounded-2xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
           style={{
             background:  orgInfo.isAtLimit  ? '#FFF1F2' : orgInfo.isNearLimit ? '#FFFBEB' : '#F0F9FF',
             border:      `1.5px solid ${orgInfo.isAtLimit ? '#FECDD3' : orgInfo.isNearLimit ? '#FDE68A' : '#BAE6FD'}`,
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto">
             <span className="text-xl">{orgInfo.isAtLimit ? '🚫' : orgInfo.isNearLimit ? '⚠️' : '📊'}</span>
             <div>
               <p
@@ -326,7 +341,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
           {(orgInfo.isAtLimit || orgInfo.isNearLimit) && (
             <a
               href="mailto:ventas@lendstack.app?subject=Actualizar%20a%20Pro"
-              className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+              className="w-full sm:w-auto text-center flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
               style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}
             >
               ⭐ Actualizar a Pro
@@ -346,6 +361,35 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         </div>
       )}
 
+      {stats && (
+        <div className="sticky top-2 z-20 -mx-1 px-1">
+          <div className="rounded-2xl border border-cyan-400/30 bg-slate-950/85 backdrop-blur px-2 py-2"
+            style={{ boxShadow: '0 10px 22px rgba(2,6,23,.55)' }}>
+            <div className="flex gap-2 overflow-x-auto pb-0.5">
+              {DASHBOARD_SECTIONS.map(section => {
+                const active = activeSection === section.id
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setActiveSection(section.id)}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all"
+                    style={{
+                      background: active ? 'linear-gradient(135deg,#0ea5e9,#2563eb)' : 'rgba(15,23,42,.72)',
+                      color: active ? '#fff' : '#bae6fd',
+                      border: active ? '1px solid rgba(125,211,252,.8)' : '1px solid rgba(56,189,248,.25)',
+                    }}
+                  >
+                    <span>{section.emoji}</span>
+                    <span className="whitespace-nowrap">{section.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══════════════════════════════════════════════════════════════════════
            KPI SECTION
          ══════════════════════════════════════════════════════════════════════ */}
@@ -359,20 +403,22 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
         return (
           <>
+            {activeSection === 'resumen' && (
+              <section className="space-y-4 animate-in fade-in duration-200">
             {/* ── Section header ── */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 {SECTION_BAR}
-                <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Resumen de cartera</h3>
+                <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>Resumen de cartera</h3>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-400">
+              <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                <span className="text-xs text-slate-400 leading-tight">
                   {stats.totalClients} cliente{stats.totalClients !== 1 ? 's' : ''} · actualizado ahora
                 </span>
                 <select
                   value={dashboardCurrency}
                   onChange={e => setDashboardCurrency(e.target.value as Currency)}
-                  className="text-xs font-semibold rounded-lg border border-slate-300 px-2 py-1 bg-white"
+                  className="text-xs font-semibold rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
                 >
                   <option value="USD">USD ($)</option>
                   <option value="DOP">RD$ (DOP)</option>
@@ -381,7 +427,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Primary KPIs (4 large cards) ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {/* Cartera total — desglosada por moneda */}
               <div className="relative rounded-2xl bg-white border border-slate-200 overflow-hidden"
                 style={{ boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
@@ -391,7 +437,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">Cartera total</p>
                     <span className="text-xl flex-shrink-0">💼</span>
                   </div>
-                  <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>
+                  <p className="font-display text-3xl font-black leading-none mb-1.5 text-slate-50">
                     {fmtK(stats.portfolio?.totalPrincipalOriginated ?? stats.totalAmount)}
                   </p>
                   <p className="text-xs text-slate-400">principal originado (excluye cancelados/denegados/borradores)</p>
@@ -428,7 +474,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Secondary metrics (2×4 grid) ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <MetricRow
                 label="Interés proyectado"
                 value={fmtK(stats.totalInterest)}
@@ -486,11 +532,11 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             {/* ── Capital recovery section ── */}
             {(stats.recoveryByCurrency ?? []).length > 0 && (
               <div className="rounded-2xl bg-white border border-slate-200 p-5"
-                style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+                style={{ boxShadow: '0 10px 24px rgba(2,6,23,.45)' }}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
                     {SECTION_BAR}
-                    <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Recuperación de cartera</h3>
+                    <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>Recuperación de cartera</h3>
                   </div>
                   <span className="text-xs text-slate-400">capital cobrado vs. capital prestado</span>
                 </div>
@@ -530,13 +576,18 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               </div>
             )}
 
+                </section>
+            )}
+
+            {activeSection === 'recaudacion' && (
+              <section className="space-y-4 animate-in fade-in duration-200">
             {/* ── Collection stats strip (today / week / month) ── */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
                 {SECTION_BAR}
-                <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Recaudación</h3>
+                <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>Recaudación</h3>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                 {[
                   { label: 'Hoy',       value: fmtK(stats.collectedToday), sub: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }),    bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', emoji: '📅' },
                   { label: 'Esta semana', value: fmtK(stats.collectedWeek),  sub: 'lunes → hoy', bg: '#EEF4FF', border: '#BFDBFE', color: '#1E40AF', emoji: '📆' },
@@ -598,7 +649,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                   </div>
                   {(stats.overdueAmountByCurrency ?? []).length === 0 ? (
                     <>
-                      <p className="font-display text-3xl font-black leading-none mb-1.5" style={{ color: '#0D2B5E' }}>$0</p>
+                      <p className="font-display text-3xl font-black leading-none mb-1.5 text-slate-50">$0</p>
                       <p className="text-xs text-slate-400">sin atrasos detectados</p>
                     </>
                   ) : (
@@ -625,7 +676,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             </div>
 
             {/* ── Loan status strip ── */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
               {[
                 { count: stats.pendingCount,  label: 'Pendientes', sub: 'en evaluación', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', sub2: '#B45309', emoji: '⏳' },
                 { count: stats.approvedCount, label: 'Aprobados',  sub: 'créditos activos', bg: '#F0FDF4', border: '#86EFAC', color: '#14532D', sub2: '#16A34A', emoji: '✅' },
@@ -653,6 +704,8 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                 </div>
               ))}
             </div>
+            </section>
+            )}
           </>
         )
       })()}
@@ -660,7 +713,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
       {/* ══════════════════════════════════════════════════════════════════════
            OPERATIONAL PORTFOLIO — powered by loans collection
          ══════════════════════════════════════════════════════════════════════ */}
-      {stats && (stats as any).portfolio && (() => {
+      {activeSection === 'operaciones' && stats && (stats as any).portfolio && (() => {
         const p = (stats as any).portfolio as {
           totalLoansCount: number; totalDisbursed: number; activePortfolio: number
           totalActiveCount: number; delinquentCount: number; overdueAmountTotal: number
@@ -672,12 +725,12 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         if (p.totalLoansCount === 0) return null
 
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center gap-2.5">
               {SECTION_BAR}
-              <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Operaciones — cartera activa</h3>
+              <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>Operaciones — cartera activa</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: 'Cartera activa',   value: fmtK(p.activePortfolio),     sub: `${p.totalActiveCount} préstamos`,          icon: '💼', accent: '#10B981', bg: '#ECFDF5' },
                 { label: 'Total desembolsado', value: fmtK(p.totalDisbursed),    sub: 'histórico acumulado',                      icon: '🏦', accent: '#2563EB', bg: '#EFF6FF' },
@@ -689,7 +742,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accent }} />
                   <div className="pl-5 pr-4 py-4">
                     <div className="flex items-start justify-between gap-1 mb-2">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400 leading-tight">{label}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-200/70 leading-tight">{label}</p>
                       <span className="text-xl flex-shrink-0">{icon}</span>
                     </div>
                     <p className="text-2xl font-black leading-none mb-1" style={{ color: accent }}>{value}</p>
@@ -699,7 +752,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               ))}
             </div>
             {/* Operational row: due today + collected + pending */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
               {[
                 { label: 'Cuotas vencen hoy', value: fmtK(p.dueTodayAmount), sub: `${p.dueTodayCount} cuota${p.dueTodayCount !== 1 ? 's' : ''}`, bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', emoji: '📅' },
                 { label: 'Cobrado este mes',  value: fmtK(p.collectedMonth),  sub: 'pagos registrados',                                             bg: '#ECFDF5', border: '#6EE7B7', color: '#064E3B', emoji: '💸' },
@@ -726,9 +779,21 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
           </div>
         )
       })()}
+      {activeSection === 'operaciones' && (!stats?.portfolio || (stats.portfolio.totalLoansCount ?? 0) === 0) && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center"
+          style={{ boxShadow: '0 10px 24px rgba(2,6,23,.45)' }}>
+          <p className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>
+            Aún no hay operaciones de cartera activa para mostrar.
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Cuando tengas préstamos desembolsados, verás métricas operativas aquí.
+          </p>
+        </div>
+      )}
+
 
       {/* ── Payment status section ── */}
-      {clients.length > 0 && (() => {
+      {activeSection === 'vencimientos' && clientsWithSchedule.length > 0 && (() => {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
@@ -763,7 +828,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
           return 'active'
         }
 
-        const withDate = clients.filter(c => c.params?.startDate && c.loanStatus !== 'denied')
+        const withDate = clientsWithSchedule
         if (withDate.length === 0) return null
 
         const overdue      = withDate.filter(c => getPayStatus(c) === 'overdue')
@@ -773,14 +838,14 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         const alertClients = [...dueToday, ...overdue, ...upcoming, ...paidThisMonth]
 
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center gap-2.5">
               {SECTION_BAR}
-              <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>Estado de vencimientos</h3>
+              <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>Estado de vencimientos</h3>
             </div>
 
             {/* 4 KPI pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: 'Vencidos / atrasados', count: overdue.length,       emoji: '🔴', bg: '#FFF1F2', border: '#FECDD3', color: '#881337' },
                 { label: 'Cuota hoy',            count: dueToday.length,      emoji: '🟡', bg: '#FFFBEB', border: '#FDE68A', color: '#92400E' },
@@ -805,7 +870,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
             {/* Alert client list */}
             {alertClients.length > 0 && (
               <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
-                style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+                style={{ boxShadow: '0 10px 24px rgba(2,6,23,.45)' }}>
                 <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
                   Clientes con cuotas próximas o vencidas
                 </div>
@@ -858,16 +923,29 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         )
       })()}
 
+
+      {activeSection === 'vencimientos' && clientsWithSchedule.length === 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center"
+          style={{ boxShadow: '0 10px 24px rgba(2,6,23,.45)' }}>
+          <p className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>
+            No hay vencimientos para mostrar todavía.
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Registrá fecha de inicio y estado aprobado para ver este sub-módulo.
+          </p>
+        </div>
+      )}
+
       {/* ── Charts ── */}
       {stats && (stats.byProfile?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
           {/* Bar chart — by risk profile */}
-          <div className="rounded-2xl p-6 bg-white border border-slate-200"
-            style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+          <div className="rounded-2xl p-6 bg-slate-950/80 border border-cyan-400/25"
+            style={{ boxShadow: '0 10px 24px rgba(2,6,23,.45)' }}>
             <div className="flex items-center gap-2.5 mb-5">
               {SECTION_BAR}
-              <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>
+              <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>
                 Préstamos por perfil de riesgo
               </h3>
             </div>
@@ -900,11 +978,11 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
           </div>
 
           {/* Pie chart — by currency */}
-          <div className="rounded-2xl p-6 bg-white border border-slate-200"
-            style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+          <div className="rounded-2xl p-6 bg-slate-950/80 border border-cyan-400/25"
+            style={{ boxShadow: '0 10px 24px rgba(2,6,23,.45)' }}>
             <div className="flex items-center gap-2.5 mb-5">
               {SECTION_BAR}
-              <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>
+              <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>
                 Distribución por moneda
               </h3>
             </div>
@@ -939,18 +1017,18 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar cliente por nombre o email..."
-          className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors bg-white"
-          style={{ color: '#374151', boxShadow: '0 2px 12px rgba(0,0,0,.06)' }} />
+          className="w-full pl-10 pr-4 py-3 rounded-2xl border border-cyan-400/30 text-sm focus:outline-none focus:border-cyan-300 transition-colors bg-slate-950/80 backdrop-blur"
+          style={{ color: '#E2E8F0', boxShadow: '0 8px 20px rgba(2,6,23,.5)' }} />
       </div>
 
       {/* ── Client Table ── */}
-      <div className="rounded-2xl bg-white border border-slate-200"
-        style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+      <div className="rounded-2xl bg-slate-950/85 border border-cyan-500/25"
+        style={{ boxShadow: '0 10px 24px rgba(2,6,23,.55)' }}>
 
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center gap-2.5">
           {SECTION_BAR}
-          <h3 className="font-display text-base" style={{ color: '#0D2B5E' }}>
+          <h3 className="font-display text-base" style={{ color: '#E2E8F0' }}>
             Todos los clientes
           </h3>
           <span className="text-xs text-slate-400 ml-1">({filtered.length})</span>
@@ -1058,7 +1136,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
                 {/* Documents panel (collapsible) */}
                 {isExpanded && (
-                  <div className="mt-3 ml-14 rounded-xl border border-slate-200 p-4 bg-slate-50">
+                  <div className="mt-3 ml-0 sm:ml-14 rounded-xl border border-slate-200 p-4 bg-slate-50">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
                       Documentos del cliente
                     </p>
