@@ -188,6 +188,18 @@ export default function OrganizationReport() {
             </Info>
 
             <Info title="Comparación de ingresos vs período anterior">
+              <div className="sm:hidden grid grid-cols-2 gap-2 mb-3">
+                <MiniMetricCard
+                  title="Semanal"
+                  current={money.format(stats.collectedWeek)}
+                  delta={weekDelta}
+                />
+                <MiniMetricCard
+                  title="Mensual"
+                  current={money.format(stats.collectedMonth)}
+                  delta={monthDelta}
+                />
+              </div>
               <Row label="Semana anterior" value={money.format(stats.collectedWeekPrev)} />
               <Row label="Variación semanal" value={`${weekDelta > 0 ? '+' : ''}${weekDelta}%`} />
               <Row label="Mes anterior" value={money.format(stats.collectedMonthPrev)} />
@@ -195,6 +207,18 @@ export default function OrganizationReport() {
             </Info>
 
             <Info title="Rendimiento por sucursal">
+              <div className="sm:hidden grid grid-cols-2 gap-2 mb-3">
+                <MiniMetricCard
+                  title="Sede"
+                  current={`${stats.byBranch.sede} (${stats.byBranchPerformance.sede.percentage}%)`}
+                  delta={stats.byBranchPerformance.sede.percentage - stats.byBranchPerformance.rutas.percentage}
+                />
+                <MiniMetricCard
+                  title="Rutas"
+                  current={`${stats.byBranch.rutas} (${stats.byBranchPerformance.rutas.percentage}%)`}
+                  delta={stats.byBranchPerformance.rutas.percentage - stats.byBranchPerformance.sede.percentage}
+                />
+              </div>
               <Row label="Sede" value={`${stats.byBranch.sede} (${stats.byBranchPerformance.sede.percentage}%)`} />
               <Row label="Rutas" value={`${stats.byBranch.rutas} (${stats.byBranchPerformance.rutas.percentage}%)`} />
               <Row label="Mejor desempeño" value={topBranchLabel} />
@@ -252,6 +276,20 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
       <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
       <p className="text-xl font-display" style={{ color: '#0D2B5E' }}>{value}</p>
+    </div>
+  )
+}
+
+function MiniMetricCard({ title, current, delta }: { title: string; current: string; delta: number }) {
+  const positive = delta >= 0
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-2.5 bg-slate-50">
+      <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">{title}</p>
+      <p className="text-sm font-bold" style={{ color: '#0D2B5E' }}>{current}</p>
+      <p className="text-xs font-semibold mt-1" style={{ color: positive ? '#2E7D32' : '#B91C1C' }}>
+        {positive ? '▲' : '▼'} {delta > 0 ? '+' : ''}{delta}%
+      </p>
     </div>
   )
 }

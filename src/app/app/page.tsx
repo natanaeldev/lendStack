@@ -43,6 +43,8 @@ const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
   { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
 ]
 
+const MOBILE_TABS = TABS.filter(t => t.id !== 'reports')
+
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'single',     label: 'Simulación'     },
   { id: 'multiloan',  label: 'Multi-préstamo' },
@@ -758,6 +760,16 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
+      {/* ── Mobile report shortcut (above quick-pay) ── */}
+      <button
+        className="sm:hidden fixed z-50 w-10 h-10 rounded-full flex items-center justify-center text-white text-base transition-all active:scale-95"
+        style={{ bottom: '144px', right: '21px', background: 'linear-gradient(135deg,#0D2B5E,#1565C0)', boxShadow: '0 4px 16px rgba(13,43,94,.45)' }}
+        onClick={() => changeTab('reports')}
+        title="Abrir reportes"
+        aria-label="Abrir reportes">
+        📑
+      </button>
+
       {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
       <button
         className="sm:hidden fixed z-50 w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
@@ -771,7 +783,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
         style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
         <div className="flex">
-          {TABS.map(t => {
+          {MOBILE_TABS.map(t => {
             const active = tab === t.id
             return (
               <button key={t.id}
