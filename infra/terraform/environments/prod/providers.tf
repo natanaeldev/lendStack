@@ -7,6 +7,15 @@ terraform {
       version = "~> 6.0"
     }
   }
+
+  # Remote state in S3. The bucket and DynamoDB lock table must exist first.
+  backend "s3" {
+    bucket         = "lendstack-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "lendstack-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
@@ -26,4 +35,3 @@ provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
 }
-
