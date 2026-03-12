@@ -2,6 +2,10 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import Header from '@/components/Header'
+import DesktopSidebar from '@/components/app-shell/DesktopSidebar'
+import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
+import MobileActionBar from '@/components/app-shell/MobileActionBar'
+import MobileDrawer from '@/components/app-shell/MobileDrawer'
 import CurrencyToggle from '@/components/CurrencyToggle'
 import RateModeToggle from '@/components/RateModeToggle'
 import RiskSelector from '@/components/RiskSelector'
@@ -22,6 +26,7 @@ import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
+import { useSession } from 'next-auth/react'
 import {
   calculateLoan, buildAmortization, getRiskConfig,
   calculateWeeklyLoan, buildWeeklySchedule,
@@ -34,16 +39,37 @@ import {
 export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
-const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
-  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'      },
-  { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'  },
-  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes'   },
-  { id: 'branches',   label: '🏢 Sucursales',   emoji: '🏢', mobileLabel: 'Sucursales' },
-  { id: 'reports',    label: '📑 Reportes',     emoji: '📑', mobileLabel: 'Reportes' },
-  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
+const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string; icon: string }[] = [
+  { id: 'dashboard',  label: 'Dashboard',   emoji: '🏠', icon: '🏠', mobileLabel: 'Inicio'      },
+  { id: 'loans',      label: 'Préstamos',   emoji: '📋', icon: '📋', mobileLabel: 'Préstamos'  },
+  { id: 'clients',    label: 'Clientes',     emoji: '👥', icon: '👥', mobileLabel: 'Clientes'   },
+  { id: 'branches',   label: 'Sucursales',   emoji: '🏢', icon: '🏢', mobileLabel: 'Sucursales' },
+  { id: 'reports',    label: 'Reportes',     emoji: '📑', icon: '📑', mobileLabel: 'Reportes' },
+  { id: 'calculator', label: 'Calculadora',  emoji: '🧮', icon: '🧮', mobileLabel: 'Calcular'   },
 ]
 
 const MOBILE_TABS = TABS.filter(t => t.id !== 'reports')
+
+const ADMIN_LINKS = [
+  {
+    href: '/admin/users',
+    label: 'Registrar usuario',
+    description: 'Alta y gestión de usuarios',
+    icon: '👥',
+    color: '#92400E',
+    hoverBorder: 'hover:border-amber-200',
+    hoverBg: 'hover:bg-amber-50',
+  },
+  {
+    href: '/admin/branches',
+    label: 'Registrar sucursal',
+    description: 'Alta y configuración de sucursales',
+    icon: '🏢',
+    color: '#0369A1',
+    hoverBorder: 'hover:border-sky-200',
+    hoverBg: 'hover:bg-sky-50',
+  },
+]
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'single',     label: 'Simulación'     },
@@ -51,7 +77,18 @@ const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'comparison', label: 'Comparación'    },
 ]
 
+const TAB_META: Record<Tab, { title: string; description: string }> = {
+  dashboard:  { title: 'Dashboard', description: 'Visión general de cartera y rendimiento diario.' },
+  loans:      { title: 'Préstamos', description: 'Gestioná originación, estado y cobranza de préstamos.' },
+  clients:    { title: 'Clientes', description: 'Perfiles, documentos y seguimiento de prestatarios.' },
+  branches:   { title: 'Sucursales', description: 'Control operativo por oficina y equipos.' },
+  reports:    { title: 'Reportes', description: 'KPIs exportables y análisis financiero ejecutivo.' },
+  calculator: { title: 'Calculadora', description: 'Simulación y comparación avanzada de escenarios.' },
+}
+
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
+  const { data: session } = useSession()
+  const isMaster = session?.user?.role === 'master'
   const [tab,               setTab]               = useState<Tab>(initialTab)
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
@@ -66,6 +103,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [customMonthlyRate, setCustomMonthlyRate] = useState(0.015)
   const [showTable,         setShowTable]         = useState(false)
   const [emailOpen,         setEmailOpen]         = useState(false)
+  const [mobileNavOpen,     setMobileNavOpen]     = useState(false)
+  const [sidebarCollapsed,   setSidebarCollapsed]  = useState(false)
 
   // ── Loan type ──
   const [loanType,          setLoanType]          = useState<LoanType>('amortized')
@@ -81,6 +120,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   // ── URL-synced tab navigation ──────────────────────────────────────────────
   const changeTab = useCallback((newTab: Tab) => {
     setTab(newTab)
+    setMobileNavOpen(false)
     if (typeof window !== 'undefined') {
       const paths: Record<Tab, string> = {
         dashboard:  '/app',
@@ -98,6 +138,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   useEffect(() => {
     const onPopState = () => {
       const p = window.location.pathname
+      setMobileNavOpen(false)
       if (p.startsWith('/app/calculadora'))     setTab('calculator')
       else if (p.startsWith('/app/clientes'))   setTab('clients')
       else if (p.startsWith('/app/prestamos'))  setTab('loans')
@@ -124,6 +165,18 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     window.addEventListener('lendstack:new-loan', onNewLoan)
     return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
   }, [changeTab])
+
+  useEffect(() => {
+    const onToggle = () => setMobileNavOpen(v => !v)
+    window.addEventListener('lendstack:toggle-nav-drawer', onToggle)
+    return () => window.removeEventListener('lendstack:toggle-nav-drawer', onToggle)
+  }, [])
+
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileNavOpen(false) }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [])
 
   // Always pass termYears to the calculation layer (convert months → fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
@@ -182,32 +235,87 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   )
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
 
-      {/* ── Desktop tab bar (sm+) ── */}
-      <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-        <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
-              className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
-              style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
-              {t.label}
-            </button>
-          ))}
-          <div className="ml-auto pl-4 flex-shrink-0">
-            <button
-              onClick={() => setShowPayment(true)}
-              title="Registrar pago de cuota"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
-              style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
-              +
-            </button>
+      <MobileDrawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        items={TABS}
+        activeId={tab}
+        onSelect={(id) => {
+          const next = id as Tab
+          changeTab(next)
+          if (next !== 'clients') setSelectedClientId(null)
+          if (next !== 'loans') setSelectedLoanId(null)
+        }}
+        adminLinks={isMaster ? ADMIN_LINKS : []}
+      />
+
+      <DesktopSidebar
+        items={TABS}
+        activeId={tab}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(v => !v)}
+        onSelect={(id) => {
+          const next = id as Tab
+          changeTab(next)
+          if (next !== 'clients') setSelectedClientId(null)
+          if (next !== 'loans') setSelectedLoanId(null)
+        }}
+        adminLinks={isMaster ? ADMIN_LINKS : []}
+      />
+
+      {/* ── Top workspace bar (sm+) ── */}
+      <div className={`hidden sm:block sticky top-[84px] z-40 bg-white border-b border-slate-200 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`} style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-4 py-3">
+            <div>
+              <p className="text-xs text-slate-400 font-semibold">LendStack Workspace</p>
+              <h1 className="text-base font-display" style={{ color: '#0D2B5E' }}>{TAB_META[tab].title}</h1>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="Buscar clientes, préstamos o pagos..."
+                className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
+              />
+              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">🔔</button>
+              <button
+                onClick={() => setShowPayment(true)}
+                title="Registrar pago de cuota"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
+                +
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center overflow-x-auto">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
+                className="px-5 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
+                style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
+                {t.icon} {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
+      <MobileActionBar
+        onSearch={() => {
+          changeTab('clients')
+          setSelectedClientId(null)
+        }}
+        onNewLoan={() => {
+          changeTab('clients')
+          setSelectedClientId(null)
+        }}
+        onQuickPayment={() => setShowPayment(true)}
+        onReports={() => changeTab('reports')}
+      />
+
+      <main className={`relative max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
 
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
@@ -760,46 +868,27 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
-      {/* ── Mobile report shortcut (above quick-pay) ── */}
-      <button
-        className="sm:hidden fixed z-50 w-10 h-10 rounded-full flex items-center justify-center text-white text-base transition-all active:scale-95"
-        style={{ bottom: '144px', right: '21px', background: 'linear-gradient(135deg,#0D2B5E,#1565C0)', boxShadow: '0 4px 16px rgba(13,43,94,.45)' }}
-        onClick={() => changeTab('reports')}
-        title="Abrir reportes"
-        aria-label="Abrir reportes">
-        📑
-      </button>
-
       {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
       <button
-        className="sm:hidden fixed z-50 w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
-        style={{ bottom: '88px', right: '20px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 4px 16px rgba(21,101,192,.5)' }}
+        className="sm:hidden fixed z-50 w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
+        style={{ bottom: '92px', right: '18px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 8px 24px rgba(21,101,192,.5)' }}
         onClick={() => setShowPayment(true)}
-        title="Registrar pago de cuota">
+        title="Registrar pago de cuota"
+        aria-label="Registrar pago de cuota"
+      >
         +
       </button>
 
-      {/* ── Mobile bottom tab bar (below sm) ── */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
-        style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
-        <div className="flex">
-          {MOBILE_TABS.map(t => {
-            const active = tab === t.id
-            return (
-              <button key={t.id}
-                onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all"
-                style={{ color: active ? '#1565C0' : '#94a3b8' }}>
-                <span className="text-2xl leading-none">{t.emoji}</span>
-                <span className="text-[10px] font-bold tracking-wide">{t.mobileLabel}</span>
-                {active && (
-                  <span className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ background: '#1565C0' }} />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </nav>
+      <MobileBottomNav
+        items={MOBILE_TABS}
+        activeId={tab}
+        onSelect={(id) => {
+          const next = id as Tab
+          changeTab(next)
+          if (next !== 'clients') setSelectedClientId(null)
+          if (next !== 'loans') setSelectedLoanId(null)
+        }}
+      />
 
       {/* Modals & notifications */}
       <EmailModal isOpen={emailOpen} onClose={() => setEmailOpen(false)} params={params} result={result} config={config} />
