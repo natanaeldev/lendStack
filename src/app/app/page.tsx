@@ -20,6 +20,7 @@ import LoanDetailPanel from '@/components/LoanDetailPanel'
 import Dashboard from '@/components/Dashboard'
 import BranchesPanel from '@/components/BranchesPanel'
 import OrganizationReport from '@/components/OrganizationReport'
+import PaymentsHub from '@/components/PaymentsHub'
 import QuickPaymentModal from '@/components/QuickPaymentModal'
 import PdfExportButton from '@/components/PdfExport'
 import EmailModal from '@/components/EmailModal'
@@ -794,19 +795,16 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 
         {/* ═══ PAYMENTS ═══ */}
         {tab === 'payments' && (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
-              <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Cobranza móvil</p>
-              <h2 className="text-lg font-display" style={{ color: '#0D2B5E' }}>Centro de pagos</h2>
-              <p className="text-sm text-slate-500 mt-2">Registrá pagos en segundos y consultá rápidamente la cartera antes de cobrar en calle.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                <button onClick={() => setShowPayment(true)} className="min-h-12 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>+ Registrar pago</button>
-                <button onClick={() => changeTab('loans')} className="min-h-12 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">Ver préstamos</button>
-                <button onClick={() => changeTab('clients')} className="min-h-12 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">Buscar cliente</button>
-              </div>
-            </div>
-          </div>
+          <PaymentsHub
+            onQuickPay={() => setShowPayment(true)}
+            onViewClient={(clientId) => {
+              setSelectedClientId(clientId)
+              changeTab('clients')
+            }}
+            onViewLoans={() => changeTab('loans')}
+          />
         )}
+
 
         {/* ═══ MORE ═══ */}
         {tab === 'more' && (
@@ -861,17 +859,6 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
-      {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
-      <button
-        className="sm:hidden fixed z-50 w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
-        style={{ bottom: '92px', right: '18px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 8px 24px rgba(21,101,192,.5)' }}
-        onClick={() => setShowPayment(true)}
-        title="Registrar pago de cuota"
-        aria-label="Registrar pago de cuota"
-      >
-        +
-      </button>
-
       <MobileBottomNav
         items={MOBILE_TABS}
         activeId={tab}
@@ -882,6 +869,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           if (next !== 'loans') setSelectedLoanId(null)
         }}
       />
+
 
       {/* Modals & notifications */}
       <EmailModal isOpen={emailOpen} onClose={() => setEmailOpen(false)} params={params} result={result} config={config} />
