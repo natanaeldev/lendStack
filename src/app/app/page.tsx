@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useCallback, useEffect } from 'react'
 import Header from '@/components/Header'
@@ -39,29 +39,29 @@ export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' 
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
 const DESKTOP_TABS: { id: Tab; label: string; emoji: string; mobileLabel: string; icon: string }[] = [
-  { id: 'dashboard',  label: 'Dashboard',   emoji: '🏠', icon: '🏠', mobileLabel: 'Inicio'      },
-  { id: 'loans',      label: 'Préstamos',   emoji: '📋', icon: '📋', mobileLabel: 'Préstamos'  },
-  { id: 'clients',    label: 'Clientes',    emoji: '👥', icon: '👥', mobileLabel: 'Clientes'   },
-  { id: 'payments',   label: 'Pagos',       emoji: '💵', icon: '💵', mobileLabel: 'Pagos'      },
-  { id: 'branches',   label: 'Sucursales',  emoji: '🏢', icon: '🏢', mobileLabel: 'Sucursales' },
-  { id: 'reports',    label: 'Reportes',    emoji: '📑', icon: '📑', mobileLabel: 'Reportes'   },
-  { id: 'calculator', label: 'Calculadora', emoji: '🧮', icon: '🧮', mobileLabel: 'Calcular'   },
+  { id: 'dashboard',  label: 'Dashboard',   emoji: 'ðŸ ', icon: 'ðŸ ', mobileLabel: 'Inicio'      },
+  { id: 'loans',      label: 'PrÃ©stamos',   emoji: 'ðŸ“‹', icon: 'ðŸ“‹', mobileLabel: 'PrÃ©stamos'  },
+  { id: 'clients',    label: 'Clientes',    emoji: 'ðŸ‘¥', icon: 'ðŸ‘¥', mobileLabel: 'Clientes'   },
+  { id: 'payments',   label: 'Pagos',       emoji: 'ðŸ’µ', icon: 'ðŸ’µ', mobileLabel: 'Pagos'      },
+  { id: 'branches',   label: 'Sucursales',  emoji: 'ðŸ¢', icon: 'ðŸ¢', mobileLabel: 'Sucursales' },
+  { id: 'reports',    label: 'Reportes',    emoji: 'ðŸ“‘', icon: 'ðŸ“‘', mobileLabel: 'Reportes'   },
+  { id: 'calculator', label: 'Calculadora', emoji: 'ðŸ§®', icon: 'ðŸ§®', mobileLabel: 'Calcular'   },
 ]
 
 const MOBILE_TABS: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: '🏠' },
-  { id: 'loans', label: 'Préstamos', mobileLabel: 'Préstamos', icon: '📋' },
-  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: '👥' },
-  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: '💵' },
-  { id: 'more', label: 'Más', mobileLabel: 'Más', icon: '☰' },
+  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: 'ðŸ ' },
+  { id: 'loans', label: 'PrÃ©stamos', mobileLabel: 'PrÃ©stamos', icon: 'ðŸ“‹' },
+  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: 'ðŸ‘¥' },
+  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: 'ðŸ’µ' },
+  { id: 'more', label: 'MÃ¡s', mobileLabel: 'MÃ¡s', icon: 'â˜°' },
 ]
 
 const ADMIN_LINKS = [
   {
     href: '/admin/users',
     label: 'Registrar usuario',
-    description: 'Alta y gestión de usuarios',
-    icon: '👥',
+    description: 'Alta y gestiÃ³n de usuarios',
+    icon: 'ðŸ‘¥',
     color: '#92400E',
     hoverBorder: 'hover:border-amber-200',
     hoverBg: 'hover:bg-amber-50',
@@ -69,8 +69,8 @@ const ADMIN_LINKS = [
   {
     href: '/admin/branches',
     label: 'Registrar sucursal',
-    description: 'Alta y configuración de sucursales',
-    icon: '🏢',
+    description: 'Alta y configuraciÃ³n de sucursales',
+    icon: 'ðŸ¢',
     color: '#0369A1',
     hoverBorder: 'hover:border-sky-200',
     hoverBg: 'hover:bg-sky-50',
@@ -78,20 +78,20 @@ const ADMIN_LINKS = [
 ]
 
 const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
-  { id: 'single',     label: 'Simulación'     },
-  { id: 'multiloan',  label: 'Multi-préstamo' },
-  { id: 'comparison', label: 'Comparación'    },
+  { id: 'single',     label: 'SimulaciÃ³n'     },
+  { id: 'multiloan',  label: 'Multi-prÃ©stamo' },
+  { id: 'comparison', label: 'ComparaciÃ³n'    },
 ]
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
-  dashboard:  { title: 'Dashboard', description: 'Visión general de cartera y rendimiento diario.' },
-  loans:      { title: 'Préstamos', description: 'Gestioná originación, estado y cobranza de préstamos.' },
+  dashboard:  { title: 'Dashboard', description: 'VisiÃ³n general de cartera y rendimiento diario.' },
+  loans:      { title: 'PrÃ©stamos', description: 'GestionÃ¡ originaciÃ³n, estado y cobranza de prÃ©stamos.' },
   clients:    { title: 'Clientes', description: 'Perfiles, documentos y seguimiento de prestatarios.' },
-  payments:   { title: 'Pagos', description: 'Registro rápido de cobros y seguimiento de cobranza.' },
+  payments:   { title: 'Pagos', description: 'Registro rÃ¡pido de cobros y seguimiento de cobranza.' },
   branches:   { title: 'Sucursales', description: 'Control operativo por oficina y equipos.' },
-  reports:    { title: 'Reportes', description: 'KPIs exportables y análisis financiero ejecutivo.' },
-  calculator: { title: 'Calculadora', description: 'Simulación y comparación avanzada de escenarios.' },
-  more:       { title: 'Más', description: 'Acciones secundarias, configuración y soporte.' },
+  reports:    { title: 'Reportes', description: 'KPIs exportables y anÃ¡lisis financiero ejecutivo.' },
+  calculator: { title: 'Calculadora', description: 'SimulaciÃ³n y comparaciÃ³n avanzada de escenarios.' },
+  more:       { title: 'MÃ¡s', description: 'Acciones secundarias, configuraciÃ³n y soporte.' },
 }
 
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
@@ -101,6 +101,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
   const [selectedLoanId,    setSelectedLoanId]    = useState<string | null>(null)
+  const [loanCreateRequestKey, setLoanCreateRequestKey] = useState(0)
   const [showPayment,       setShowPayment]        = useState(false)
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
@@ -113,7 +114,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [emailOpen,         setEmailOpen]         = useState(false)
   const [sidebarCollapsed,   setSidebarCollapsed]  = useState(false)
 
-  // ── Loan type ──
+  // â”€â”€ Loan type â”€â”€
   const [loanType,          setLoanType]          = useState<LoanType>('amortized')
   // Weekly loan
   const [weeklyTermWeeks,   setWeeklyTermWeeks]   = useState(52)
@@ -124,7 +125,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [carritoPayments,   setCarritoPayments]   = useState(4)
   const [carritoFreq,       setCarritoFreq]       = useState<CarritoFrequency>('weekly')
 
-  // ── URL-synced tab navigation ──────────────────────────────────────────────
+  // â”€â”€ URL-synced tab navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const changeTab = useCallback((newTab: Tab) => {
     setTab(newTab)
     if (typeof window !== 'undefined') {
@@ -168,23 +169,27 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     return () => window.removeEventListener('lendstack:goto-dashboard', onGotoDashboard)
   }, [changeTab])
 
-  // Navigate to clients tab (new loan form) when header button is clicked
+  // Route new-loan entry points into Prestamos and open the in-place flow.
   useEffect(() => {
-    const onNewLoan = () => changeTab('clients')
+    const onNewLoan = () => {
+      setSelectedLoanId(null)
+      changeTab('loans')
+      setLoanCreateRequestKey((value) => value + 1)
+    }
     window.addEventListener('lendstack:new-loan', onNewLoan)
     return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
   }, [changeTab])
 
-  // Always pass termYears to the calculation layer (convert months → fractional years)
+  // Always pass termYears to the calculation layer (convert months â†’ fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
 
   const handleTermUnitChange = (unit: 'years' | 'months') => {
     if (unit === termUnit) return
     // Convert current value when switching units
     if (unit === 'months') {
-      setTermValue(Math.round(termValue * 12))   // years → months
+      setTermValue(Math.round(termValue * 12))   // years â†’ months
     } else {
-      setTermValue(Math.max(1, Math.round(termValue / 12)))  // months → years
+      setTermValue(Math.max(1, Math.round(termValue / 12)))  // months â†’ years
     }
     setTermUnit(unit)
   }
@@ -209,17 +214,17 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     setProfile(p.profile)
     setCurrency(p.currency)
     changeTab('calculator')
-    showToast('📂', 'Simulación de cliente cargada')
+    showToast('ðŸ“‚', 'SimulaciÃ³n de cliente cargada')
   }, [changeTab])
 
   const handleCurrencyChange = (c: Currency) => {
     setCurrency(c)
-    showToast('💱', `Moneda cambiada a ${c}`)
+    showToast('ðŸ’±', `Moneda cambiada a ${c}`)
   }
 
   const handleRateModeChange = (m: RateMode) => {
     setRateMode(m)
-    showToast(m === 'monthly' ? '🗓️' : '📅', m === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
+    showToast(m === 'monthly' ? 'ðŸ—“ï¸' : 'ðŸ“…', m === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
   }
 
   const card = 'rounded-2xl p-4 sm:p-6 bg-white border border-slate-200 mb-5'
@@ -250,7 +255,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         adminLinks={isMaster ? ADMIN_LINKS : []}
       />
 
-      {/* ── Top workspace bar (sm+) ── */}
+      {/* â”€â”€ Top workspace bar (sm+) â”€â”€ */}
       <div className={`hidden sm:block sticky top-[84px] z-40 bg-white border-b border-slate-200 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`} style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-4 py-3">
@@ -261,10 +266,10 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             <div className="ml-auto flex items-center gap-3">
               <input
                 type="text"
-                placeholder="Buscar clientes, préstamos o pagos..."
+                placeholder="Buscar clientes, prÃ©stamos o pagos..."
                 className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
               />
-              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">🔔</button>
+              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">ðŸ””</button>
               <button
                 onClick={() => setShowPayment(true)}
                 title="Registrar pago de cuota"
@@ -289,7 +294,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 
       <main className={`relative max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
 
-        {/* ═══ CALCULATOR ═══ */}
+        {/* â•â•â• CALCULATOR â•â•â• */}
         {tab === 'calculator' && (
           <>
             {/* Sub-nav */}
@@ -303,17 +308,17 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                     boxShadow:  calcSubTab === s.id ? '0 1px 6px rgba(0,0,0,.1)' : 'none',
                     fontFamily: "'DM Sans', sans-serif",
                   }}>
-                  <span className="hidden sm:inline">{s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'} </span>
-                  <span className="sm:hidden text-base leading-none block mb-0.5">{s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'}</span>
+                  <span className="hidden sm:inline">{s.id === 'single' ? 'ðŸ§®' : s.id === 'multiloan' ? 'ðŸ“‹' : 'ðŸ“Š'} </span>
+                  <span className="sm:hidden text-base leading-none block mb-0.5">{s.id === 'single' ? 'ðŸ§®' : s.id === 'multiloan' ? 'ðŸ“‹' : 'ðŸ“Š'}</span>
                   <span className="hidden sm:inline">{s.label}</span>
                   <span className="sm:hidden">{s.id === 'single' ? 'Simular' : s.id === 'multiloan' ? 'Multi' : 'Comparar'}</span>
                 </button>
               ))}
             </div>
 
-            {/* ── Single loan (Simulación) ── */}
+            {/* â”€â”€ Single loan (SimulaciÃ³n) â”€â”€ */}
             {calcSubTab === 'single' && <>
-            {/* ── Loan type selector ── */}
+            {/* â”€â”€ Loan type selector â”€â”€ */}
             <div className="flex gap-2 mb-4 flex-wrap">
               {LOAN_TYPES.map(lt => (
                 <button key={lt.id} onClick={() => setLoanType(lt.id)}
@@ -333,7 +338,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             {/* Inputs */}
             <div className={card} style={cardShadow}>
               <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-                {sectionTitle('Parámetros del préstamo')}
+                {sectionTitle('ParÃ¡metros del prÃ©stamo')}
                 <CurrencyToggle value={currency} onChange={handleCurrencyChange} />
               </div>
 
@@ -341,7 +346,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                 {/* Amount */}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    Monto del préstamo ({currency})
+                    Monto del prÃ©stamo ({currency})
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
@@ -375,7 +380,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                             background: termUnit === unit ? '#1565C0' : 'transparent',
                             color:      termUnit === unit ? '#fff' : '#64748b',
                           }}>
-                          {unit === 'years' ? 'Años' : 'Meses'}
+                          {unit === 'years' ? 'AÃ±os' : 'Meses'}
                         </button>
                       ))}
                     </div>
@@ -391,7 +396,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                       className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
                       style={{ color: '#0D2B5E' }} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">
-                      {termUnit === 'months' ? 'meses' : 'años'}
+                      {termUnit === 'months' ? 'meses' : 'aÃ±os'}
                     </span>
                   </div>
                   <input type="range" min={1} max={termUnit === 'months' ? 360 : 30} step={1}
@@ -401,26 +406,26 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                   <div className="flex justify-between text-xs text-slate-400 mt-1.5">
                     {termUnit === 'months'
                       ? <><span>1 mes</span><span>180 meses</span><span>360 meses</span></>
-                      : <><span>1 año</span><span>30 años</span></>
+                      : <><span>1 aÃ±o</span><span>30 aÃ±os</span></>
                     }
                   </div>
                   {/* Show equivalent in the other unit */}
                   <p className="text-xs text-slate-400 mt-1.5">
                     {termUnit === 'months'
-                      ? <>≈ <strong style={{ color: '#0D2B5E' }}>{(termValue / 12).toFixed(1)}</strong> años · <strong style={{ color: '#0D2B5E' }}>{termValue}</strong> cuotas</>
-                      : <><strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> meses · <strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> cuotas</>
+                      ? <>â‰ˆ <strong style={{ color: '#0D2B5E' }}>{(termValue / 12).toFixed(1)}</strong> aÃ±os Â· <strong style={{ color: '#0D2B5E' }}>{termValue}</strong> cuotas</>
+                      : <><strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> meses Â· <strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> cuotas</>
                     }
                   </p>
                 </div>
               </div>
 
-              {/* ── Amortized-only: rate mode + risk ── */}
+              {/* â”€â”€ Amortized-only: rate mode + risk â”€â”€ */}
               {loanType === 'amortized' && (
                 <>
                   <div>
                     <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Base de tasa de interés
+                        Base de tasa de interÃ©s
                       </label>
                       <RateModeToggle value={rateMode} onChange={handleRateModeChange} />
                     </div>
@@ -448,7 +453,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                           </div>
                           <span className="text-xs font-semibold" style={{ color: '#1565C0' }}>/ mes</span>
                           <span className="text-xs text-slate-400 ml-auto">
-                            ≈ <strong style={{ color: '#0D2B5E' }}>{(customMonthlyRate * 12 * 100).toFixed(2)}%</strong> anual equivalente
+                            â‰ˆ <strong style={{ color: '#0D2B5E' }}>{(customMonthlyRate * 12 * 100).toFixed(2)}%</strong> anual equivalente
                           </span>
                         </div>
                         <input type="range" min={0.01} max={20} step={0.01}
@@ -467,7 +472,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                       Perfil de riesgo
                       {rateMode === 'monthly' && (
                         <span className="ml-2 font-normal normal-case tracking-normal text-blue-400">
-                          (solo categorización — la tasa es manual)
+                          (solo categorizaciÃ³n â€” la tasa es manual)
                         </span>
                       )}
                     </label>
@@ -476,7 +481,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                 </>
               )}
 
-              {/* ── Weekly-only fields ── */}
+              {/* â”€â”€ Weekly-only fields â”€â”€ */}
               {loanType === 'weekly' && (
                 <div className="rounded-xl p-4 border-2 mb-4" style={{ borderColor: '#1565C044', background: '#f0f4fa' }}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -494,11 +499,11 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                       <input type="range" min={1} max={520} step={1} value={weeklyTermWeeks}
                         onChange={e => setWeeklyTermWeeks(Number(e.target.value))}
                         className="w-full mt-2 accent-blue-600" style={{ height: 4 }} />
-                      <p className="text-xs text-slate-400 mt-1">≈ <strong style={{ color: '#0D2B5E' }}>{(weeklyTermWeeks / 4.33).toFixed(1)}</strong> meses</p>
+                      <p className="text-xs text-slate-400 mt-1">â‰ˆ <strong style={{ color: '#0D2B5E' }}>{(weeklyTermWeeks / 4.33).toFixed(1)}</strong> meses</p>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Tasa mensual (%) — se convierte a semanal
+                        Tasa mensual (%) â€” se convierte a semanal
                       </label>
                       <div className="relative">
                         <input type="number" value={(weeklyMonthlyRate * 100).toFixed(2)} min={0.01} max={30} step={0.01}
@@ -512,20 +517,20 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                         className="w-full mt-2 accent-blue-600" style={{ height: 4 }} />
                       <p className="text-xs text-slate-400 mt-1">
                         Tasa semanal: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate / 4.33, 4)}</strong>
-                        &nbsp;·&nbsp;Anual equiv.: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate * 12)}</strong>
+                        &nbsp;Â·&nbsp;Anual equiv.: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate * 12)}</strong>
                       </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* ── Carrito-only fields ── */}
+              {/* â”€â”€ Carrito-only fields â”€â”€ */}
               {loanType === 'carrito' && (
                 <div className="rounded-xl p-4 border-2 mb-4" style={{ borderColor: '#F59E0B44', background: '#FFFBF0' }}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Tasa plana (%) — sobre capital total
+                        Tasa plana (%) â€” sobre capital total
                       </label>
                       <div className="relative">
                         <input type="number" value={(carritoFlatRate * 100).toFixed(1)} min={0.1} max={200} step={0.1}
@@ -537,23 +542,23 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                       <input type="range" min={0.1} max={100} step={0.1} value={+(carritoFlatRate * 100).toFixed(1)}
                         onChange={e => setCarritoFlatRate(parseFloat(e.target.value) / 100)}
                         className="w-full mt-2 accent-amber-400" style={{ height: 4 }} />
-                      <p className="text-xs text-slate-400 mt-1">Interés total: <strong style={{ color: '#F59E0B' }}>{fmt(carritoResult.totalInterest)}</strong></p>
+                      <p className="text-xs text-slate-400 mt-1">InterÃ©s total: <strong style={{ color: '#F59E0B' }}>{fmt(carritoResult.totalInterest)}</strong></p>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Plazo (períodos)
+                        Plazo (perÃ­odos)
                       </label>
                       <div className="relative">
                         <input type="number" value={carritoTerm} min={1} max={104} step={1}
                           onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) setCarritoTerm(v) }}
                           className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
                           style={{ color: '#0D2B5E' }} />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">períodos</span>
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">perÃ­odos</span>
                       </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Número de cuotas
+                        NÃºmero de cuotas
                       </label>
                       <div className="relative">
                         <input type="number" value={carritoPayments} min={1} max={730} step={1}
@@ -572,7 +577,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                           <button key={f} onClick={() => setCarritoFreq(f)}
                             className="flex-1 py-3 transition-all"
                             style={{ background: carritoFreq === f ? '#1565C0' : 'transparent', color: carritoFreq === f ? '#fff' : '#64748b' }}>
-                            {f === 'daily' ? '📆 Diario' : '📅 Semanal'}
+                            {f === 'daily' ? 'ðŸ“† Diario' : 'ðŸ“… Semanal'}
                           </button>
                         ))}
                       </div>
@@ -582,7 +587,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               )}
             </div>
 
-            {/* ── Results — Amortized ── */}
+            {/* â”€â”€ Results â€” Amortized â”€â”€ */}
             {loanType === 'amortized' && (
               <>
                 <div className="mb-5 fade-up-1">
@@ -593,27 +598,27 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                   <button onClick={() => setEmailOpen(true)}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
                     style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                    ✉️ Enviar por email
+                    âœ‰ï¸ Enviar por email
                   </button>
-                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                  <button onClick={() => { changeTab('clients'); showToast('ðŸ‘¤', 'Completa los datos del cliente') }}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                    👤 Guardar como cliente
+                    ðŸ‘¤ Guardar como cliente
                   </button>
                 </div>
                 <div className={card + ' fade-up-2'} style={cardShadow}>
-                  {sectionTitle('Evolución del préstamo')}
+                  {sectionTitle('EvoluciÃ³n del prÃ©stamo')}
                   <AmortizationChart rows={rows} accentColor={config.colorAccent} currency={currency} />
                 </div>
                 <div className="fade-up-3">
                   <button onClick={() => setShowTable(s => !s)}
                     className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
                     style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                    {showTable ? '▲ Ocultar tabla' : '▼ Ver tabla de amortización'}
+                    {showTable ? 'â–² Ocultar tabla' : 'â–¼ Ver tabla de amortizaciÃ³n'}
                   </button>
                   {showTable && (
                     <div className={card} style={cardShadow}>
                       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                        {sectionTitle(`Tabla de amortización — ${result.totalMonths} cuotas`)}
+                        {sectionTitle(`Tabla de amortizaciÃ³n â€” ${result.totalMonths} cuotas`)}
                         <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: config.colorBg, color: config.colorText }}>
                           {config.emoji} {profile}
                         </span>
@@ -625,15 +630,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               </>
             )}
 
-            {/* ── Results — Weekly ── */}
+            {/* â”€â”€ Results â€” Weekly â”€â”€ */}
             {loanType === 'weekly' && (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 fade-up-1">
                   {[
-                    { label: 'Cuota semanal',   value: fmt(weeklyResult.weeklyPayment),   sub: `× ${weeklyResult.totalWeeks} semanas` },
+                    { label: 'Cuota semanal',   value: fmt(weeklyResult.weeklyPayment),   sub: `Ã— ${weeklyResult.totalWeeks} semanas` },
                     { label: 'Total a pagar',    value: fmt(weeklyResult.totalPayment),    sub: 'Capital + intereses' },
                     { label: 'Total intereses',  value: fmt(weeklyResult.totalInterest),   sub: `${formatPercent(weeklyResult.interestRatio)} del capital` },
-                    { label: 'Tasa semanal',     value: formatPercent(weeklyResult.weeklyRate, 4), sub: `≈ ${formatPercent(weeklyResult.monthlyRate)} mensual` },
+                    { label: 'Tasa semanal',     value: formatPercent(weeklyResult.weeklyRate, 4), sub: `â‰ˆ ${formatPercent(weeklyResult.monthlyRate)} mensual` },
                   ].map(s => (
                     <div key={s.label} className="rounded-xl p-4 border border-slate-200 bg-white" style={{ boxShadow: '0 1px 6px rgba(0,0,0,.05)' }}>
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{s.label}</p>
@@ -647,22 +652,22 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                   <button onClick={() => setEmailOpen(true)}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
                     style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                    ✉️ Enviar por email
+                    âœ‰ï¸ Enviar por email
                   </button>
-                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                  <button onClick={() => { changeTab('clients'); showToast('ðŸ‘¤', 'Completa los datos del cliente') }}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                    👤 Guardar como cliente
+                    ðŸ‘¤ Guardar como cliente
                   </button>
                 </div>
                 <div className="fade-up-2">
                   <button onClick={() => setShowTable(s => !s)}
                     className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
                     style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                    {showTable ? '▲ Ocultar cronograma' : '▼ Ver cronograma semanal'}
+                    {showTable ? 'â–² Ocultar cronograma' : 'â–¼ Ver cronograma semanal'}
                   </button>
                   {showTable && (
                     <div className={card} style={cardShadow}>
-                      {sectionTitle(`Cronograma semanal — ${weeklyResult.totalWeeks} cuotas`)}
+                      {sectionTitle(`Cronograma semanal â€” ${weeklyResult.totalWeeks} cuotas`)}
                       <PaymentScheduleTable rows={weeklySchedule} accentColor="#1565C0" currency={currency} periodLabel="Semana" />
                     </div>
                   )}
@@ -670,27 +675,27 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               </>
             )}
 
-            {/* ── Results — Carrito ── */}
+            {/* â”€â”€ Results â€” Carrito â”€â”€ */}
             {loanType === 'carrito' && (
               <>
                 <div className="rounded-xl px-4 py-3 mb-4 flex items-center gap-3 fade-up-1"
                   style={{ background: '#FFF8E1', border: '1.5px solid #F59E0B44' }}>
-                  <span className="text-2xl">🛒</span>
+                  <span className="text-2xl">ðŸ›’</span>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: '#F59E0B' }}>Carrito — Tasa plana</p>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: '#F59E0B' }}>Carrito â€” Tasa plana</p>
                     <p className="font-display text-xl" style={{ color: '#6D4C00' }}>
-                      {formatPercent(carritoFlatRate)} × {carritoTerm} períodos
+                      {formatPercent(carritoFlatRate)} Ã— {carritoTerm} perÃ­odos
                     </p>
                   </div>
                   <div className="text-right ml-auto">
-                    <p className="text-xs text-slate-500 mb-0.5">Interés total</p>
+                    <p className="text-xs text-slate-500 mb-0.5">InterÃ©s total</p>
                     <p className="text-xl font-bold" style={{ color: '#F59E0B' }}>{fmt(carritoResult.totalInterest)}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 fade-up-1">
                   {[
-                    { label: 'Cuota fija',      value: fmt(carritoResult.fixedPayment),   sub: `× ${carritoResult.numPayments} cuotas` },
-                    { label: 'Total a pagar',   value: fmt(carritoResult.totalPayment),   sub: 'Capital + interés plano' },
+                    { label: 'Cuota fija',      value: fmt(carritoResult.fixedPayment),   sub: `Ã— ${carritoResult.numPayments} cuotas` },
+                    { label: 'Total a pagar',   value: fmt(carritoResult.totalPayment),   sub: 'Capital + interÃ©s plano' },
                     { label: 'Total intereses', value: fmt(carritoResult.totalInterest),  sub: `${formatPercent(carritoResult.interestRatio)} del capital` },
                     { label: 'Frecuencia',      value: carritoFreq === 'daily' ? 'Diario' : 'Semanal', sub: `${carritoPayments} pagos` },
                   ].map(s => (
@@ -706,23 +711,23 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                   <button onClick={() => setEmailOpen(true)}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
                     style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                    ✉️ Enviar por email
+                    âœ‰ï¸ Enviar por email
                   </button>
-                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
+                  <button onClick={() => { changeTab('clients'); showToast('ðŸ‘¤', 'Completa los datos del cliente') }}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                    👤 Guardar como cliente
+                    ðŸ‘¤ Guardar como cliente
                   </button>
                 </div>
                 <div className="fade-up-2">
                   <button onClick={() => setShowTable(s => !s)}
                     className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
                     style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                    {showTable ? '▲ Ocultar cronograma' : '▼ Ver cronograma de pagos'}
+                    {showTable ? 'â–² Ocultar cronograma' : 'â–¼ Ver cronograma de pagos'}
                   </button>
                   {showTable && (
                     <div className={card} style={cardShadow}>
-                      {sectionTitle(`Cronograma de pagos — ${carritoResult.numPayments} cuotas ${carritoFreq === 'daily' ? 'diarias' : 'semanales'}`)}
-                      <PaymentScheduleTable rows={carritoSchedule} accentColor="#F59E0B" currency={currency} periodLabel={carritoFreq === 'daily' ? 'Día' : 'Semana'} />
+                      {sectionTitle(`Cronograma de pagos â€” ${carritoResult.numPayments} cuotas ${carritoFreq === 'daily' ? 'diarias' : 'semanales'}`)}
+                      <PaymentScheduleTable rows={carritoSchedule} accentColor="#F59E0B" currency={currency} periodLabel={carritoFreq === 'daily' ? 'DÃ­a' : 'Semana'} />
                     </div>
                   )}
                 </div>
@@ -730,30 +735,30 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             )}
             </>}
 
-            {/* ── Multi-préstamo sub-tab ── */}
+            {/* â”€â”€ Multi-prÃ©stamo sub-tab â”€â”€ */}
             {calcSubTab === 'multiloan' && (
               <div className={card} style={cardShadow}>
-                {sectionTitle('Comparación de hasta 4 préstamos')}
+                {sectionTitle('ComparaciÃ³n de hasta 4 prÃ©stamos')}
                 <MultiLoanPanel currency={currency} />
               </div>
             )}
 
-            {/* ── Comparación sub-tab ── */}
+            {/* â”€â”€ ComparaciÃ³n sub-tab â”€â”€ */}
             {calcSubTab === 'comparison' && (
               <>
                 <div className="rounded-2xl p-5 bg-white border border-slate-200 mb-5 flex items-center gap-5 flex-wrap" style={cardShadow}>
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-5 rounded-full" style={{ background: '#1565C0' }} />
-                    <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>Préstamo base:</span>
+                    <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>PrÃ©stamo base:</span>
                   </div>
                   <div className="flex gap-6">
                     <div><p className="text-xs text-slate-400">Monto</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{fmt(amount)}</p></div>
-                    <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} años`}</p></div>
+                    <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} aÃ±os`}</p></div>
                   </div>
-                  <p className="text-xs text-slate-400 ml-auto">Ajustá los parámetros en Simulación</p>
+                  <p className="text-xs text-slate-400 ml-auto">AjustÃ¡ los parÃ¡metros en SimulaciÃ³n</p>
                 </div>
                 <div className={card} style={cardShadow}>
-                  {sectionTitle('Comparación de perfiles de riesgo')}
+                  {sectionTitle('ComparaciÃ³n de perfiles de riesgo')}
                   <ComparisonPanel amount={amount} termYears={termYears} currency={currency} />
                 </div>
               </>
@@ -761,7 +766,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           </>
         )}
 
-        {/* ═══ DASHBOARD ═══ */}
+        {/* â•â•â• DASHBOARD â•â•â• */}
         {tab === 'dashboard' && (
           <Dashboard
             onViewProfile={(id) => {
@@ -771,7 +776,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
-        {/* ═══ LOANS ═══ */}
+        {/* â•â•â• LOANS â•â•â• */}
         {tab === 'loans' && (
           selectedLoanId ? (
             <LoanDetailPanel
@@ -785,11 +790,12 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           ) : (
             <LoansPanel
               onViewLoan={(id) => setSelectedLoanId(id)}
+              createRequestKey={loanCreateRequestKey}
             />
           )
         )}
 
-        {/* ═══ CLIENTS ═══ */}
+        {/* â•â•â• CLIENTS â•â•â• */}
         {tab === 'clients' && (
           selectedClientId ? (
             <ClientProfilePanel
@@ -819,23 +825,23 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           )
         )}
 
-        {/* ═══ PAYMENTS ═══ */}
+        {/* â•â•â• PAYMENTS â•â•â• */}
         {tab === 'payments' && (
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
-              <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Cobranza móvil</p>
+              <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Cobranza mÃ³vil</p>
               <h2 className="text-lg font-display" style={{ color: '#0D2B5E' }}>Centro de pagos</h2>
-              <p className="text-sm text-slate-500 mt-2">Registrá pagos en segundos y consultá rápidamente la cartera antes de cobrar en calle.</p>
+              <p className="text-sm text-slate-500 mt-2">RegistrÃ¡ pagos en segundos y consultÃ¡ rÃ¡pidamente la cartera antes de cobrar en calle.</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 <button onClick={() => setShowPayment(true)} className="min-h-12 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>+ Registrar pago</button>
-                <button onClick={() => changeTab('loans')} className="min-h-12 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">Ver préstamos</button>
+                <button onClick={() => changeTab('loans')} className="min-h-12 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">Ver prÃ©stamos</button>
                 <button onClick={() => changeTab('clients')} className="min-h-12 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">Buscar cliente</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ═══ MORE ═══ */}
+        {/* â•â•â• MORE â•â•â• */}
         {tab === 'more' && (
           <MoreScreen
             isMaster={isMaster}
@@ -843,14 +849,14 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             userEmail={session?.user?.email}
             onGoBranches={() => changeTab('branches')}
             onGoReports={() => changeTab('reports')}
-            onGoNotifications={() => showToast('🔔', 'Centro de notificaciones próximamente')}
-            onGoSettings={() => showToast('⚙️', 'Configuración avanzada próximamente')}
-            onGoHelp={() => showToast('🆘', 'Centro de ayuda próximamente')}
+            onGoNotifications={() => showToast('ðŸ””', 'Centro de notificaciones prÃ³ximamente')}
+            onGoSettings={() => showToast('âš™ï¸', 'ConfiguraciÃ³n avanzada prÃ³ximamente')}
+            onGoHelp={() => showToast('ðŸ†˜', 'Centro de ayuda prÃ³ximamente')}
             onLogoutEvent={() => window.dispatchEvent(new Event('lendstack:logout'))}
           />
         )}
 
-        {/* ═══ BRANCHES ═══ */}
+        {/* â•â•â• BRANCHES â•â•â• */}
         {tab === 'branches' && (
           <BranchesPanel
             onViewProfile={(id) => {
@@ -860,18 +866,18 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
-        {/* ═══ REPORTS ═══ */}
+        {/* â•â•â• REPORTS â•â•â• */}
         {tab === 'reports' && <OrganizationReport />}
 
       </main>
 
-      {/* Footer — hidden on mobile (bottom nav takes the space) */}
+      {/* Footer â€” hidden on mobile (bottom nav takes the space) */}
       <footer className="hidden sm:block bg-white border-t border-slate-200 text-center py-5 text-xs text-slate-400 mt-4">
-        <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero ·
-        Los cálculos son referenciales y no constituyen asesoramiento financiero.
+        <strong style={{ color: '#0D2B5E' }}>LendStack</strong> Â· Herramienta de anÃ¡lisis financiero Â·
+        Los cÃ¡lculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
-      {/* ── Mobile quick-pay FAB (above bottom nav) ── */}
+      {/* â”€â”€ Mobile quick-pay FAB (above bottom nav) â”€â”€ */}
       <button
         className="sm:hidden fixed z-50 w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-2xl transition-all active:scale-95"
         style={{ bottom: '92px', right: '18px', background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 8px 24px rgba(21,101,192,.5)' }}
@@ -905,3 +911,5 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 export default function Home() {
   return <HomeWithTab initialTab="dashboard" />
 }
+
+
