@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { formatCurrency, type LoanType } from '@/lib/loan'
 import ClienteSelectField from './ClienteSelectField'
 import LoanTypeSelector from './LoanTypeSelector'
@@ -15,36 +15,107 @@ const TYPE_TITLES: Record<LoanType, string> = {
   carrito: 'Prestamo carrito',
 }
 
-function StepCard({
+type StepKey = 'product' | 'client' | 'terms'
+
+function StepSummary({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-100 px-3 py-2">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+    </div>
+  )
+}
+
+function StepPanel({
   step,
   title,
   description,
+  active,
   complete,
+  summary,
+  onOpen,
+  action,
   children,
 }: {
   step: string
   title: string
   description: string
+  active: boolean
   complete?: boolean
+  summary?: string
+  onOpen?: () => void
+  action?: ReactNode
   children: ReactNode
 }) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,.05)] sm:p-5">
+    <section
+      className="rounded-[28px] border bg-white p-4 shadow-[0_12px_36px_rgba(15,23,42,.05)] transition-all sm:p-5"
+      style={{
+        borderColor: active ? '#BFDBFE' : '#E2E8F0',
+        boxShadow: active ? '0 0 0 3px rgba(21,101,192,.10), 0 18px 38px rgba(15,23,42,.08)' : '0 12px 36px rgba(15,23,42,.05)',
+      }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{step}</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900">{title}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{step}</p>
+            <span
+              className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{
+                color: complete ? '#047857' : active ? '#1565C0' : '#64748B',
+                background: complete ? '#ECFDF5' : active ? '#EFF6FF' : '#F8FAFC',
+              }}
+            >
+              {complete ? 'Listo' : active ? 'En curso' : 'Pendiente'}
+            </span>
+          </div>
+          <h3 className="mt-2 text-lg font-bold text-slate-900">{title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+          {!active && summary ? <p className="mt-2 text-sm font-semibold text-slate-700">{summary}</p> : null}
         </div>
-        {complete ? (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
-            Completo
-          </span>
+        {!active && onOpen ? (
+          <button type="button" onClick={onOpen} className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-slate-600">
+            Editar
+          </button>
         ) : null}
       </div>
-      <div className="mt-4">{children}</div>
+
+      {active ? <div className="mt-4">{children}</div> : null}
+      {active && action ? <div className="mt-4">{action}</div> : null}
     </section>
   )
+}
+
+function getTermsSummary(value: PrestamoFormState) {
+  if (value.loanType === 'amortized') {
+    return `${value.monthlyTermMonths} meses · ${formatCurrency(value.amount, value.currency)}`
+  }
+
+  if (value.loanType === 'weekly') {
+    return `${value.weeklyTermWeeks} semanas · ${formatCurrency(value.amount, value.currency)}`
+  }
+
+  return `${value.carritoPayments} cuotas · ${formatCurrency(value.amount, value.currency)}`
+}
+
+function getReadiness(value: PrestamoFormState, selectedClientName: string | null) {
+  const items: string[] = []
+
+  if (!selectedClientName) items.push('Selecciona un cliente')
+  if (!value.startDate) items.push('Define la fecha de inicio')
+  if (!value.amount || value.amount <= 0) items.push('Ingresa un monto valido')
+
+  if (value.loanType === 'amortized' && value.monthlyTermMonths < 1) items.push('Revisa el plazo mensual')
+  if (value.loanType === 'weekly' && value.weeklyTermWeeks < 1) items.push('Revisa el plazo semanal')
+  if (value.loanType === 'carrito' && value.carritoPayments < 1) items.push('Revisa las cuotas del carrito')
+
+  return items
 }
 
 export default function PrestamoForm({
@@ -67,49 +138,109 @@ export default function PrestamoForm({
   onCancel: () => void
 }) {
   const selectedClient = clients.find((client) => client.id === value.clientId) ?? null
+  const [activeStep, setActiveStep] = useState<StepKey>('product')
+
+  useEffect(() => {
+    if (!value.clientId && activeStep === 'terms') {
+      setActiveStep('client')
+      return
+    }
+
+    if (value.clientId && activeStep === 'client') {
+      setActiveStep('terms')
+    }
+  }, [activeStep, value.clientId])
+
+  const readinessItems = useMemo(() => getReadiness(value, selectedClient?.name ?? null), [selectedClient?.name, value])
+  const canSave = readinessItems.length === 0 && !isSubmitting
+
+  const topSummary = [
+    { label: 'Producto', value: TYPE_TITLES[value.loanType] },
+    { label: 'Cliente', value: selectedClient?.name ?? 'Pendiente' },
+    { label: 'Cuota', value: formatCurrency(preview.scheduledPayment, value.currency) },
+  ]
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
       <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <div className="mb-4 rounded-[28px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,.05)] sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">3 pasos</span>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">{TYPE_TITLES[value.loanType]}</span>
-            {selectedClient ? (
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">Cliente listo</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Flujo guiado</span>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">Calculo en tiempo real</span>
+            {canSave ? (
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">Listo para guardar</span>
             ) : (
-              <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">Cliente pendiente</span>
+              <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">Faltan datos clave</span>
             )}
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Completa el producto, el cliente y las condiciones sin salir de Prestamos.
+            El flujo muestra una sola decision importante a la vez para terminar el prestamo mas rapido y con menos errores.
           </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {topSummary.map((item) => (
+              <StepSummary key={item.label} label={item.label} value={item.value} />
+            ))}
+          </div>
         </div>
 
         <div className="space-y-5 pb-6">
-          <StepCard
+          <StepPanel
             step="Paso 1"
             title="Elige el tipo de prestamo"
-            description="Empieza por la estructura de cobro correcta para no rehacer el formulario despues."
+            description="Empieza por la estructura correcta para que el resto del formulario se adapte solo."
+            active={activeStep === 'product'}
             complete
+            summary={TYPE_TITLES[value.loanType]}
+            onOpen={() => setActiveStep('product')}
+            action={
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setActiveStep('client')} className="min-h-11 rounded-2xl bg-slate-900 px-4 text-sm font-bold text-white">
+                  Continuar con cliente
+                </button>
+              </div>
+            }
           >
             <LoanTypeSelector value={value.loanType} onChange={(loanType) => onChange({ loanType })} />
-          </StepCard>
+          </StepPanel>
 
-          <StepCard
+          <StepPanel
             step="Paso 2"
             title="Selecciona el cliente"
-            description="Busca y elige un cliente existente sin cambiar de seccion."
+            description="Busca y confirma a la persona correcta antes de capturar condiciones."
+            active={activeStep === 'client'}
             complete={Boolean(selectedClient)}
+            summary={selectedClient ? `${selectedClient.name}${selectedClient.branchName ? ` · ${selectedClient.branchName}` : ''}` : 'Pendiente'}
+            onOpen={() => setActiveStep('client')}
+            action={
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => setActiveStep('product')} className="min-h-11 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">
+                  Volver
+                </button>
+                <button type="button" onClick={() => setActiveStep('terms')} disabled={!selectedClient} className="min-h-11 rounded-2xl bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-40">
+                  Continuar con condiciones
+                </button>
+              </div>
+            }
           >
             <ClienteSelectField clients={clients} selectedClientId={value.clientId} onChange={(clientId) => onChange({ clientId })} />
-          </StepCard>
+          </StepPanel>
 
-          <StepCard
+          <StepPanel
             step="Paso 3"
             title={TYPE_TITLES[value.loanType]}
-            description="Completa solo los campos que importan para este producto."
+            description="Completa solo los datos que cambian este prestamo y confirma el calculo antes de guardarlo."
+            active={activeStep === 'terms'}
+            complete={canSave}
+            summary={getTermsSummary(value)}
+            onOpen={() => setActiveStep('terms')}
           >
+            <div className="mb-4 rounded-[24px] border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">Resumen operativo</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                {selectedClient ? `${selectedClient.name} iniciara el ${value.startDate || 'dia pendiente'} con una cuota estimada de ${formatCurrency(preview.scheduledPayment, value.currency)} ${preview.frequencyLabel.toLowerCase()}.` : 'Selecciona un cliente para completar el contexto del prestamo.'}
+              </p>
+            </div>
+
             {value.loanType === 'amortized' && (
               <PrestamoFormMensual amount={value.amount} currency={value.currency} termMonths={value.monthlyTermMonths} profile={value.monthlyProfile} rateMode={value.monthlyRateMode} customRate={value.monthlyCustomRate} startDate={value.startDate} notes={value.notes} onChange={(patch) => onChange(patch as Partial<PrestamoFormState>)} />
             )}
@@ -121,13 +252,13 @@ export default function PrestamoForm({
             {value.loanType === 'carrito' && (
               <PrestamoFormCarrito amount={value.amount} currency={value.currency} flatRate={value.carritoFlatRate} term={value.carritoTerm} payments={value.carritoPayments} frequency={value.carritoFrequency} startDate={value.startDate} notes={value.notes} onChange={(patch) => onChange(patch as Partial<PrestamoFormState>)} />
             )}
-          </StepCard>
+          </StepPanel>
 
           <section className="rounded-[28px] border border-slate-200 bg-slate-950 px-4 py-5 text-white shadow-[0_16px_42px_rgba(2,6,23,.35)] sm:px-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Resumen rapido</p>
-                <h3 className="mt-1 text-lg font-bold text-white">Verifica antes de guardar</h3>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revision final</p>
+                <h3 className="mt-1 text-lg font-bold text-white">Confianza antes de guardar</h3>
               </div>
               <div className="text-right">
                 <p className="text-[11px] uppercase tracking-wider text-slate-400">Cuota estimada</p>
@@ -174,17 +305,22 @@ export default function PrestamoForm({
       </div>
 
       <div className="sticky bottom-0 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-100 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Listo para guardar</p>
-            <p className="truncate text-sm font-semibold text-slate-800">
-              {selectedClient ? selectedClient.name : 'Selecciona un cliente para continuar'}
-            </p>
+        <div className="mb-3 rounded-2xl bg-slate-100 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Estado del prestamo</p>
+              <p className="truncate text-sm font-semibold text-slate-800">
+                {canSave ? 'Todo listo para guardar con confianza' : readinessItems[0]}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Total</p>
+              <p className="text-sm font-bold text-slate-900">{formatCurrency(preview.totalPayment, value.currency)}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Cuota</p>
-            <p className="text-sm font-bold text-slate-900">{formatCurrency(preview.scheduledPayment, value.currency)}</p>
-          </div>
+          {!canSave && readinessItems.length > 1 ? (
+            <p className="mt-2 text-xs text-slate-500">Tambien falta: {readinessItems.slice(1).join(' · ')}</p>
+          ) : null}
         </div>
         {error && (
           <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -192,8 +328,8 @@ export default function PrestamoForm({
           </div>
         )}
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onSubmit} disabled={isSubmitting} className="min-h-12 rounded-2xl px-4 text-sm font-bold text-white transition-opacity disabled:opacity-50 sm:order-2" style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-            {isSubmitting ? 'Guardando...' : 'Guardar prestamo'}
+          <button type="button" onClick={onSubmit} disabled={!canSave} className="min-h-12 rounded-2xl px-4 text-sm font-bold text-white transition-opacity disabled:opacity-40 sm:order-2" style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
+            {isSubmitting ? 'Guardando...' : canSave ? 'Guardar prestamo' : 'Completa los datos clave'}
           </button>
           <button type="button" onClick={onCancel} className="min-h-12 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 sm:order-1">
             Cancelar

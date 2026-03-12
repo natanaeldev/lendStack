@@ -3,6 +3,26 @@
 import { useMemo, useState } from 'react'
 import type { PrestamoClientOption } from './types'
 
+function getClientSearchRank(client: PrestamoClientOption, normalized: string) {
+  if (!normalized) return 0
+
+  const name = client.name.toLowerCase()
+  const phone = (client.phone ?? '').toLowerCase()
+  const email = (client.email ?? '').toLowerCase()
+  const branch = (client.branchName ?? '').toLowerCase()
+
+  if (name.startsWith(normalized)) return 0
+  if (phone.startsWith(normalized)) return 1
+  if (email.startsWith(normalized)) return 2
+  if (branch.startsWith(normalized)) return 3
+  if (name.includes(normalized)) return 4
+  if (phone.includes(normalized)) return 5
+  if (email.includes(normalized)) return 6
+  if (branch.includes(normalized)) return 7
+
+  return 99
+}
+
 export default function ClienteSelectField({
   clients,
   selectedClientId,
@@ -29,10 +49,21 @@ export default function ClienteSelectField({
         )
       : clients
 
-    return base.slice(0, 12)
-  }, [clients, query])
+    return [...base]
+      .sort((left, right) => {
+        if (left.id === selectedClientId) return -1
+        if (right.id === selectedClientId) return 1
+
+        const rankDiff = getClientSearchRank(left, normalized) - getClientSearchRank(right, normalized)
+        if (rankDiff !== 0) return rankDiff
+
+        return left.name.localeCompare(right.name)
+      })
+      .slice(0, normalized ? 10 : 8)
+  }, [clients, query, selectedClientId])
 
   const quickClients = useMemo(() => clients.slice(0, 5), [clients])
+  const hasQuery = query.trim().length > 0
 
   return (
     <div className="space-y-4">
@@ -43,19 +74,22 @@ export default function ClienteSelectField({
             <p className="mt-1 text-sm text-slate-500">Busca por nombre, telefono, email o sucursal.</p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-            {filteredClients.length} visibles
+            {hasQuery ? `${filteredClients.length} resultados` : `${filteredClients.length} visibles`}
           </span>
         </div>
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Ej: Maria, 8095551234 o Santiago"
-          autoComplete="off"
-          className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-700 outline-none transition-colors focus:border-blue-500 focus:bg-white"
-        />
 
-        {!query && quickClients.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Ej: Maria, 8095551234 o Santiago"
+            autoComplete="off"
+            className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+          />
+        </div>
+
+        {!hasQuery && quickClients.length > 0 && (
           <div className="mt-4">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Acceso rapido</p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -92,9 +126,13 @@ export default function ClienteSelectField({
                 {[selectedClient.phone, selectedClient.email].filter(Boolean).join(' · ') || 'Sin contacto adicional'}
               </p>
             </div>
-            <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">
-              Listo
-            </span>
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700"
+            >
+              Cambiar
+            </button>
           </div>
           {selectedClient.branchName && (
             <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
@@ -105,6 +143,16 @@ export default function ClienteSelectField({
       )}
 
       <div className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,.04)]">
+        <div className="mb-2 flex items-center justify-between px-2 pt-1">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            {hasQuery ? 'Mejores coincidencias' : 'Clientes recientes'}
+          </p>
+          {selectedClient && !hasQuery ? (
+            <button type="button" onClick={() => setQuery(selectedClient.name)} className="text-xs font-semibold text-blue-700">
+              Buscar seleccionado
+            </button>
+          ) : null}
+        </div>
         <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
           {filteredClients.map((client) => {
             const active = client.id === selectedClientId
@@ -131,16 +179,23 @@ export default function ClienteSelectField({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-semibold text-slate-800">{client.name}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800">{client.name}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          {[client.phone, client.email].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                        </p>
+                      </div>
                       {active && (
                         <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
                           Activo
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {[client.phone, client.email, client.branchName].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
-                    </p>
+                    {client.branchName && (
+                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        {client.branchName}
+                      </p>
+                    )}
                   </div>
                 </div>
               </button>
