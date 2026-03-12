@@ -81,6 +81,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
   const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
   const [selectedLoanId,    setSelectedLoanId]    = useState<string | null>(null)
+  const [loanCreateRequestKey, setLoanCreateRequestKey] = useState(0)
   const [showPayment,       setShowPayment]        = useState(false)
   const [amount,            setAmount]            = useState(100000)
   const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
@@ -149,9 +150,13 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     return () => window.removeEventListener('lendstack:goto-dashboard', onGotoDashboard)
   }, [changeTab])
 
-  // Navigate to clients tab (new loan form) when header button is clicked
+  // Route new-loan entry points into Prestamos and open the in-place flow.
   useEffect(() => {
-    const onNewLoan = () => changeTab('clients')
+    const onNewLoan = () => {
+      setSelectedLoanId(null)
+      changeTab('loans')
+      setLoanCreateRequestKey((value) => value + 1)
+    }
     window.addEventListener('lendstack:new-loan', onNewLoan)
     return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
   }, [changeTab])
@@ -752,6 +757,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           ) : (
             <LoansPanel
               onViewLoan={(id) => setSelectedLoanId(id)}
+              createRequestKey={loanCreateRequestKey}
             />
           )
         )}
