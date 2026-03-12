@@ -34,13 +34,13 @@ import {
 export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports'
 type CalcSubTab = 'single' | 'multiloan' | 'comparison'
 
-const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
-  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'      },
-  { id: 'loans',      label: '📋 Préstamos',   emoji: '📋', mobileLabel: 'Préstamos'  },
-  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes'   },
-  { id: 'branches',   label: '🏢 Sucursales',   emoji: '🏢', mobileLabel: 'Sucursales' },
-  { id: 'reports',    label: '📑 Reportes',     emoji: '📑', mobileLabel: 'Reportes' },
-  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular'   },
+const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string; icon: string }[] = [
+  { id: 'dashboard',  label: 'Dashboard',   emoji: '🏠', icon: '🏠', mobileLabel: 'Inicio'      },
+  { id: 'loans',      label: 'Préstamos',   emoji: '📋', icon: '📋', mobileLabel: 'Préstamos'  },
+  { id: 'clients',    label: 'Clientes',     emoji: '👥', icon: '👥', mobileLabel: 'Clientes'   },
+  { id: 'branches',   label: 'Sucursales',   emoji: '🏢', icon: '🏢', mobileLabel: 'Sucursales' },
+  { id: 'reports',    label: 'Reportes',     emoji: '📑', icon: '📑', mobileLabel: 'Reportes' },
+  { id: 'calculator', label: 'Calculadora',  emoji: '🧮', icon: '🧮', mobileLabel: 'Calcular'   },
 ]
 
 const MOBILE_TABS = TABS.filter(t => t.id !== 'reports')
@@ -50,6 +50,15 @@ const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'multiloan',  label: 'Multi-préstamo' },
   { id: 'comparison', label: 'Comparación'    },
 ]
+
+const TAB_META: Record<Tab, { title: string; description: string }> = {
+  dashboard:  { title: 'Dashboard', description: 'Visión general de cartera y rendimiento diario.' },
+  loans:      { title: 'Préstamos', description: 'Gestioná originación, estado y cobranza de préstamos.' },
+  clients:    { title: 'Clientes', description: 'Perfiles, documentos y seguimiento de prestatarios.' },
+  branches:   { title: 'Sucursales', description: 'Control operativo por oficina y equipos.' },
+  reports:    { title: 'Reportes', description: 'KPIs exportables y análisis financiero ejecutivo.' },
+  calculator: { title: 'Calculadora', description: 'Simulación y comparación avanzada de escenarios.' },
+}
 
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
   const [tab,               setTab]               = useState<Tab>(initialTab)
@@ -66,6 +75,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [customMonthlyRate, setCustomMonthlyRate] = useState(0.015)
   const [showTable,         setShowTable]         = useState(false)
   const [emailOpen,         setEmailOpen]         = useState(false)
+  const [mobileNavOpen,     setMobileNavOpen]     = useState(false)
+  const [sidebarCollapsed,   setSidebarCollapsed]  = useState(false)
 
   // ── Loan type ──
   const [loanType,          setLoanType]          = useState<LoanType>('amortized')
@@ -81,6 +92,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   // ── URL-synced tab navigation ──────────────────────────────────────────────
   const changeTab = useCallback((newTab: Tab) => {
     setTab(newTab)
+    setMobileNavOpen(false)
     if (typeof window !== 'undefined') {
       const paths: Record<Tab, string> = {
         dashboard:  '/app',
@@ -98,6 +110,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   useEffect(() => {
     const onPopState = () => {
       const p = window.location.pathname
+      setMobileNavOpen(false)
       if (p.startsWith('/app/calculadora'))     setTab('calculator')
       else if (p.startsWith('/app/clientes'))   setTab('clients')
       else if (p.startsWith('/app/prestamos'))  setTab('loans')
@@ -124,6 +137,18 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     window.addEventListener('lendstack:new-loan', onNewLoan)
     return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
   }, [changeTab])
+
+  useEffect(() => {
+    const onToggle = () => setMobileNavOpen(v => !v)
+    window.addEventListener('lendstack:toggle-nav-drawer', onToggle)
+    return () => window.removeEventListener('lendstack:toggle-nav-drawer', onToggle)
+  }, [])
+
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileNavOpen(false) }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [])
 
   // Always pass termYears to the calculation layer (convert months → fractional years)
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
@@ -182,32 +207,136 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   )
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
 
-      {/* ── Desktop tab bar (sm+) ── */}
-      <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-        <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
-              className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
-              style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
-              {t.label}
-            </button>
-          ))}
-          <div className="ml-auto pl-4 flex-shrink-0">
-            <button
-              onClick={() => setShowPayment(true)}
-              title="Registrar pago de cuota"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
-              style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
-              +
-            </button>
+      {/* ── Mobile/Tablet off-canvas drawer (left) ── */}
+      <div className={`lg:hidden fixed inset-0 z-[70] transition-opacity duration-200 ${mobileNavOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} aria-hidden={!mobileNavOpen}>
+        <button
+          aria-label="Cerrar navegación"
+          onClick={() => setMobileNavOpen(false)}
+          className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]"
+        />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navegación principal"
+          className={`absolute left-0 top-0 h-full w-[86%] max-w-[340px] bg-white border-r border-slate-200 shadow-2xl transition-transform duration-300 ease-out ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        >
+          <div className="p-5 border-b border-slate-100">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400 font-bold">LendStack</p>
+            <h3 className="text-lg font-display" style={{ color: '#0D2B5E' }}>Workspace</h3>
+          </div>
+          <nav className="p-3 space-y-1" aria-label="Secciones">
+            {TABS.map(t => {
+              const active = tab === t.id
+              return (
+                <button
+                  key={`drawer-${t.id}`}
+                  onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
+                  className="w-full rounded-xl px-3 py-3 text-left transition-all"
+                  style={{
+                    background: active ? '#EEF4FF' : 'transparent',
+                    color: active ? '#0D2B5E' : '#475569',
+                    border: active ? '1px solid #BFDBFE' : '1px solid transparent',
+                  }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg leading-none">{t.icon}</span>
+                    <div>
+                      <p className="text-sm font-semibold">{t.label}</p>
+                      <p className="text-xs text-slate-400">{TAB_META[t.id].description}</p>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </nav>
+        </aside>
+      </div>
+
+      {/* ── Desktop SaaS sidebar (lg+) ── */}
+      <aside className={`hidden lg:flex fixed left-0 top-[88px] bottom-0 z-30 border-r border-slate-200 bg-white/95 backdrop-blur flex-col p-3 gap-2 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
+        style={{ boxShadow: '0 8px 24px rgba(15,23,42,.08)' }}>
+        <div className="flex items-center justify-between px-1 py-1">
+          {!sidebarCollapsed && <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Workspace</p>}
+          <button
+            onClick={() => setSidebarCollapsed(v => !v)}
+            className="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"
+            aria-label={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            title={sidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+          >
+            {sidebarCollapsed ? '→' : '←'}
+          </button>
+        </div>
+
+        <nav className="space-y-1" aria-label="Navegación principal">
+          {TABS.map(t => {
+            const active = tab === t.id
+            return (
+              <button
+                key={`side-${t.id}`}
+                onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
+                className="w-full text-left rounded-xl transition-all"
+                style={{
+                  background: active ? '#EEF4FF' : 'transparent',
+                  color: active ? '#0D2B5E' : '#475569',
+                  border: active ? '1px solid #BFDBFE' : '1px solid transparent',
+                  padding: sidebarCollapsed ? '10px' : '12px',
+                }}
+                title={sidebarCollapsed ? t.label : undefined}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg leading-none">{t.icon}</span>
+                  {!sidebarCollapsed && (
+                    <div>
+                      <p className="text-sm font-semibold">{t.label}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{TAB_META[t.id].description}</p>
+                    </div>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </nav>
+      </aside>
+
+      {/* ── Top workspace bar (sm+) ── */}
+      <div className={`hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`} style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
+        <div className="max-w-6xl lg:max-w-none mx-auto px-6">
+          <div className="flex items-center gap-4 py-3">
+            <div>
+              <p className="text-xs text-slate-400 font-semibold">LendStack Workspace</p>
+              <h1 className="text-base font-display" style={{ color: '#0D2B5E' }}>{TAB_META[tab].title}</h1>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="Buscar clientes, préstamos o pagos..."
+                className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
+              />
+              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">🔔</button>
+              <button
+                onClick={() => setShowPayment(true)}
+                title="Registrar pago de cuota"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
+                +
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center overflow-x-auto">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
+                className="px-5 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
+                style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
+                {t.icon} {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
-
-      <main className="max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
+      <main className={`relative max-w-6xl lg:max-w-none mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
 
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
