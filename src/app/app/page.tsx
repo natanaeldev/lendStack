@@ -51,6 +51,15 @@ const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
   { id: 'comparison', label: 'Comparación'    },
 ]
 
+const TAB_META: Record<Tab, { title: string; description: string }> = {
+  dashboard:  { title: 'Dashboard', description: 'Visión general de cartera y rendimiento diario.' },
+  loans:      { title: 'Préstamos', description: 'Gestioná originación, estado y cobranza de préstamos.' },
+  clients:    { title: 'Clientes', description: 'Perfiles, documentos y seguimiento de prestatarios.' },
+  branches:   { title: 'Sucursales', description: 'Control operativo por oficina y equipos.' },
+  reports:    { title: 'Reportes', description: 'KPIs exportables y análisis financiero ejecutivo.' },
+  calculator: { title: 'Calculadora', description: 'Simulación y comparación avanzada de escenarios.' },
+}
+
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
   const [tab,               setTab]               = useState<Tab>(initialTab)
   const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
@@ -182,32 +191,70 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   )
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
+
+      {/* ── Desktop SaaS sidebar (lg+) ── */}
+      <aside className="hidden lg:flex fixed left-0 top-[88px] bottom-0 w-60 z-30 border-r border-slate-200 bg-white/90 backdrop-blur flex-col p-4 gap-2"
+        style={{ boxShadow: '0 6px 20px rgba(15,23,42,.06)' }}>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1">Workspace</p>
+        {TABS.map(t => {
+          const active = tab === t.id
+          return (
+            <button
+              key={`side-${t.id}`}
+              onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
+              className="w-full text-left px-3 py-2.5 rounded-xl transition-all"
+              style={{
+                background: active ? '#EEF4FF' : 'transparent',
+                color: active ? '#0D2B5E' : '#475569',
+                border: active ? '1px solid #BFDBFE' : '1px solid transparent',
+              }}
+            >
+              <p className="text-sm font-semibold">{t.label}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{TAB_META[t.id].description}</p>
+            </button>
+          )
+        })}
+      </aside>
 
       {/* ── Desktop tab bar (sm+) ── */}
       <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-        <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
-              className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
-              style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
-              {t.label}
-            </button>
-          ))}
-          <div className="ml-auto pl-4 flex-shrink-0">
-            <button
-              onClick={() => setShowPayment(true)}
-              title="Registrar pago de cuota"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
-              style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
-              +
-            </button>
+        <div className="max-w-6xl lg:max-w-none lg:pl-64 mx-auto px-6">
+          <div className="flex items-center gap-4 py-3">
+            <div>
+              <p className="text-xs text-slate-400 font-semibold">LendStack Workspace</p>
+              <h1 className="text-base font-display" style={{ color: '#0D2B5E' }}>{TAB_META[tab].title}</h1>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="Buscar clientes, préstamos o pagos..."
+                className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
+              />
+              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500">🔔</button>
+              <button
+                onClick={() => setShowPayment(true)}
+                title="Registrar pago de cuota"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}>
+                +
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center overflow-x-auto">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => { changeTab(t.id); if (t.id !== 'clients') setSelectedClientId(null); if (t.id !== 'loans') setSelectedLoanId(null) }}
+                className="px-5 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
+                style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
+      <main className="relative max-w-6xl lg:max-w-none lg:pl-64 mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
 
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
