@@ -10,9 +10,9 @@ import PrestamoFormSemanal from './PrestamoFormSemanal'
 import type { PrestamoClientOption, PrestamoFormState, PrestamoPreview } from './types'
 
 const TYPE_TITLES: Record<LoanType, string> = {
-  amortized: 'Prestamo mensual',
-  weekly: 'Prestamo semanal',
-  carrito: 'Prestamo carrito',
+  amortized: 'Préstamo mensual',
+  weekly: 'Préstamo semanal',
+  carrito: 'Préstamo carrito',
 }
 
 type StepKey = 'product' | 'client' | 'terms'
@@ -109,7 +109,7 @@ function getReadiness(value: PrestamoFormState, selectedClientName: string | nul
 
   if (!selectedClientName) items.push('Selecciona un cliente')
   if (!value.startDate) items.push('Define la fecha de inicio')
-  if (!value.amount || value.amount <= 0) items.push('Ingresa un monto valido')
+  if (!value.amount || value.amount <= 0) items.push('Ingresa un monto válido')
 
   if (value.loanType === 'amortized' && value.monthlyTermMonths < 1) items.push('Revisa el plazo mensual')
   if (value.loanType === 'weekly' && value.weeklyTermWeeks < 1) items.push('Revisa el plazo semanal')
@@ -166,7 +166,7 @@ export default function PrestamoForm({
         <div className="mb-4 rounded-[28px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_36px_rgba(15,23,42,.05)] sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Flujo guiado</span>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">Calculo en tiempo real</span>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">Cálculo en tiempo real</span>
             {canSave ? (
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">Listo para guardar</span>
             ) : (
@@ -174,7 +174,7 @@ export default function PrestamoForm({
             )}
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            El flujo muestra una sola decision importante a la vez para terminar el prestamo mas rapido y con menos errores.
+            El flujo muestra una sola decisión importante a la vez para terminar el préstamo más rápido y con menos errores.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {topSummary.map((item) => (
@@ -186,7 +186,7 @@ export default function PrestamoForm({
         <div className="space-y-5 pb-6">
           <StepPanel
             step="Paso 1"
-            title="Elige el tipo de prestamo"
+            title="Elige el tipo de préstamo"
             description="Empieza por la estructura correcta para que el resto del formulario se adapte solo."
             active={activeStep === 'product'}
             complete
@@ -228,7 +228,7 @@ export default function PrestamoForm({
           <StepPanel
             step="Paso 3"
             title={TYPE_TITLES[value.loanType]}
-            description="Completa solo los datos que cambian este prestamo y confirma el calculo antes de guardarlo."
+            description="Completa solo los datos que cambian este préstamo y confirma el cálculo antes de guardarlo."
             active={activeStep === 'terms'}
             complete={canSave}
             summary={getTermsSummary(value)}
@@ -237,7 +237,7 @@ export default function PrestamoForm({
             <div className="mb-4 rounded-[24px] border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-900">Resumen operativo</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                {selectedClient ? `${selectedClient.name} iniciara el ${value.startDate || 'dia pendiente'} con una cuota estimada de ${formatCurrency(preview.scheduledPayment, value.currency)} ${preview.frequencyLabel.toLowerCase()}.` : 'Selecciona un cliente para completar el contexto del prestamo.'}
+                {selectedClient ? `${selectedClient.name} iniciará el ${value.startDate || 'día pendiente'} con una cuota estimada de ${formatCurrency(preview.scheduledPayment, value.currency)} ${preview.frequencyLabel.toLowerCase()}.` : 'Selecciona un cliente para completar el contexto del préstamo.'}
               </p>
             </div>
 
@@ -257,7 +257,7 @@ export default function PrestamoForm({
           <section className="rounded-[28px] border border-slate-200 bg-slate-950 px-4 py-5 text-white shadow-[0_16px_42px_rgba(2,6,23,.35)] sm:px-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revision final</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Revisión final</p>
                 <h3 className="mt-1 text-lg font-bold text-white">Confianza antes de guardar</h3>
               </div>
               <div className="text-right">
@@ -288,7 +288,7 @@ export default function PrestamoForm({
                 <p className="mt-1 text-sm font-bold">{formatCurrency(preview.totalPayment, value.currency)}</p>
               </div>
               <div className="rounded-2xl bg-white/5 px-3 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-slate-400">Interes total</p>
+                <p className="text-[11px] uppercase tracking-wider text-slate-400">Interés total</p>
                 <p className="mt-1 text-sm font-bold">{formatCurrency(preview.totalInterest, value.currency)}</p>
               </div>
               <div className="rounded-2xl bg-white/5 px-3 py-3">
@@ -308,7 +308,7 @@ export default function PrestamoForm({
         <div className="mb-3 rounded-2xl bg-slate-100 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Estado del prestamo</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Estado del préstamo</p>
               <p className="truncate text-sm font-semibold text-slate-800">
                 {canSave ? 'Todo listo para guardar con confianza' : readinessItems[0]}
               </p>
@@ -319,7 +319,7 @@ export default function PrestamoForm({
             </div>
           </div>
           {!canSave && readinessItems.length > 1 ? (
-            <p className="mt-2 text-xs text-slate-500">Tambien falta: {readinessItems.slice(1).join(' · ')}</p>
+            <p className="mt-2 text-xs text-slate-500">También falta: {readinessItems.slice(1).join(' · ')}</p>
           ) : null}
         </div>
         {error && (
@@ -329,7 +329,7 @@ export default function PrestamoForm({
         )}
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onSubmit} disabled={!canSave} className="min-h-12 rounded-2xl px-4 text-sm font-bold text-white transition-opacity disabled:opacity-40 sm:order-2" style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-            {isSubmitting ? 'Guardando...' : canSave ? 'Guardar prestamo' : 'Completa los datos clave'}
+            {isSubmitting ? 'Guardando...' : canSave ? 'Guardar préstamo' : 'Completa los datos clave'}
           </button>
           <button type="button" onClick={onCancel} className="min-h-12 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 sm:order-1">
             Cancelar
@@ -339,3 +339,4 @@ export default function PrestamoForm({
     </div>
   )
 }
+

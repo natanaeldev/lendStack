@@ -136,8 +136,8 @@ export default function CreatePrestamoFlow({
   }
 
   function validateForm() {
-    if (!form.clientId) return 'Selecciona un cliente antes de guardar el prestamo.'
-    if (!form.amount || form.amount <= 0) return 'Ingresa un monto valido.'
+    if (!form.clientId) return 'Selecciona un cliente antes de guardar el préstamo.'
+    if (!form.amount || form.amount <= 0) return 'Ingresa un monto válido.'
     if (!form.startDate) return 'Selecciona la fecha de inicio.'
 
     if (form.loanType === 'amortized') {
@@ -181,14 +181,14 @@ export default function CreatePrestamoFlow({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error ?? 'No se pudo guardar el prestamo.')
+        throw new Error(data.error ?? 'No se pudo guardar el préstamo.')
       }
 
       setForm(DEFAULT_FORM)
       onCreated(data.loanId)
       onClose()
     } catch (submissionError: any) {
-      setError(submissionError?.message ?? 'No se pudo guardar el prestamo.')
+      setError(submissionError?.message ?? 'No se pudo guardar el préstamo.')
     } finally {
       setIsSubmitting(false)
     }
@@ -203,18 +203,18 @@ export default function CreatePrestamoFlow({
           <div className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Prestamos</p>
-                <h2 className="mt-1 text-xl font-bold text-slate-900">Crear nuevo prestamo</h2>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Préstamos</p>
+                <h2 className="mt-1 text-xl font-bold text-slate-900">Crear nuevo préstamo</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Flujo rapido para originar un prestamo desde esta misma seccion.
+                  Flujo rápido para originar un préstamo desde esta misma sección.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Movil rapido</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Móvil rápido</span>
                   <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">Cliente + condiciones</span>
                 </div>
               </div>
               <button type="button" onClick={onClose} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50" aria-label="Cerrar">
-                x
+                ×
               </button>
             </div>
           </div>
@@ -307,3 +307,4 @@ function buildPayload(form: PrestamoFormState) {
     notes: form.notes.trim() || undefined,
   }
 }
+
