@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useEffect } from 'react'
@@ -29,9 +29,9 @@ export default function Header() {
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => window.dispatchEvent(new Event('lendstack:new-loan'))}
-                className="inline-flex min-h-10 items-center gap-1.5 text-xs font-black px-3 sm:px-4 rounded-xl transition-all active:scale-95"
+                className="sm:hidden inline-flex min-h-10 items-center gap-1.5 text-xs font-black px-3 rounded-xl transition-all active:scale-95"
                 style={{ background: '#fff', color: '#0D2B5E', boxShadow: '0 2px 12px rgba(255,255,255,.25)' }}>
-                + <span className="hidden sm:inline">Nuevo préstamo</span><span className="sm:hidden">Préstamo</span>
+                + <span>Préstamo</span>
               </button>
               <span className="hidden sm:inline-flex text-xs px-2.5 py-2 rounded-xl font-medium"
                 style={{ background: 'rgba(255,255,255,.12)', color: '#c5d5ea', border: '1px solid rgba(255,255,255,.2)' }}>
@@ -51,3 +51,4 @@ export default function Header() {
     </header>
   )
 }
+
