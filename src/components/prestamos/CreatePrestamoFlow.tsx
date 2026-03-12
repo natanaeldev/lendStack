@@ -199,17 +199,21 @@ export default function CreatePrestamoFlow({
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/45 backdrop-blur-[2px]">
       <div className="flex h-full w-full items-end justify-end sm:items-stretch">
-        <div className="flex h-[92vh] w-full flex-col rounded-t-[28px] bg-slate-50 sm:h-full sm:max-w-3xl sm:rounded-none sm:border-l sm:border-slate-200">
+        <div className="flex h-[94vh] w-full flex-col overflow-hidden rounded-t-[30px] bg-slate-50 sm:h-full sm:max-w-3xl sm:rounded-none sm:border-l sm:border-slate-200">
           <div className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Prestamos</p>
                 <h2 className="mt-1 text-xl font-bold text-slate-900">Crear nuevo prestamo</h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm leading-6 text-slate-500">
                   Flujo rapido para originar un prestamo desde esta misma seccion.
                 </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Movil rapido</span>
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">Cliente + condiciones</span>
+                </div>
               </div>
-              <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50" aria-label="Cerrar">
+              <button type="button" onClick={onClose} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50" aria-label="Cerrar">
                 x
               </button>
             </div>
@@ -303,4 +307,3 @@ function buildPayload(form: PrestamoFormState) {
     notes: form.notes.trim() || undefined,
   }
 }
-

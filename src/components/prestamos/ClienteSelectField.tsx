@@ -29,74 +29,130 @@ export default function ClienteSelectField({
         )
       : clients
 
-    return base.slice(0, 8)
+    return base.slice(0, 12)
   }, [clients, query])
 
+  const quickClients = useMemo(() => clients.slice(0, 5), [clients])
+
   return (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">
-          Cliente
-        </label>
+    <div className="space-y-4">
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,.04)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</label>
+            <p className="mt-1 text-sm text-slate-500">Busca por nombre, telefono, email o sucursal.</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+            {filteredClients.length} visibles
+          </span>
+        </div>
         <input
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar cliente por nombre, telefono o email..."
-          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-blue-500"
+          placeholder="Ej: Maria, 8095551234 o Santiago"
+          autoComplete="off"
+          className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-700 outline-none transition-colors focus:border-blue-500 focus:bg-white"
         />
+
+        {!query && quickClients.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Acceso rapido</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {quickClients.map((client) => {
+                const active = client.id === selectedClientId
+                return (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => onChange(client.id)}
+                    className="rounded-full border px-3 py-2 text-sm font-semibold transition-colors"
+                    style={{
+                      borderColor: active ? '#1565C0' : '#E2E8F0',
+                      background: active ? '#EEF4FF' : '#FFFFFF',
+                      color: active ? '#0D2B5E' : '#334155',
+                    }}
+                  >
+                    {client.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedClient && (
-        <div
-          className="rounded-2xl border p-3"
-          style={{ borderColor: '#BFDBFE', background: '#F8FBFF' }}
-        >
-          <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Cliente seleccionado</p>
-          <p className="mt-1 text-sm font-bold text-slate-800">{selectedClient.name}</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {[selectedClient.phone, selectedClient.email, selectedClient.branchName].filter(Boolean).join(' · ')}
-          </p>
+        <div className="rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-[0_10px_28px_rgba(21,101,192,.08)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Cliente seleccionado</p>
+              <p className="mt-1 text-base font-bold text-slate-900">{selectedClient.name}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {[selectedClient.phone, selectedClient.email].filter(Boolean).join(' · ') || 'Sin contacto adicional'}
+              </p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">
+              Listo
+            </span>
+          </div>
+          {selectedClient.branchName && (
+            <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
+              {selectedClient.branchName}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="space-y-2">
-        {filteredClients.map((client) => {
-          const active = client.id === selectedClientId
-          return (
-            <button
-              key={client.id}
-              type="button"
-              onClick={() => onChange(client.id)}
-              className="w-full rounded-2xl border px-4 py-3 text-left transition-all"
-              style={{
-                borderColor: active ? '#1565C0' : '#E2E8F0',
-                background: active ? '#EEF4FF' : '#FFFFFF',
-              }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">{client.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {[client.phone, client.email, client.branchName].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
-                  </p>
+      <div className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,.04)]">
+        <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+          {filteredClients.map((client) => {
+            const active = client.id === selectedClientId
+            return (
+              <button
+                key={client.id}
+                type="button"
+                onClick={() => onChange(client.id)}
+                className="w-full rounded-2xl border px-4 py-4 text-left transition-all"
+                style={{
+                  borderColor: active ? '#1565C0' : '#E2E8F0',
+                  background: active ? '#EEF4FF' : '#FFFFFF',
+                  boxShadow: active ? '0 0 0 2px rgba(21,101,192,.08)' : 'none',
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-1 inline-flex h-5 w-5 flex-none rounded-full border-2"
+                    style={{
+                      borderColor: active ? '#1565C0' : '#CBD5E1',
+                      background: active ? 'radial-gradient(circle at center,#1565C0 0 42%, transparent 45%)' : '#FFFFFF',
+                    }}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-800">{client.name}</p>
+                      {active && (
+                        <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
+                          Activo
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {[client.phone, client.email, client.branchName].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                    </p>
+                  </div>
                 </div>
-                {active && (
-                  <span className="rounded-full bg-blue-600 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                    Activo
-                  </span>
-                )}
-              </div>
-            </button>
-          )
-        })}
-        {filteredClients.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-500">
-            No hay clientes que coincidan con la busqueda.
-          </div>
-        )}
+              </button>
+            )
+          })}
+          {filteredClients.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+              No hay clientes que coincidan con la busqueda.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
 }
-
