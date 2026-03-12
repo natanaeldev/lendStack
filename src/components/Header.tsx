@@ -1,5 +1,4 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import LendStackLogo from './LendStackLogo'
@@ -7,20 +6,6 @@ import LendStackLogo from './LendStackLogo'
 export default function Header() {
   const { data: session } = useSession()
   const isMaster = session?.user?.role === 'master'
-
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    if (menuOpen) document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [menuOpen])
 
   return (
     <header className="relative"
@@ -32,11 +17,27 @@ export default function Header() {
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
 
-        {/* Logo — also dispatches event so the app shell can reset to dashboard tab */}
-        <Link href="/app" className="flex items-center"
-          onClick={() => window.dispatchEvent(new Event('lendstack:goto-dashboard'))}>
-          <LendStackLogo variant="light" size={36} />
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {/* Mobile / tablet drawer trigger */}
+          {session?.user && (
+            <button
+              onClick={() => window.dispatchEvent(new Event('lendstack:toggle-nav-drawer'))}
+              className="lg:hidden flex flex-col justify-center items-center w-9 h-9 rounded-xl gap-1.5 transition-all"
+              style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.24)' }}
+              aria-label="Abrir navegación"
+            >
+              <span className="block w-5 h-0.5 rounded-full" style={{ background: '#fff' }} />
+              <span className="block w-5 h-0.5 rounded-full" style={{ background: '#fff' }} />
+              <span className="block w-5 h-0.5 rounded-full" style={{ background: '#fff' }} />
+            </button>
+          )}
+
+          {/* Logo — also dispatches event so the app shell can reset to dashboard tab */}
+          <Link href="/app" className="flex items-center"
+            onClick={() => window.dispatchEvent(new Event('lendstack:goto-dashboard'))}>
+            <LendStackLogo variant="light" size={36} />
+          </Link>
+        </div>
 
         {/* ── Desktop right side (sm+) ── */}
         <div className="hidden sm:flex flex-col items-end gap-1.5">
@@ -87,82 +88,15 @@ export default function Header() {
           )}
         </div>
 
-        {/* ── Mobile right side (below sm) ── */}
-        <div className="flex sm:hidden items-center gap-2" ref={menuRef}>
-          {/* Compact new-loan button always visible on mobile */}
-          {session?.user && (
+        {/* ── Mobile quick action ── */}
+        <div className="flex sm:hidden items-center gap-2">
+          {session?.user ? (
             <button
               onClick={() => window.dispatchEvent(new Event('lendstack:new-loan'))}
               className="flex items-center gap-1 text-xs font-black px-3 py-1.5 rounded-full transition-all active:scale-95"
               style={{ background: '#fff', color: '#0D2B5E', boxShadow: '0 2px 8px rgba(255,255,255,.2)' }}>
               + Préstamo
             </button>
-          )}
-          {session?.user ? (
-            <div className="relative">
-              {/* Hamburger button */}
-              <button
-                onClick={() => setMenuOpen(prev => !prev)}
-                className="flex flex-col justify-center items-center w-9 h-9 rounded-xl gap-1.5 transition-all"
-                style={{ background: menuOpen ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)' }}
-                aria-label="Menú">
-                <span className="block w-5 h-0.5 rounded-full transition-all"
-                  style={{ background: '#fff', transform: menuOpen ? 'translateY(4px) rotate(45deg)' : 'none' }} />
-                <span className="block w-5 h-0.5 rounded-full transition-all"
-                  style={{ background: '#fff', opacity: menuOpen ? 0 : 1 }} />
-                <span className="block w-5 h-0.5 rounded-full transition-all"
-                  style={{ background: '#fff', transform: menuOpen ? 'translateY(-8px) rotate(-45deg)' : 'none' }} />
-              </button>
-
-              {/* Dropdown */}
-              {menuOpen && (
-                <div className="absolute right-0 top-11 w-56 rounded-2xl overflow-hidden z-50"
-                  style={{ background: '#0D2B5E', border: '1px solid rgba(255,255,255,.15)', boxShadow: '0 8px 32px rgba(0,0,0,.4)' }}>
-
-                  {/* User info */}
-                  <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,.1)' }}>
-                    <p className="text-xs font-bold text-white">{isMaster ? '👑' : '👤'} {session.user.name || session.user.email}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#6d96c8' }}>{isMaster ? 'Administrador' : 'Usuario'}</p>
-                  </div>
-
-                  {/* Menu items */}
-                  <div className="py-1.5">
-                    <button
-                      onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event('lendstack:new-loan')) }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-black transition-colors hover:bg-white/10"
-                      style={{ color: '#fff' }}>
-                      ✦ Nuevo préstamo
-                    </button>
-                    <Link href="/app/reportes" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/10"
-                      style={{ color: '#c5d5ea' }}>
-                      📑 Reportes
-                    </Link>
-                    <div className="mx-4 my-1 h-px" style={{ background: 'rgba(255,255,255,.1)' }} />
-                    {isMaster && (
-                      <>
-                        <Link href="/admin/branches" onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/10"
-                          style={{ color: '#90cdf4' }}>
-                          🏢 Sucursales
-                        </Link>
-                        <Link href="/admin/users" onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/10"
-                          style={{ color: '#F9A825' }}>
-                          👥 Usuarios
-                        </Link>
-                        <div className="mx-4 my-1 h-px" style={{ background: 'rgba(255,255,255,.1)' }} />
-                      </>
-                    )}
-                    <button onClick={() => { setMenuOpen(false); signOut({ callbackUrl: '/login' }) }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/10"
-                      style={{ color: '#fca5a5' }}>
-                      ↪ Cerrar sesión
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
           ) : (
             <span className="text-xs" style={{ color: '#6d96c8' }}>v2.0</span>
           )}
