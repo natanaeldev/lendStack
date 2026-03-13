@@ -18,6 +18,7 @@ import ClientProfilePanel from '@/components/ClientProfilePanel'
 import LoansPanel from '@/components/LoansPanel'
 import LoanDetailPanel from '@/components/LoanDetailPanel'
 import Dashboard from '@/components/Dashboard'
+import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
 import BranchesPanel from '@/components/BranchesPanel'
 import OrganizationReport from '@/components/OrganizationReport'
 import PaymentsHub from '@/components/PaymentsHub'
@@ -264,477 +265,37 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 
         {/* ═══ CALCULATOR ═══ */}
         {tab === 'calculator' && (
-          <>
-            {/* Sub-nav */}
-            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-100 border border-slate-200 w-full sm:w-fit">
-              {CALC_SUBTABS.map(s => (
-                <button key={s.id} onClick={() => setCalcSubTab(s.id)}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all text-center"
-                  style={{
-                    background: calcSubTab === s.id ? '#fff' : 'transparent',
-                    color:      calcSubTab === s.id ? '#0D2B5E' : '#64748b',
-                    boxShadow:  calcSubTab === s.id ? '0 1px 6px rgba(0,0,0,.1)' : 'none',
-                    fontFamily: "'DM Sans', sans-serif",
-                  }}>
-                  <span className="hidden sm:inline">{s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'} </span>
-                  <span className="sm:hidden text-base leading-none block mb-0.5">{s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'}</span>
-                  <span className="hidden sm:inline">{s.label}</span>
-                  <span className="sm:hidden">{s.id === 'single' ? 'Simular' : s.id === 'multiloan' ? 'Multi' : 'Comparar'}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* ── Single loan (Simulación) ── */}
-            {calcSubTab === 'single' && <>
-            {/* ── Loan type selector ── */}
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {LOAN_TYPES.map(lt => (
-                <button key={lt.id} onClick={() => setLoanType(lt.id)}
-                  className="flex-1 min-w-[120px] flex flex-col items-start gap-1 px-4 py-3 rounded-xl border-2 transition-all text-left"
-                  style={{
-                    borderColor:  loanType === lt.id ? '#1565C0' : '#e2e8f0',
-                    background:   loanType === lt.id ? '#EEF4FF' : '#fff',
-                    boxShadow:    loanType === lt.id ? '0 0 0 3px #1565C022' : 'none',
-                  }}>
-                  <span className="text-xl">{lt.emoji}</span>
-                  <span className="text-xs font-bold" style={{ color: loanType === lt.id ? '#1565C0' : '#0D2B5E' }}>{lt.label}</span>
-                  <span className="text-[10px] text-slate-400 leading-tight">{lt.description}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Inputs */}
-            <div className={card} style={cardShadow}>
-              <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-                {sectionTitle('Parámetros del préstamo')}
-                <CurrencyToggle value={currency} onChange={handleCurrencyChange} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                {/* Amount */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    Monto del préstamo ({currency})
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
-                      {CURRENCIES[currency].symbol}
-                    </span>
-                    <input type="number" value={amount} min={1000} step={1000}
-                      onChange={e => setAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full pl-8 pr-4 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#0D2B5E' }} />
-                  </div>
-                  <input type="range" min={1000} max={1000000} step={1000} value={Math.min(amount, 1000000)}
-                    onChange={e => setAmount(Number(e.target.value))}
-                    className="w-full mt-3 accent-blue-600" style={{ height: 4 }} />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                    <span>{fmt(1000)}</span><span>{fmt(1000000)}</span>
-                  </div>
-                </div>
-
-                {/* Term */}
-                <div>
-                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Plazo
-                    </label>
-                    {/* Years / Months unit toggle */}
-                    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 text-xs font-bold">
-                      {(['years', 'months'] as const).map(unit => (
-                        <button key={unit} onClick={() => handleTermUnitChange(unit)}
-                          className="px-2.5 py-1 transition-all"
-                          style={{
-                            background: termUnit === unit ? '#1565C0' : 'transparent',
-                            color:      termUnit === unit ? '#fff' : '#64748b',
-                          }}>
-                          {unit === 'years' ? 'Años' : 'Meses'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <input type="number" value={termValue}
-                      min={1} max={termUnit === 'months' ? 360 : 30}
-                      onChange={e => {
-                        const v = parseInt(e.target.value)
-                        const max = termUnit === 'months' ? 360 : 30
-                        if (!isNaN(v) && v >= 1 && v <= max) setTermValue(v)
-                      }}
-                      className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#0D2B5E' }} />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">
-                      {termUnit === 'months' ? 'meses' : 'años'}
-                    </span>
-                  </div>
-                  <input type="range" min={1} max={termUnit === 'months' ? 360 : 30} step={1}
-                    value={termValue}
-                    onChange={e => setTermValue(Number(e.target.value))}
-                    className="w-full mt-3 accent-blue-600" style={{ height: 4 }} />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                    {termUnit === 'months'
-                      ? <><span>1 mes</span><span>180 meses</span><span>360 meses</span></>
-                      : <><span>1 año</span><span>30 años</span></>
-                    }
-                  </div>
-                  {/* Show equivalent in the other unit */}
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    {termUnit === 'months'
-                      ? <>≈ <strong style={{ color: '#0D2B5E' }}>{(termValue / 12).toFixed(1)}</strong> años · <strong style={{ color: '#0D2B5E' }}>{termValue}</strong> cuotas</>
-                      : <><strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> meses · <strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> cuotas</>
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {/* ── Amortized-only: rate mode + risk ── */}
-              {loanType === 'amortized' && (
-                <>
-                  <div>
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Base de tasa de interés
-                      </label>
-                      <RateModeToggle value={rateMode} onChange={handleRateModeChange} />
-                    </div>
-
-                    {rateMode === 'monthly' && (
-                      <div className="rounded-xl p-4 border-2 mb-4"
-                        style={{ borderColor: '#1565C044', background: '#f0f4fa' }}>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                          Tasa mensual (%)
-                        </label>
-                        <div className="flex items-baseline gap-3 flex-wrap">
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={(customMonthlyRate * 100).toFixed(2)}
-                              min={0.01} max={20} step={0.01}
-                              onChange={e => {
-                                const v = parseFloat(e.target.value)
-                                if (!isNaN(v) && v >= 0) setCustomMonthlyRate(v / 100)
-                              }}
-                              className="w-28 pl-3 pr-8 py-2.5 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                              style={{ color: '#0D2B5E' }}
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
-                          </div>
-                          <span className="text-xs font-semibold" style={{ color: '#1565C0' }}>/ mes</span>
-                          <span className="text-xs text-slate-400 ml-auto">
-                            ≈ <strong style={{ color: '#0D2B5E' }}>{(customMonthlyRate * 12 * 100).toFixed(2)}%</strong> anual equivalente
-                          </span>
-                        </div>
-                        <input type="range" min={0.01} max={20} step={0.01}
-                          value={+(customMonthlyRate * 100).toFixed(2)}
-                          onChange={e => setCustomMonthlyRate(parseFloat(e.target.value) / 100)}
-                          className="w-full mt-3 accent-blue-600" style={{ height: 4 }} />
-                        <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                          <span>0.01%</span><span>10%</span><span>20%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-                      Perfil de riesgo
-                      {rateMode === 'monthly' && (
-                        <span className="ml-2 font-normal normal-case tracking-normal text-blue-400">
-                          (solo categorización — la tasa es manual)
-                        </span>
-                      )}
-                    </label>
-                    <RiskSelector value={profile} onChange={setProfile} rateMode={rateMode} />
-                  </div>
-                </>
-              )}
-
-              {/* ── Weekly-only fields ── */}
-              {loanType === 'weekly' && (
-                <div className="rounded-xl p-4 border-2 mb-4" style={{ borderColor: '#1565C044', background: '#f0f4fa' }}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Plazo (semanas)
-                      </label>
-                      <div className="relative">
-                        <input type="number" value={weeklyTermWeeks} min={1} max={520} step={1}
-                          onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1 && v <= 520) setWeeklyTermWeeks(v) }}
-                          className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                          style={{ color: '#0D2B5E' }} />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">sem.</span>
-                      </div>
-                      <input type="range" min={1} max={520} step={1} value={weeklyTermWeeks}
-                        onChange={e => setWeeklyTermWeeks(Number(e.target.value))}
-                        className="w-full mt-2 accent-blue-600" style={{ height: 4 }} />
-                      <p className="text-xs text-slate-400 mt-1">≈ <strong style={{ color: '#0D2B5E' }}>{(weeklyTermWeeks / 4.33).toFixed(1)}</strong> meses</p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Tasa mensual (%) — se convierte a semanal
-                      </label>
-                      <div className="relative">
-                        <input type="number" value={(weeklyMonthlyRate * 100).toFixed(2)} min={0.01} max={30} step={0.01}
-                          onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) setWeeklyMonthlyRate(v / 100) }}
-                          className="w-full pl-4 pr-8 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                          style={{ color: '#0D2B5E' }} />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
-                      </div>
-                      <input type="range" min={0.01} max={30} step={0.01} value={+(weeklyMonthlyRate * 100).toFixed(2)}
-                        onChange={e => setWeeklyMonthlyRate(parseFloat(e.target.value) / 100)}
-                        className="w-full mt-2 accent-blue-600" style={{ height: 4 }} />
-                      <p className="text-xs text-slate-400 mt-1">
-                        Tasa semanal: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate / 4.33, 4)}</strong>
-                        &nbsp;·&nbsp;Anual equiv.: <strong style={{ color: '#0D2B5E' }}>{formatPercent(weeklyMonthlyRate * 12)}</strong>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Carrito-only fields ── */}
-              {loanType === 'carrito' && (
-                <div className="rounded-xl p-4 border-2 mb-4" style={{ borderColor: '#F59E0B44', background: '#FFFBF0' }}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Tasa plana (%) — sobre capital total
-                      </label>
-                      <div className="relative">
-                        <input type="number" value={(carritoFlatRate * 100).toFixed(1)} min={0.1} max={200} step={0.1}
-                          onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) setCarritoFlatRate(v / 100) }}
-                          className="w-full pl-4 pr-8 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                          style={{ color: '#0D2B5E' }} />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
-                      </div>
-                      <input type="range" min={0.1} max={100} step={0.1} value={+(carritoFlatRate * 100).toFixed(1)}
-                        onChange={e => setCarritoFlatRate(parseFloat(e.target.value) / 100)}
-                        className="w-full mt-2 accent-amber-400" style={{ height: 4 }} />
-                      <p className="text-xs text-slate-400 mt-1">Interés total: <strong style={{ color: '#F59E0B' }}>{fmt(carritoResult.totalInterest)}</strong></p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Plazo (períodos)
-                      </label>
-                      <div className="relative">
-                        <input type="number" value={carritoTerm} min={1} max={104} step={1}
-                          onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) setCarritoTerm(v) }}
-                          className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                          style={{ color: '#0D2B5E' }} />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">períodos</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Número de cuotas
-                      </label>
-                      <div className="relative">
-                        <input type="number" value={carritoPayments} min={1} max={730} step={1}
-                          onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) setCarritoPayments(v) }}
-                          className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                          style={{ color: '#0D2B5E' }} />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">cuotas</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                        Frecuencia de pago
-                      </label>
-                      <div className="inline-flex rounded-xl border border-slate-200 overflow-hidden bg-slate-50 text-sm font-bold w-full">
-                        {(['daily', 'weekly'] as const).map(f => (
-                          <button key={f} onClick={() => setCarritoFreq(f)}
-                            className="flex-1 py-3 transition-all"
-                            style={{ background: carritoFreq === f ? '#1565C0' : 'transparent', color: carritoFreq === f ? '#fff' : '#64748b' }}>
-                            {f === 'daily' ? '📆 Diario' : '📅 Semanal'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ── Results — Amortized ── */}
-            {loanType === 'amortized' && (
-              <>
-                <div className="mb-5 fade-up-1">
-                  <ResultsPanel result={result} config={config} currency={currency} rateMode={rateMode} />
-                </div>
-                <div className="flex gap-3 flex-wrap mb-5 fade-up-2">
-                  <PdfExportButton params={params} result={result} config={config} />
-                  <button onClick={() => setEmailOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
-                    style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                    ✉️ Enviar por email
-                  </button>
-                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                    👤 Guardar como cliente
-                  </button>
-                </div>
-                <div className={card + ' fade-up-2'} style={cardShadow}>
-                  {sectionTitle('Evolución del préstamo')}
-                  <AmortizationChart rows={rows} accentColor={config.colorAccent} currency={currency} />
-                </div>
-                <div className="fade-up-3">
-                  <button onClick={() => setShowTable(s => !s)}
-                    className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
-                    style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                    {showTable ? '▲ Ocultar tabla' : '▼ Ver tabla de amortización'}
-                  </button>
-                  {showTable && (
-                    <div className={card} style={cardShadow}>
-                      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                        {sectionTitle(`Tabla de amortización — ${result.totalMonths} cuotas`)}
-                        <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: config.colorBg, color: config.colorText }}>
-                          {config.emoji} {profile}
-                        </span>
-                      </div>
-                      <AmortizationTable rows={rows} accentColor={config.colorAccent} currency={currency} />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ── Results — Weekly ── */}
-            {loanType === 'weekly' && (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 fade-up-1">
-                  {[
-                    { label: 'Cuota semanal',   value: fmt(weeklyResult.weeklyPayment),   sub: `× ${weeklyResult.totalWeeks} semanas` },
-                    { label: 'Total a pagar',    value: fmt(weeklyResult.totalPayment),    sub: 'Capital + intereses' },
-                    { label: 'Total intereses',  value: fmt(weeklyResult.totalInterest),   sub: `${formatPercent(weeklyResult.interestRatio)} del capital` },
-                    { label: 'Tasa semanal',     value: formatPercent(weeklyResult.weeklyRate, 4), sub: `≈ ${formatPercent(weeklyResult.monthlyRate)} mensual` },
-                  ].map(s => (
-                    <div key={s.label} className="rounded-xl p-4 border border-slate-200 bg-white" style={{ boxShadow: '0 1px 6px rgba(0,0,0,.05)' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{s.label}</p>
-                      <p className="font-display text-2xl leading-none" style={{ color: '#0D2B5E' }}>{s.value}</p>
-                      <p className="text-xs text-slate-400 mt-1.5">{s.sub}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3 flex-wrap mb-5 fade-up-2">
-                  <PdfExportButton params={params} result={result} config={config} />
-                  <button onClick={() => setEmailOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
-                    style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                    ✉️ Enviar por email
-                  </button>
-                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                    👤 Guardar como cliente
-                  </button>
-                </div>
-                <div className="fade-up-2">
-                  <button onClick={() => setShowTable(s => !s)}
-                    className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
-                    style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                    {showTable ? '▲ Ocultar cronograma' : '▼ Ver cronograma semanal'}
-                  </button>
-                  {showTable && (
-                    <div className={card} style={cardShadow}>
-                      {sectionTitle(`Cronograma semanal — ${weeklyResult.totalWeeks} cuotas`)}
-                      <PaymentScheduleTable rows={weeklySchedule} accentColor="#1565C0" currency={currency} periodLabel="Semana" />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ── Results — Carrito ── */}
-            {loanType === 'carrito' && (
-              <>
-                <div className="rounded-xl px-4 py-3 mb-4 flex items-center gap-3 fade-up-1"
-                  style={{ background: '#FFF8E1', border: '1.5px solid #F59E0B44' }}>
-                  <span className="text-2xl">🛒</span>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: '#F59E0B' }}>Carrito — Tasa plana</p>
-                    <p className="font-display text-xl" style={{ color: '#6D4C00' }}>
-                      {formatPercent(carritoFlatRate)} × {carritoTerm} períodos
-                    </p>
-                  </div>
-                  <div className="text-right ml-auto">
-                    <p className="text-xs text-slate-500 mb-0.5">Interés total</p>
-                    <p className="text-xl font-bold" style={{ color: '#F59E0B' }}>{fmt(carritoResult.totalInterest)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 fade-up-1">
-                  {[
-                    { label: 'Cuota fija',      value: fmt(carritoResult.fixedPayment),   sub: `× ${carritoResult.numPayments} cuotas` },
-                    { label: 'Total a pagar',   value: fmt(carritoResult.totalPayment),   sub: 'Capital + interés plano' },
-                    { label: 'Total intereses', value: fmt(carritoResult.totalInterest),  sub: `${formatPercent(carritoResult.interestRatio)} del capital` },
-                    { label: 'Frecuencia',      value: carritoFreq === 'daily' ? 'Diario' : 'Semanal', sub: `${carritoPayments} pagos` },
-                  ].map(s => (
-                    <div key={s.label} className="rounded-xl p-4 border border-slate-200 bg-white" style={{ boxShadow: '0 1px 6px rgba(0,0,0,.05)' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{s.label}</p>
-                      <p className="font-display text-2xl leading-none" style={{ color: '#0D2B5E' }}>{s.value}</p>
-                      <p className="text-xs text-slate-400 mt-1.5">{s.sub}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3 flex-wrap mb-5 fade-up-2">
-                  <PdfExportButton params={params} result={result} config={config} />
-                  <button onClick={() => setEmailOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
-                    style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                    ✉️ Enviar por email
-                  </button>
-                  <button onClick={() => { changeTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                    👤 Guardar como cliente
-                  </button>
-                </div>
-                <div className="fade-up-2">
-                  <button onClick={() => setShowTable(s => !s)}
-                    className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
-                    style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                    {showTable ? '▲ Ocultar cronograma' : '▼ Ver cronograma de pagos'}
-                  </button>
-                  {showTable && (
-                    <div className={card} style={cardShadow}>
-                      {sectionTitle(`Cronograma de pagos — ${carritoResult.numPayments} cuotas ${carritoFreq === 'daily' ? 'diarias' : 'semanales'}`)}
-                      <PaymentScheduleTable rows={carritoSchedule} accentColor="#F59E0B" currency={currency} periodLabel={carritoFreq === 'daily' ? 'Día' : 'Semana'} />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-            </>}
-
-            {/* ── Multi-préstamo sub-tab ── */}
-            {calcSubTab === 'multiloan' && (
-              <div className={card} style={cardShadow}>
-                {sectionTitle('Comparación de hasta 4 préstamos')}
-                <MultiLoanPanel currency={currency} />
-              </div>
-            )}
-
-            {/* ── Comparación sub-tab ── */}
-            {calcSubTab === 'comparison' && (
-              <>
-                <div className="rounded-2xl p-5 bg-white border border-slate-200 mb-5 flex items-center gap-5 flex-wrap" style={cardShadow}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-5 rounded-full" style={{ background: '#1565C0' }} />
-                    <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>Préstamo base:</span>
-                  </div>
-                  <div className="flex gap-6">
-                    <div><p className="text-xs text-slate-400">Monto</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{fmt(amount)}</p></div>
-                    <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} años`}</p></div>
-                  </div>
-                  <p className="text-xs text-slate-400 ml-auto">Ajustá los parámetros en Simulación</p>
-                </div>
-                <div className={card} style={cardShadow}>
-                  {sectionTitle('Comparación de perfiles de riesgo')}
-                  <ComparisonPanel amount={amount} termYears={termYears} currency={currency} />
-                </div>
-              </>
-            )}
-          </>
+          <LoanCalculatorPage
+            amount={amount}
+            onAmountChange={setAmount}
+            currency={currency}
+            onCurrencyChange={handleCurrencyChange}
+            loanType={loanType}
+            onLoanTypeChange={setLoanType}
+            termUnit={termUnit}
+            termValue={termValue}
+            onTermUnitChange={handleTermUnitChange}
+            onTermValueChange={setTermValue}
+            rateMode={rateMode}
+            onRateModeChange={handleRateModeChange}
+            customMonthlyRate={customMonthlyRate}
+            onCustomMonthlyRateChange={setCustomMonthlyRate}
+            weeklyTermWeeks={weeklyTermWeeks}
+            onWeeklyTermWeeksChange={setWeeklyTermWeeks}
+            weeklyMonthlyRate={weeklyMonthlyRate}
+            onWeeklyMonthlyRateChange={setWeeklyMonthlyRate}
+            carritoFlatRate={carritoFlatRate}
+            onCarritoFlatRateChange={setCarritoFlatRate}
+            carritoTerm={carritoTerm}
+            onCarritoTermChange={setCarritoTerm}
+            carritoPayments={carritoPayments}
+            onCarritoPaymentsChange={setCarritoPayments}
+            carritoFreq={carritoFreq}
+            onCarritoFreqChange={setCarritoFreq}
+          />
         )}
 
-        {/* ═══ DASHBOARD ═══ */}
+        {/* DASHBOARD */}
         {tab === 'dashboard' && (
           <Dashboard
             onViewProfile={(id) => {
@@ -812,6 +373,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             isMaster={isMaster}
             userName={session?.user?.name}
             userEmail={session?.user?.email}
+            onGoCalculator={() => changeTab('calculator')}
             onGoBranches={() => changeTab('branches')}
             onGoReports={() => changeTab('reports')}
             onGoNotifications={() => showToast('🔔', 'Centro de notificaciones próximamente')}
