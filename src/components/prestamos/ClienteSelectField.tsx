@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState } from 'react'
 import type { PrestamoClientOption } from './types'
@@ -71,7 +71,7 @@ export default function ClienteSelectField({
         <div className="flex items-start justify-between gap-3">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</label>
-            <p className="mt-1 text-sm text-slate-500">Busca por nombre, telefono, email o sucursal.</p>
+            <p className="mt-1 text-sm text-slate-500">{'Busca por nombre, tel\u00E9fono, email o sucursal.'}</p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
             {hasQuery ? `${filteredClients.length} resultados` : `${filteredClients.length} visibles`}
@@ -91,7 +91,7 @@ export default function ClienteSelectField({
 
         {!hasQuery && quickClients.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Acceso rapido</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{'Acceso r\u00E1pido'}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {quickClients.map((client) => {
                 const active = client.id === selectedClientId
@@ -203,7 +203,7 @@ export default function ClienteSelectField({
           })}
           {filteredClients.length === 0 && (
             <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-              No hay clientes que coincidan con la busqueda.
+              {'No hay clientes que coincidan con la b\u00FAsqueda.'}
             </div>
           )}
         </div>

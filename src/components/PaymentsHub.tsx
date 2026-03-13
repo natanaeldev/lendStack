@@ -225,7 +225,7 @@ export default function PaymentsHub({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Pagos</p>
         <h2 className="mt-2 text-xl font-display text-slate-900">Centro de pagos</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Todo el flujo de cobranza movil vive aqui: registrar pago rapido, revisar vencidos y buscar clientes antes de cobrar.
+          {'Todo el flujo de cobranza m\u00F3vil vive aqu\u00ED: registrar pagos r\u00E1pido, revisar vencidos y buscar clientes antes de cobrar.'}
         </p>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -236,7 +236,7 @@ export default function PaymentsHub({
             Ver cartera
           </button>
           <button onClick={() => setSearch('')} className="min-h-[56px] rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">
-            Limpiar busqueda
+            {'Limpiar b\u00FAsqueda'}
           </button>
         </div>
 
@@ -263,18 +263,18 @@ export default function PaymentsHub({
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.06)] sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Busqueda</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{'B\u00FAsqueda'}</p>
             <h3 className="mt-1 text-lg font-bold text-slate-900">Buscar cliente para cobrar</h3>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-            {search.trim() ? `${searchResults.length} resultados` : 'Rapido'}
+            {search.trim() ? `${searchResults.length} resultados` : 'R\u00E1pido'}
           </span>
         </div>
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por cliente, telefono o sucursal"
+            placeholder={'Buscar por cliente, tel\u00E9fono o sucursal'}
             className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
           />
         </div>
@@ -283,7 +283,7 @@ export default function PaymentsHub({
           <div className="mt-4 space-y-2">
             {searchResults.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-                No hay clientes que coincidan con la busqueda.
+                {'No hay clientes que coincidan con la b\u00FAsqueda.'}
               </div>
             ) : (
               searchResults.map((client) => (
@@ -324,13 +324,13 @@ export default function PaymentsHub({
               overdueItems.slice(0, 6).map((item) => (
                 <button key={`${item.clientId}-${item.nextDueDate}`} onClick={() => onViewClient(item.clientId)} className="w-full rounded-2xl border border-red-100 bg-red-50/60 px-4 py-4 text-left">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{item.clientName}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.branchName || 'Sin sucursal'} · Vencia {item.nextDueDate}</p>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-bold text-slate-900">{item.clientName}</p>
+                      <p className="mt-1 text-xs text-slate-500">{item.branchName || 'Sin sucursal'} · Vence {item.nextDueDate}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-red-700">{formatCurrency(item.scheduledAmount, item.currency as any)}</p>
-                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-red-500">{Math.abs(item.daysFromToday)} dias tarde</p>
+                    <div className="min-w-0 text-right">
+                      <p className="break-words text-sm font-bold text-red-700">{formatCurrency(item.scheduledAmount, item.currency as any)}</p>
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-red-500">{Math.abs(item.daysFromToday)} d\u00EDas tarde</p>
                     </div>
                   </div>
                 </button>
@@ -343,7 +343,7 @@ export default function PaymentsHub({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-400">Seguimiento</p>
-              <h3 className="mt-1 text-lg font-bold text-slate-900">Proximos pagos</h3>
+              <h3 className="mt-1 text-lg font-bold text-slate-900">{'Pr\u00F3ximos pagos'}</h3>
             </div>
             <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">
               {dueSoonItems.length}
@@ -353,18 +353,18 @@ export default function PaymentsHub({
             {loading ? (
               <p className="text-sm text-slate-500">Cargando cartera...</p>
             ) : dueSoonItems.length === 0 ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No hay pagos por vencer en los proximos 7 dias.</div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">{'No hay pagos por vencer en los pr\u00F3ximos 7 d\u00EDas.'}</div>
             ) : (
               dueSoonItems.slice(0, 6).map((item) => (
                 <button key={`${item.clientId}-${item.nextDueDate}`} onClick={() => onViewClient(item.clientId)} className="w-full rounded-2xl border border-amber-100 bg-amber-50/50 px-4 py-4 text-left">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{item.clientName}</p>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-bold text-slate-900">{item.clientName}</p>
                       <p className="mt-1 text-xs text-slate-500">{item.branchName || 'Sin sucursal'} · Cobra {item.nextDueDate}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-900">{formatCurrency(item.scheduledAmount, item.currency as any)}</p>
-                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600">{item.daysFromToday === 0 ? 'Hoy' : `En ${item.daysFromToday} dias`}</p>
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600">{item.daysFromToday === 0 ? 'Hoy' : `En ${item.daysFromToday} d\u00EDas`}</p>
                     </div>
                   </div>
                 </button>
@@ -390,14 +390,14 @@ export default function PaymentsHub({
         ) : error ? (
           <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         ) : recentPayments.length === 0 ? (
-          <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Todavia no hay pagos recientes.</div>
+          <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">{'Todav\u00EDa no hay pagos recientes.'}</div>
         ) : (
           <div className="mt-4 space-y-2">
             {recentPayments.map((payment) => (
               <button key={payment.clientId + payment.date + payment.amount} onClick={() => onViewClient(payment.clientId)} className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-left transition-colors hover:border-blue-200 hover:bg-blue-50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900">{payment.clientName}</p>
+                    <p className="break-words text-sm font-bold text-slate-900">{payment.clientName}</p>
                     <p className="mt-1 text-xs text-slate-500">{payment.date}{payment.notes ? ` · ${payment.notes}` : ''}</p>
                   </div>
                   <p className="text-sm font-bold text-slate-900">{formatCurrency(payment.amount, payment.currency as any)}</p>

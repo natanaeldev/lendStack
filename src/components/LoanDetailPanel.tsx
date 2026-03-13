@@ -566,7 +566,7 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-slate-800 truncate">{borrower?.name ?? '—'}</h1>
+              <h1 className="break-words text-2xl font-bold text-slate-800">{borrower?.name ?? '—'}</h1>
               <StatusBadge status={loan.status} />
             </div>
             <p className="text-sm text-slate-500">

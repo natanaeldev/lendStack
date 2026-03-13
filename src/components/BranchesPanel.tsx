@@ -292,8 +292,8 @@ function BranchDetail({
                     <p className="break-words text-sm font-bold" style={{ color: '#0D2B5E' }}>{c.name}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       <strong className="text-slate-600">{fmt(c.params?.amount ?? 0)}</strong>
-                      {' · '}{c.params?.termYears ?? '?'} años
-                      {' · '}<strong className="text-slate-600">{fmt(c.result?.monthlyPayment ?? 0)}/mes</strong>
+                      {" \u00B7 "}{c.params?.termYears ?? "\u2014"} a\u00F1os
+                      {" \u00B7 "}<strong className="text-slate-600">{fmt(c.result?.monthlyPayment ?? 0)}/mes</strong>
                     </p>
                   </div>
 

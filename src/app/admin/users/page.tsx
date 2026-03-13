@@ -284,7 +284,7 @@ export default function AdminUsersPage() {
                         </p>
                         <p className="break-all text-xs text-slate-500">{u.email}</p>
                         {u.role !== 'master' && branches.length > 0 && (
-                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">🏢 {branchLabel}</p>
+                          <p className="break-words text-[10px] text-slate-400 mt-0.5">{"\u{1F3E2} "}{branchLabel}</p>
                         )}
                       </div>
 

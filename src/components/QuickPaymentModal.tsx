@@ -314,15 +314,15 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
               </div>
 
               {/* Loan info */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {[
                   { label: 'Cuota mensual', value: fmt(selected.monthlyPayment, selected.currency) },
-                  { label: 'Total préstamo', value: fmt(selected.totalPayment, selected.currency) },
+                  { label: 'Total pr\u00E9stamo', value: fmt(selected.totalPayment, selected.currency) },
                   { label: 'Cuotas totales', value: `${selected.totalMonths}` },
                 ].map(({ label, value }) => (
-                  <div key={label} className="text-center px-2 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <div key={label} className="min-w-0 text-center px-2 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
                     <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
-                    <p className="text-xs font-black" style={{ color: '#0D2B5E' }}>{value}</p>
+                    <p className="break-words text-xs font-black leading-5" style={{ color: '#0D2B5E' }}>{value}</p>
                   </div>
                 ))}
               </div>
@@ -345,7 +345,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
                     style={{ color: '#374151' }} />
                 </div>
                 <div className="min-w-0">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">N.º de cuota</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">N.\u00BA de cuota</label>
                   <input type="number" min="1" max={selected.totalMonths} value={cuotaNum}
                     onChange={e => setCuotaNum(e.target.value)}
                     placeholder={`1 – ${selected.totalMonths}`}
@@ -365,7 +365,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
               {/* Comprobante (receipt photo) */}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  📸 Comprobante (opcional)
+                  {'\u{1F4F8} Comprobante (opcional)'}
                 </label>
                 {comprobantePreview ? (
                   <div className="relative rounded-xl overflow-hidden border-2 border-blue-200 bg-slate-50">
@@ -399,7 +399,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
                         e.target.value = ''
                       }}
                     />
-                    <span className="text-2xl flex-shrink-0">📸</span>
+                    <span className="text-2xl flex-shrink-0">{'\u{1F4F8}'}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-600 leading-tight">Adjuntar comprobante</p>
                       <p className="text-xs text-slate-400 mt-0.5">Usá la cámara o elegí una imagen</p>
@@ -412,7 +412,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
               <button onClick={handleSubmit} disabled={submitting || success}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-                {submitting ? '⏳ Registrando…' : success ? '✅ ¡Registrado!' : '💵 Confirmar pago'}
+                {submitting ? '\u23F3 Registrando\u2026' : success ? '\u2705 \u00A1Registrado!' : '\u{1F4B5} Confirmar pago'}
               </button>
 
             </div>

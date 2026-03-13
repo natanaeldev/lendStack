@@ -184,7 +184,7 @@ export default function LoansPanel({ onViewLoan, createRequestKey = 0 }: Props) 
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full flex-shrink-0" style={{ background: dot }} />
                 <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 leading-tight">{label}</span>
               </div>
-              <p className="text-base sm:text-xl font-bold text-slate-800 truncate">{value}</p>
+              <p className="break-words text-base sm:text-xl font-bold text-slate-800">{value}</p>
               <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">{sub}</p>
             </div>
           ))}
