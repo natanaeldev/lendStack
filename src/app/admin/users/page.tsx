@@ -278,13 +278,13 @@ export default function AdminUsersPage() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate" style={{ color: '#0D2B5E' }}>
+                        <p className="break-words text-sm font-bold" style={{ color: '#0D2B5E' }}>
                           {u.name || '—'}
                           {isMe && <span className="ml-2 text-xs font-normal text-slate-400">(vos)</span>}
                         </p>
-                        <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                        <p className="break-all text-xs text-slate-500">{u.email}</p>
                         {u.role !== 'master' && branches.length > 0 && (
-                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">🏢 {branchLabel}</p>
+                          <p className="break-words text-[10px] text-slate-400 mt-0.5">{"\u{1F3E2} "}{branchLabel}</p>
                         )}
                       </div>
 

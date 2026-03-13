@@ -73,22 +73,22 @@ type EditForm = {
   branchId: string
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Helpers
 
 const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string; color: string; border: string; btnBg: string }> = {
-  pending:  { label: 'Pendiente', emoji: 'â³', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
-  approved: { label: 'Aprobado',  emoji: 'âœ…', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
-  denied:   { label: 'Denegado',  emoji: 'âŒ', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
+  pending:  { label: 'Pendiente', emoji: '\u23F3', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
+  approved: { label: 'Aprobado',  emoji: '\u2705', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
+  denied:   { label: 'Denegado',  emoji: '\u274C', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
 }
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'CL'
 }
 function docIcon(type: string) {
-  return type.includes('pdf') ? 'ðŸ“„' : type.includes('image') ? 'ðŸ–¼ï¸' : type.includes('word') ? 'ðŸ“' : 'ðŸ“'
+  return type.includes('pdf') ? '\u{1F4C4}' : type.includes('image') ? '\u{1F5BC}\uFE0F' : type.includes('word') ? '\u{1F4DD}' : '\u{1F4C1}'
 }
 function formatDate(iso: string) {
-  if (!iso) return 'â€”'
+  if (!iso) return '\u2014'
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }) }
   catch { return iso }
 }
@@ -130,18 +130,18 @@ function getLoanProfileMeta(client: ClientProfile) {
   const remainingInstallments = Math.max(0, totalInstallments - paidInstallments)
   const nextInstallmentNumber = Math.min(totalInstallments, paidInstallments + 1)
 
-  const installmentLabel = paymentFrequency === 'monthly' ? 'Cuota/mes' : paymentFrequency === 'weekly' ? 'Cuota/semana' : 'Cuota/día'
+  const installmentLabel = paymentFrequency === 'monthly' ? 'Cuota/mes' : paymentFrequency === 'weekly' ? 'Cuota/semana' : 'Cuota/d\u00EDa'
   const termLabel = loanType === 'weekly'
     ? `${client.params.termWeeks ?? client.result.totalWeeks ?? totalInstallments} semanas`
     : loanType === 'carrito'
-      ? `${client.params.carritoTerm ?? totalInstallments} ${paymentFrequency === 'daily' ? 'días' : 'semanas'}`
-      : `${client.params.termYears ?? 0} a?os`
+      ? `${client.params.carritoTerm ?? totalInstallments} ${paymentFrequency === 'daily' ? 'd\u00EDas' : 'semanas'}`
+      : `${client.params.termYears ?? 0} a\u00F1os`
 
   const amortizationTitle = loanType === 'weekly'
     ? `Tabla de pagos - ${totalInstallments} cuotas semanales`
     : loanType === 'carrito'
       ? `Tabla de pagos - ${totalInstallments} cuotas ${paymentFrequency === 'daily' ? 'diarias' : 'semanales'}`
-      : `Tabla de amortizaci?n - ${totalInstallments} cuotas`
+      : `Tabla de amortizaci\u00F3n - ${totalInstallments} cuotas`
 
   return {
     loanType,
@@ -158,11 +158,11 @@ function getLoanProfileMeta(client: ClientProfile) {
   }
 }
 
-// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Sub-components
 
 function InfoBlock({ label, value }: { label: string; value?: string | boolean }) {
   if (!value && value !== false) return null
-    const display = typeof value === 'boolean' ? (value ? 'S\u00ED' : 'No') : value
+  const display = typeof value === 'boolean' ? (value ? 'S\u00ED' : 'No') : value
   return (
     <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3">
       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
@@ -210,7 +210,7 @@ function EditField({ label, children, full }: { label: string; children: React.R
   )
 }
 
-// â”€â”€â”€ Props â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Props
 
 interface Props {
   clientId:     string
@@ -218,7 +218,7 @@ interface Props {
   onViewLoan?:  (loanId: string) => void
 }
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Component
 
 export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Props) {
   const [client,         setClient]        = useState<ClientProfile | null>(null)
@@ -229,7 +229,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const [emailOpen,      setEmailOpen]     = useState(false)
   const [showAmort,      setShowAmort]     = useState(false)
 
-  // â”€â”€ Edit mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Edit mode
   const [editMode,  setEditMode]  = useState(false)
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
@@ -237,7 +237,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
   const [syncingLoan, setSyncingLoan] = useState(false)
 
-  // â”€â”€ Payment registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Payment registration
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
   const [payLoading,          setPayLoading]          = useState(false)
   const [deletingPayId,       setDeletingPayId]       = useState<string | null>(null)
@@ -262,7 +262,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const sf = (k: keyof EditForm) => (v: string | boolean) =>
     setEditForm(prev => prev ? { ...prev, [k]: v } : prev)
 
-  // â”€â”€ Fetch client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Fetch client
   const loadClient = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -288,7 +288,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       .catch(() => {})
   }, [])
 
-  // â”€â”€ Update status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Update status
   const updateStatus = async (next: LoanStatus) => {
     if (!client || updatingStatus) return
     const target = client.loanStatus === next ? 'pending' : next
@@ -304,7 +304,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     setUpdatingStatus(false)
   }
 
-  // â”€â”€ Sync legacy loan to lifecycle system â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Sync legacy loan to lifecycle system
   const syncLoanToLifecycle = async () => {
     if (!client || syncingLoan) return
     const loanMeta = getLoanProfileMeta(client)
@@ -338,14 +338,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         }),
       })
       const data = await res.json()
-      if (!res.ok) { showToast('âŒ', data.error ?? 'Error al sincronizar'); return }
-      showToast('ðŸ’³', 'PrÃ©stamo registrado en el sistema')
+      if (!res.ok) { showToast('\u274C', data.error ?? 'Error al sincronizar'); return }
+      showToast('\u{1F4B3}', 'Pr\u00E9stamo registrado en el sistema')
       loadClient()
-    } catch { showToast('âŒ', 'Error de red') }
+    } catch { showToast('\u274C', 'Error de red') }
     finally { setSyncingLoan(false) }
   }
 
-  // â”€â”€ Open edit mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Open edit mode
   const openEdit = () => {
     if (!client) return
     setEditForm(clientToForm(client))
@@ -357,10 +357,10 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     setEditForm(null)
   }
 
-  // â”€â”€ Save edits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Save edits
   const saveEdit = async () => {
     if (!editForm || saving) return
-    if (!editForm.name.trim()) { showToast('âš ï¸', 'El nombre es obligatorio'); return }
+    if (!editForm.name.trim()) { showToast('\u26A0\uFE0F', 'El nombre es obligatorio'); return }
     setSaving(true)
     try {
       // Transform branchId: '' â†’ null (empty string = "clear branch assignment")
@@ -373,7 +373,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       })
       if (!res.ok) {
         const data = await res.json()
-        showToast('âŒ', data.error ?? 'Error al guardar')
+        showToast('\u274C', data.error ?? 'Error al guardar')
         return
       }
       // Optimistic update â€” derive branch type + name from local branches cache
@@ -381,24 +381,24 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       setClient(prev => prev ? {
         ...prev, ...rest,
         branchId,
-        branch:     branchId ? (selectedBranch?.type ?? prev.branch) : null,
+        branch: branchId ? (selectedBranch?.type ?? prev.branch) : null,
         branchName: branchId ? (selectedBranch?.name ?? prev.branchName) : null,
       } : prev)
       setEditMode(false)
       setEditForm(null)
-      showToast('âœ…', 'Datos del cliente actualizados')
+      showToast('\u2705', 'Datos del cliente actualizados')
     } catch {
-      showToast('âŒ', 'No se pudo conectar')
+      showToast('\u274C', 'No se pudo conectar')
     } finally {
       setSaving(false)
     }
   }
 
-  // â”€â”€ Register payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Register payment
   const registerPayment = async () => {
     const amount = parseFloat(payForm.amount)
     if (!payForm.date || isNaN(amount) || amount <= 0) {
-      showToast('âš ï¸', 'CompletÃ¡ la fecha y un monto vÃ¡lido')
+      showToast('\u26A0\uFE0F', 'Complet\u00E1 la fecha y un monto v\u00E1lido')
       return
     }
     setPayLoading(true)
@@ -416,12 +416,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         method: 'POST',
         body:   fd,
       })
-      if (!res.ok) { const d = await res.json(); showToast('âŒ', d.error ?? 'Error'); return }
+      if (!res.ok) { const d = await res.json(); showToast('\u274C', d.error ?? 'Error'); return }
       const { payment } = await res.json()
       setClient(prev => prev ? { ...prev, payments: [...prev.payments, payment] } : prev)
       setPayForm({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
       clearPayComprobante()
-      showToast('âœ…', 'Pago registrado correctamente')
+      showToast('\u2705', 'Pago registrado correctamente')
       // Show inline receipt modal (avoids browser popup blockers)
       if (client) setReceiptData({
         clientName:     client.name,
@@ -439,7 +439,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         totalMonths:    loanMeta.totalInstallments,
         profile:        client.params.profile,
       })
-    } catch { showToast('âŒ', 'No se pudo conectar') }
+    } catch { showToast('\u274C', 'No se pudo conectar') }
     finally  { setPayLoading(false) }
   }
 
@@ -456,7 +456,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     setDeletingPayId(null)
   }
 
-  // â”€â”€ Upload document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Upload document
   const uploadDoc = async (file: File) => {
     if (!client) return
     setUploading(true)
@@ -471,12 +471,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     } finally { setUploading(false) }
   }
 
-  // â”€â”€ Render states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Render states
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-slate-500">Cargando perfil del clienteâ€¦</p>
+        <p className="text-sm text-slate-500">Cargando perfil del cliente{"\u2026"}</p>
       </div>
     </div>
   )
@@ -484,9 +484,9 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   if (error || !client) return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center max-w-sm">
-        <p className="text-4xl mb-4">ðŸ˜•</p>
+        <p className="text-4xl mb-4">{"\u{1F615}"}</p>
         <p className="text-slate-700 font-semibold mb-2">{error || 'Cliente no encontrado'}</p>
-        <button onClick={onBack} className="text-sm text-blue-600 underline">â† Volver a la lista</button>
+        <button onClick={onBack} className="text-sm text-blue-600 underline">{"\u2190 Volver a la lista"}</button>
       </div>
     </div>
   )
@@ -549,9 +549,9 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         }))
       : buildAmortization(loanParams)
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EDIT MODE
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // EDIT MODE
+  // EDIT MODE
   if (editMode && editForm) {
     return (
       <div className="space-y-5">
@@ -561,10 +561,10 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
           <button onClick={cancelEdit}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
             style={{ background: '#e8eef7', color: '#0D2B5E' }}>
-            â† Cancelar
+            {"\u2190 Cancelar"}
           </button>
           <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>
-            âœï¸ Editando: {client.name}
+            {"\u270F\uFE0F Editando:"} {client.name}
           </span>
           <div className="ml-auto flex gap-3">
             <button onClick={cancelEdit}
@@ -574,7 +574,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             <button onClick={saveEdit} disabled={saving}
               className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-              {saving ? 'â³ Guardando...' : 'ðŸ’¾ Guardar cambios'}
+              {saving ? '\u23F3 Guardando...' : '\u{1F4BE} Guardar cambios'}
             </button>
           </div>
         </div>
@@ -583,8 +583,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         <div className="rounded-2xl p-6 bg-white border border-slate-200"
           style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
 
-          {/* SecciÃ³n 1 â€” Personal */}
-          <EditSectionHeader emoji="ðŸ‘¤" title="SecciÃ³n 1 â€” InformaciÃ³n Personal" />
+          {/* Secci\u00F3n 1 \u2014 Personal */}
+          <EditSectionHeader emoji={"\u{1F464}"} title="Secci\u00F3n 1 \u2014 Informaci\u00F3n personal" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <EditField label="Nombre completo *">
@@ -592,26 +592,26 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="Correo electrÃ³nico">
+            <EditField label="Correo electr\u00F3nico">
               <input type="email" value={editForm.email} onChange={e => sf('email')(e.target.value)}
                 className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="TelÃ©fono">
+            <EditField label="Tel\u00E9fono">
               <input type="text" value={editForm.phone} onChange={e => sf('phone')(e.target.value)}
                 placeholder="+54 11 1234-5678" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="Tipo y nÃºmero de identificaciÃ³n">
+            <EditField label="Tipo y n\u00FAmero de identificaci\u00F3n">
               <div className="flex gap-2">
                 <select value={editForm.idType} onChange={e => sf('idType')(e.target.value)}
                   className="px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
                   style={{ color: '#374151', minWidth: '80px' }}>
-                  {['DNI','CUIT','CUIL','Pasaporte','RUT','RUC','CC','NIT','CÃ©dula'].map(t =>
+                  {['DNI','CUIT','CUIL','Pasaporte','RUT','RUC','CC','NIT','C\u00E9dula'].map(t =>
                     <option key={t}>{t}</option>)}
                 </select>
                 <input type="text" value={editForm.idNumber} onChange={e => sf('idNumber')(e.target.value)}
-                  placeholder="NÃºmero de documento" className={inputCls} style={{ color: '#374151' }} />
+                  placeholder="N\u00FAmero de documento" className={inputCls} style={{ color: "#374151" }} />
               </div>
             </EditField>
 
@@ -625,18 +625,18 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 placeholder="Ej: Argentina" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="DirecciÃ³n actual" full>
+            <EditField label="Direcci\u00F3n actual" full>
               <input type="text" value={editForm.address} onChange={e => sf('address')(e.target.value)}
-                placeholder="Calle, nÃºmero, ciudad, provincia" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Calle, n\u00FAmero, ciudad, provincia" className={inputCls} style={{ color: "#374151" }} />
             </EditField>
 
           </div>
 
-          {/* SecciÃ³n 2 â€” Financiera */}
-          <EditSectionHeader emoji="ðŸ’°" title="SecciÃ³n 2 â€” InformaciÃ³n Financiera" />
+          {/* Secci\u00F3n 2 \u2014 Financiera */}
+          <EditSectionHeader emoji={"\u{1F4B0}"} title="Secci\u00F3n 2 \u2014 Informaci\u00F3n financiera" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            <EditField label="OcupaciÃ³n / Empleador">
+            <EditField label="Ocupaci\u00F3n / Empleador">
               <input type="text" value={editForm.occupation} onChange={e => sf('occupation')(e.target.value)}
                 className={inputCls} style={{ color: '#374151' }} />
             </EditField>
@@ -653,7 +653,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                     <input type="radio" checked={editForm.hasIncomeProof === val}
                       onChange={() => sf('hasIncomeProof')(val)}
                       className="accent-blue-600" />
-                    <span className="text-sm text-slate-700">{val ? 'SÃ­' : 'No'}</span>
+                    <span className="text-sm text-slate-700">{val ? "S\u00ED" : "No"}</span>
                   </label>
                 ))}
               </div>
@@ -676,8 +676,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
           </div>
 
-          {/* SecciÃ³n 3 â€” GarantÃ­as */}
-          <EditSectionHeader emoji="ðŸ " title="SecciÃ³n 3 â€” GarantÃ­as y Arraigo" />
+          {/* Secci\u00F3n 3 \u2014 Garant\u00EDas */}
+          <EditSectionHeader emoji={"\u{1F3E0}"} title="Secci\u00F3n 3 \u2014 Garant\u00EDas y arraigo" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <EditField label="Colateral disponible" full>
@@ -687,13 +687,13 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
             <EditField label="Arraigo territorial" full>
               <input type="text" value={editForm.territorialTies} onChange={e => sf('territorialTies')(e.target.value)}
-                placeholder="Ej: 15 aÃ±os de residencia, propietario, empleo estable" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Ej: 15 a\u00F1os de residencia, propietario, empleo estable" className={inputCls} style={{ color: "#374151" }} />
             </EditField>
 
           </div>
 
-          {/* SecciÃ³n 4 â€” Historial */}
-          <EditSectionHeader emoji="ðŸ“‹" title="SecciÃ³n 4 â€” Historial y Referencias" />
+          {/* Secci\u00F3n 4 \u2014 Historial */}
+          <EditSectionHeader emoji={"\u{1F4CB}"} title="Secci\u00F3n 4 \u2014 Historial y referencias" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <EditField label="Historial crediticio" full>
@@ -703,12 +703,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
             <EditField label="Referencia 1">
               <input type="text" value={editForm.reference1} onChange={e => sf('reference1')(e.target.value)}
-                placeholder="Nombre y telÃ©fono" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Nombre y tel\u00E9fono" className={inputCls} style={{ color: "#374151" }} />
             </EditField>
 
             <EditField label="Referencia 2">
               <input type="text" value={editForm.reference2} onChange={e => sf('reference2')(e.target.value)}
-                placeholder="Nombre y telÃ©fono" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Nombre y tel\u00E9fono" className={inputCls} style={{ color: "#374151" }} />
             </EditField>
 
             <EditField label="Notas del asesor" full>
@@ -718,19 +718,19 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
           </div>
 
-          {/* SecciÃ³n 5 â€” Sucursal */}
-          <EditSectionHeader emoji="ðŸ¢" title="SecciÃ³n 5 â€” Sucursal Asignada" />
+          {/* Secci\u00F3n 5 \u2014 Sucursal */}
+          <EditSectionHeader emoji={"\u{1F3E2}"} title="Secci\u00F3n 5 \u2014 Sucursal asignada" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <EditField label="Sucursal" full>
               {branches.length > 0 ? (
                 <select value={editForm.branchId} onChange={e => sf('branchId')(e.target.value)}
                   className={inputCls} style={{ color: editForm.branchId ? '#374151' : '#94a3b8' }}>
-                  <option value="">â€” Sin asignar â€”</option>
+                  <option value="">{"\u2014 Sin asignar \u2014"}</option>
                   {(['sede', 'rutas'] as const).map(type => {
                     const group = branches.filter(b => b.type === type)
                     if (!group.length) return null
                     return (
-                      <optgroup key={type} label={type === 'sede' ? 'ðŸ¢ Sede' : 'ðŸ›£ï¸ Rutas'}>
+                      <optgroup key={type} label={type === "sede" ? "\u{1F3E2} Sede" : "\u{1F6E3}\uFE0F Rutas"}>
                         {group.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </optgroup>
                     )
@@ -738,7 +738,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 </select>
               ) : (
                 <p className="text-sm text-slate-400 px-4 py-2.5 rounded-xl border-2 border-slate-100 bg-slate-50">
-                  No hay sucursales creadas â€” creÃ¡ una en <span className="font-semibold">Admin â†’ Sucursales</span>.
+                  {"No hay sucursales creadas \u2014 cre\u00E1 una en "}<span className="font-semibold">{"Admin \u2192 Sucursales"}</span>.
                 </p>
               )}
             </EditField>
@@ -749,7 +749,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             <button onClick={saveEdit} disabled={saving}
               className="px-8 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-              {saving ? 'â³ Guardando...' : 'ðŸ’¾ Guardar cambios'}
+              {saving ? '\u23F3 Guardando...' : '\u{1F4BE} Guardar cambios'}
             </button>
             <button onClick={cancelEdit}
               className="px-5 py-3 rounded-xl text-sm font-bold border-2 border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors">
@@ -763,7 +763,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     )
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // VIEW MODE
   // VIEW MODE
   return (
     <div className="space-y-6 sm:space-y-7">
@@ -806,7 +806,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                   tone={client.loanStatus === 'approved' ? 'success' : client.loanStatus === 'denied' ? 'danger' : 'warning'}
                 />
                 {(client.branchName || client.branch) && (
-                  <ClienteStatusBadge label={client.branchName ?? (client.branch === 'sede' ? 'Sede' : 'Rutas')} tone="neutral" />
+                  <ClienteStatusBadge label={client.branchName ?? (client.branch === "sede" ? "Sede" : "Rutas")} tone="neutral" />
                 )}
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1146,7 +1146,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             <input type="file" className="hidden" disabled={uploading} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx" onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc(f); e.target.value = '' }} />
             {uploading ? 'Subiendo…' : 'Adjuntar documento'}
           </label>
-          <p className="mt-1.5 text-xs text-slate-400">PDF, Word, Excel, im\u00E1genes · M\u00E1x. 10 MB</p>
+          <p className="mt-1.5 text-xs text-slate-400">{"PDF, Word, Excel, im\u00E1genes \u00B7 M\u00E1x. 10 MB"}</p>
         </div>
       </section>
 
@@ -1162,10 +1162,10 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       {receiptData && <PaymentReceiptModal data={receiptData} onClose={() => setReceiptData(null)} />}
 
       {lightboxUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(7,26,62,.85)', backdropFilter: 'blur(6px)' }} onClick={() => setLightboxUrl(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(7,26,62,.85)", backdropFilter: "blur(6px)" }} onClick={() => setLightboxUrl(null)}>
           <div className="relative w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <img src={lightboxUrl} alt="Comprobante" className="max-h-[80vh] w-full rounded-2xl object-contain shadow-2xl" />
-            <button onClick={() => setLightboxUrl(null)} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white transition hover:opacity-80" style={{ background: 'rgba(0,0,0,.5)' }}>?</button>
+            <button onClick={() => setLightboxUrl(null)} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white transition hover:opacity-80" style={{ background: 'rgba(0,0,0,.5)' }}>{'\u2715'}</button>
             <a href={lightboxUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-3 right-3 rounded-lg px-3 py-1.5 text-xs font-bold text-white" style={{ background: 'rgba(0,0,0,.5)' }} onClick={e => e.stopPropagation()}>
               Ver original
             </a>

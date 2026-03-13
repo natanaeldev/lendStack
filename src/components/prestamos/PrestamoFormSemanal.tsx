@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import type { ReactNode } from 'react'
 import { CURRENCIES, type Currency } from '@/lib/loan'
@@ -84,8 +84,8 @@ export default function PrestamoFormSemanal({
         </Field>
       </Section>
 
-      <Section title="Interes y arranque" subtitle="Ajusta la tasa mensual equivalente y deja la fecha lista.">
-        <Field label="Interes mensual (%)" hint="Se usa para calcular la cuota semanal.">
+      <Section title="InterÃ©s y arranque" subtitle="Ajusta la tasa mensual equivalente y deja la fecha lista.">
+        <Field label="InterÃ©s mensual (%)" hint="Se usa para calcular la cuota semanal.">
           <input type="number" min="0" step="0.1" value={Number((monthlyRate * 100).toFixed(2))} onChange={(event) => onChange({ weeklyMonthlyRate: Number(event.target.value) / 100 })} className={inputClassName} />
         </Field>
         <Field label="Fecha de inicio">
@@ -93,7 +93,7 @@ export default function PrestamoFormSemanal({
         </Field>
       </Section>
 
-      <Section title="Notas operativas" subtitle="Agrega instrucciones para la ruta o el cobrador solo si son utiles.">
+      <Section title="Notas operativas" subtitle="Agrega instrucciones para la ruta o el cobrador solo si son Ãºtiles.">
         <Field label="Observaciones" hint="Ej: cobrar en negocio o ruta preferida de visita.">
           <textarea value={notes} onChange={(event) => onChange({ notes: event.target.value })} rows={4} placeholder="Notas internas para ruta, cobranza o seguimiento" className={`${inputClassName} min-h-[120px] resize-y`} />
         </Field>

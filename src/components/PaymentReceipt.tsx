@@ -261,7 +261,7 @@ export function PaymentReceiptModal({ data, onClose, zIndex = 50 }: { data: Rece
                 {data.clientEmail && (
                   <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5">
                     <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Correo electrónico</p>
-                    <p className="text-xs font-semibold mt-0.5 truncate" style={{ color: '#1e293b' }}>{data.clientEmail}</p>
+                    <p className="break-all text-xs font-semibold mt-0.5" style={{ color: '#1e293b' }}>{data.clientEmail}</p>
                   </div>
                 )}
               </div>
