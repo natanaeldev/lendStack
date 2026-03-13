@@ -24,7 +24,7 @@ export default function PerformanceSnapshotCard({ stats, fmtK }: { stats: StatsD
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Cobranza</p>
-            <h4 className="mt-1 break-words text-base font-black text-slate-950">Ritmo de recaudación</h4>
+            <h4 className="mt-1 break-words text-base font-black text-slate-950">Ritmo de recaudaciÃ³n</h4>
           </div>
           <div className="rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{stats.collectionRate}% de efectividad</div>
         </div>
@@ -43,10 +43,10 @@ export default function PerformanceSnapshotCard({ stats, fmtK }: { stats: StatsD
 
       <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Estado</p>
-        <h4 className="mt-1 break-words text-base font-black text-slate-950">Composición operativa</h4>
+        <h4 className="mt-1 break-words text-base font-black text-slate-950">ComposiciÃ³n operativa</h4>
         <div className="mt-4 space-y-3">
           {lifecycleData.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Sin datos operativos para mostrar todavía.</div>
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">Sin datos operativos para mostrar todavÃ­a.</div>
           ) : (
             lifecycleData.map((item) => (
               <div key={item.label}>

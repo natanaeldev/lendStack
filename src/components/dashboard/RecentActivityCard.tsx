@@ -6,7 +6,7 @@ import type { RecentActivityItem } from './types'
 
 export default function RecentActivityCard({ items, onOpenClient }: { items: RecentActivityItem[]; onOpenClient?: (clientId: string) => void }) {
   if (items.length === 0) {
-    return <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No hay actividad reciente todavía.</div>
+    return <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No hay actividad reciente todavÃ­a.</div>
   }
 
   return (

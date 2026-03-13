@@ -139,6 +139,6 @@ export function formatDashboardDate(date = new Date()) {
 
 export function formatShortDate(value: string) {
   const parsed = new Date(value.length === 10 ? `${value}T12:00:00` : value)
-  if (Number.isNaN(parsed.getTime())) return '—'
+  if (Number.isNaN(parsed.getTime())) return 'â€”'
   return new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(parsed)
 }

@@ -19,7 +19,7 @@ function SetupScreen() {
   return (
     <DashboardEmptyState
       title="Conecta la base operativa"
-      description="Configura MongoDB Atlas y las variables de entorno para habilitar el centro de operaciones de Inicio. Cuando la conexiÛn estÈ lista, aquÌ vas a ver cartera, cobranza y alertas en tiempo real."
+      description="Configura MongoDB Atlas y las variables de entorno para habilitar el centro de operaciones de Inicio. Cuando la conexi√≥n est√© lista, aqu√≠ vas a ver cartera, cobranza y alertas en tiempo real."
     />
   )
 }
@@ -109,7 +109,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
       {
         label: 'Cartera activa',
         value: fmtK(portfolio?.activePortfolio ?? 0),
-        subvalue: portfolio ? `${portfolio.totalActiveCount} prÈstamos activos` : 'Sin cartera activa',
+        subvalue: portfolio ? `${portfolio.totalActiveCount} pr√©stamos activos` : 'Sin cartera activa',
         tone: 'brand',
         icon: <PortfolioIcon className="h-5 w-5" />,
       },
@@ -135,7 +135,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         icon: <CalendarIcon className="h-5 w-5" />,
       },
       {
-        label: 'PrÈstamos activos',
+        label: 'Pr√©stamos activos',
         value: String(portfolio?.totalActiveCount ?? 0),
         subvalue: `${stats.totalClients} clientes en la base`,
         tone: 'neutral',
@@ -144,7 +144,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
       {
         label: 'Monto vencido',
         value: fmtK(portfolio?.overdueAmountTotal ?? 0),
-        subvalue: urgentCriticalCount > 0 ? `${urgentCriticalCount} casos requieren acciÛn hoy` : 'Sin alertas crÌticas',
+        subvalue: urgentCriticalCount > 0 ? `${urgentCriticalCount} casos requieren acci√≥n hoy` : 'Sin alertas cr√≠ticas',
         tone: statusTone(portfolio?.overdueAmountTotal ?? 0, 1, 1),
         icon: <TrendIcon className="h-5 w-5" />,
       },
@@ -152,17 +152,17 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   }, [fmtK, stats, urgentCriticalCount])
 
   const quickActions = useMemo<QuickActionItem[]>(() => [
-    { label: 'Crear prÈstamo', description: 'Iniciar una nueva colocaciÛn', icon: <LoanIcon className="h-5 w-5" />, tone: 'brand', onClick: goToNewLoan },
+    { label: 'Crear pr√©stamo', description: 'Iniciar una nueva colocaci√≥n', icon: <LoanIcon className="h-5 w-5" />, tone: 'brand', onClick: goToNewLoan },
     { label: 'Registrar pago', description: 'Ir al centro de pagos', icon: <PaymentIcon className="h-5 w-5" />, tone: 'neutral', onClick: () => goTo('/app/pagos') },
     { label: 'Nuevo cliente', description: 'Abrir expediente de cliente', icon: <UserPlusIcon className="h-5 w-5" />, tone: 'neutral', onClick: () => goTo('/app/clientes') },
     { label: 'Ver morosos', description: 'Revisar alertas y casos urgentes', icon: <AlertIcon className="h-5 w-5" />, tone: 'danger', onClick: () => urgentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-    { label: 'Buscar cliente', description: 'Ir directo al panel de b˙squeda', icon: <SearchIcon className="h-5 w-5" />, tone: 'neutral', onClick: () => clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+    { label: 'Buscar cliente', description: 'Ir directo al panel de b√∫squeda', icon: <SearchIcon className="h-5 w-5" />, tone: 'neutral', onClick: () => clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
   ], [goTo, goToNewLoan])
 
-  const dashboardTitle = orgInfo?.orgName ? `Inicio ∑ ${orgInfo.orgName}` : 'Inicio'
-  const context = `${formatDashboardDate()} ∑ ${urgentCriticalCount > 0 ? `${urgentCriticalCount} alertas crÌticas` : 'OperaciÛn estable'} ∑ ${stats?.portfolio?.totalActiveCount ?? 0} prÈstamos activos`
+  const dashboardTitle = orgInfo?.orgName ? `Inicio ¬∑ ${orgInfo.orgName}` : 'Inicio'
+  const context = `${formatDashboardDate()} ¬∑ ${urgentCriticalCount > 0 ? `${urgentCriticalCount} alertas cr√≠ticas` : 'Operaci√≥n estable'} ¬∑ ${stats?.portfolio?.totalActiveCount ?? 0} pr√©stamos activos`
   const summary = stats
-    ? `La vista prioriza cartera activa, mora, cobranza diaria y pagos que requieren seguimiento inmediato. ${stats.portfolio?.dueTodayCount ?? 0} pagos vencen hoy y ${stats.portfolio?.delinquentCount ?? 0} prÈstamos est·n en mora.`
+    ? `La vista prioriza cartera activa, mora, cobranza diaria y pagos que requieren seguimiento inmediato. ${stats.portfolio?.dueTodayCount ?? 0} pagos vencen hoy y ${stats.portfolio?.delinquentCount ?? 0} pr√©stamos est√°n en mora.`
     : ''
 
   if (loading) return <DashboardSkeleton />
@@ -171,7 +171,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     return (
       <DashboardEmptyState
         title="No se pudo cargar Inicio"
-        description="Intenta recargar la vista. Cuando la fuente de datos responda, el tablero operativo volver· a mostrarse autom·ticamente."
+        description="Intenta recargar la vista. Cuando la fuente de datos responda, el tablero operativo volver√° a mostrarse autom√°ticamente."
       />
     )
   }
@@ -198,10 +198,10 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 {orgInfo.isAtLimit
-                  ? 'El plan alcanzÛ su lÌmite y requiere actualizaciÛn para seguir creciendo.'
+                  ? 'El plan alcanz√≥ su l√≠mite y requiere actualizaci√≥n para seguir creciendo.'
                   : orgInfo.isNearLimit
-                    ? 'La operaciÛn est· cerca del lÌmite del plan actual.'
-                    : 'La capacidad del plan est· saludable para la operaciÛn actual.'}
+                    ? 'La operaci√≥n est√° cerca del l√≠mite del plan actual.'
+                    : 'La capacidad del plan est√° saludable para la operaci√≥n actual.'}
               </p>
             </div>
             <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
@@ -213,8 +213,8 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
       <ResponsiveDashboardSection
         eyebrow="Portafolio"
-        title="VisiÛn inmediata de cartera y cobranza"
-        description="Los indicadores principales est·n ordenados por urgencia y utilidad operativa para que un agente mÛvil entienda el estado del dÌa en segundos."
+        title="Visi√≥n inmediata de cartera y cobranza"
+        description="Los indicadores principales est√°n ordenados por urgencia y utilidad operativa para que un agente m√≥vil entienda el estado del d√≠a en segundos."
         action={
           <select value={dashboardCurrency} onChange={(event) => setDashboardCurrency(event.target.value as Currency)} className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none">
             <option value="USD">USD ($)</option>
@@ -225,41 +225,41 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
         <DashboardKpiGrid items={kpis} />
       </ResponsiveDashboardSection>
 
-      <ResponsiveDashboardSection eyebrow="Acciones" title="Accesos r·pidos de operaciÛn" description="Atajos pensados para trabajo de campo: originar, cobrar, abrir clientes y saltar a los casos con m·s riesgo.">
+      <ResponsiveDashboardSection eyebrow="Acciones" title="Accesos r√°pidos de operaci√≥n" description="Atajos pensados para trabajo de campo: originar, cobrar, abrir clientes y saltar a los casos con m√°s riesgo.">
         <QuickActionsPanel actions={quickActions} />
       </ResponsiveDashboardSection>
 
       <div ref={urgentRef}>
-        <ResponsiveDashboardSection eyebrow="Urgente" title="QuÈ requiere atenciÛn ahora" description="Lista priorizada con mora, pagos del dÌa y prÛximos vencimientos para reducir retrasos y acelerar el seguimiento.">
+        <ResponsiveDashboardSection eyebrow="Urgente" title="Qu√© requiere atenci√≥n ahora" description="Lista priorizada con mora, pagos del d√≠a y pr√≥ximos vencimientos para reducir retrasos y acelerar el seguimiento.">
           <UrgentItemsPanel items={urgentItems} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
         </ResponsiveDashboardSection>
       </div>
 
-      <ResponsiveDashboardSection eyebrow="Rendimiento" title="Snapshot de desempeÒo del portafolio" description="Lectura r·pida de recaudaciÛn y composiciÛn operativa. En desktop ofrece contexto analÌtico; en mÛvil conserva legibilidad y foco.">
+      <ResponsiveDashboardSection eyebrow="Rendimiento" title="Snapshot de desempe√±o del portafolio" description="Lectura r√°pida de recaudaci√≥n y composici√≥n operativa. En desktop ofrece contexto anal√≠tico; en m√≥vil conserva legibilidad y foco.">
         <PerformanceSnapshotCard stats={stats} fmtK={fmtK} />
       </ResponsiveDashboardSection>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisiÛn r·pida.">
+        <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisi√≥n r√°pida.">
           <RecentActivityCard items={recentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
         </ResponsiveDashboardSection>
 
         <div ref={clientRef}>
-          <ResponsiveDashboardSection eyebrow="B˙squeda" title="Clientes recientes y b˙squeda r·pida" description="MÛdulo liviano para abrir expedientes desde Inicio sin cargar una tabla pesada en mÛvil.">
+          <ResponsiveDashboardSection eyebrow="B√∫squeda" title="Clientes recientes y b√∫squeda r√°pida" description="M√≥dulo liviano para abrir expedientes desde Inicio sin cargar una tabla pesada en m√≥vil.">
             <div className="space-y-4">
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
                 <input
                   type="text"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por nombre, telÈfono o email"
+                  placeholder="Buscar por nombre, tel√©fono o email"
                   className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-3">
                 {filteredClients.length === 0 ? (
                   <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                    No hay clientes que coincidan con la b˙squeda.
+                    No hay clientes que coincidan con la b√∫squeda.
                   </div>
                 ) : (
                   filteredClients.map((client) => (

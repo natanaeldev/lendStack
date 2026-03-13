@@ -13,7 +13,7 @@ export default function UrgentItemsPanel({ items, onOpenClient }: { items: Urgen
   const toneMap = {
     overdue: { label: 'Moroso', bg: '#FFF1F2', color: '#9F1239', border: '#FECACA' },
     due_today: { label: 'Hoy', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
-    upcoming: { label: 'Próximo', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+    upcoming: { label: 'PrÃ³ximo', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
   } as const
 
   if (items.length === 0) {
@@ -31,8 +31,8 @@ export default function UrgentItemsPanel({ items, onOpenClient }: { items: Urgen
                 <p className="break-words text-sm font-black text-slate-950">{item.clientName}</p>
                 <span className="rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ background: tone.bg, color: tone.color, borderColor: tone.border }}>{tone.label}</span>
               </div>
-              <p className="mt-2 break-words text-sm text-slate-500">{item.phone || 'Sin teléfono'} · {formatShortDate(item.dueDate)}</p>
-              <p className="mt-1 break-words text-xs font-semibold text-slate-400">{item.status === 'overdue' ? `${Math.abs(item.daysFromToday)} días de atraso` : item.status === 'due_today' ? 'Cobro esperado hoy' : `Vence en ${item.daysFromToday} días`}</p>
+              <p className="mt-2 break-words text-sm text-slate-500">{item.phone || 'Sin telÃ©fono'} Â· {formatShortDate(item.dueDate)}</p>
+              <p className="mt-1 break-words text-xs font-semibold text-slate-400">{item.status === 'overdue' ? `${Math.abs(item.daysFromToday)} dÃ­as de atraso` : item.status === 'due_today' ? 'Cobro esperado hoy' : `Vence en ${item.daysFromToday} dÃ­as`}</p>
             </div>
             <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-end">
               <p className="break-words text-base font-black text-slate-950">{fmt(item.amount, item.currency)}</p>
