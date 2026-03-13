@@ -111,7 +111,7 @@ export default function PrestamoFormMensual({
           </select>
         </Field>
         {rateMode === 'monthly' && (
-          <Field label="InterÃ©s mensual (%)" hint="Ingresa la tasa mensual exacta para este caso.">
+          <Field label="Interés mensual (%)" hint="Ingresa la tasa mensual exacta para este caso.">
             <input type="number" min="0" step="0.1" value={Number((customRate * 100).toFixed(2))} onChange={(event) => onChange({ monthlyCustomRate: Number(event.target.value) / 100 })} className={inputClassName} />
           </Field>
         )}
@@ -122,7 +122,7 @@ export default function PrestamoFormMensual({
           <input type="date" value={startDate} onChange={(event) => onChange({ startDate: event.target.value })} className={inputClassName} />
         </Field>
         <Field label="Observaciones" hint="Notas para el equipo, la ruta o seguimiento.">
-          <textarea value={notes} onChange={(event) => onChange({ notes: event.target.value })} rows={4} placeholder="Ej: cobrar despuÃ©s de las 4 p. m. o validar garante" className={`${inputClassName} min-h-[120px] resize-y`} />
+          <textarea value={notes} onChange={(event) => onChange({ notes: event.target.value })} rows={4} placeholder="Ej: cobrar después de las 4 p. m. o validar garante" className={`${inputClassName} min-h-[120px] resize-y`} />
         </Field>
       </Section>
     </div>
