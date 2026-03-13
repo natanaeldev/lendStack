@@ -530,8 +530,8 @@ export default function ClientsPanel({
         onCreate={handleOpenCreateForm}
       />
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
+        <div className="min-w-0 space-y-3">
           <ClienteSearchBar
             value={search}
             onChange={setSearch}
@@ -544,9 +544,9 @@ export default function ClientsPanel({
           <ClienteFilterChips value={filter} onChange={setFilter} />
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-4" style={cardStyles()}>
+        <div className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-4" style={cardStyles()}>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Vista</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
             {branchOptions.map((option) => {
               const active = branchFilter === option.value
               return (
@@ -554,7 +554,7 @@ export default function ClientsPanel({
                   key={option.value}
                   type="button"
                   onClick={() => setBranchFilter(option.value as Branch | 'all')}
-                  className="rounded-full border px-3 py-2 text-xs font-semibold transition"
+                  className="min-h-11 w-full rounded-2xl border px-3 py-2 text-left text-sm font-semibold leading-5 transition"
                   style={{
                     borderColor: active ? '#93C5FD' : '#E2E8F0',
                     background: active ? '#EFF6FF' : '#FFFFFF',
