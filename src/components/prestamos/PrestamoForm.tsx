@@ -309,7 +309,7 @@ export default function PrestamoForm({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Estado del préstamo</p>
-              <p className="truncate text-sm font-semibold text-slate-800">
+              <p className="break-words text-sm font-semibold text-slate-800">
                 {canSave ? 'Todo listo para guardar con confianza' : readinessItems[0]}
               </p>
             </div>

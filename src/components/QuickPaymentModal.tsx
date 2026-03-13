@@ -271,7 +271,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
                         onClick={() => setSelected(c)}
                         className="w-full text-left px-4 py-3 rounded-xl border-2 border-slate-100 hover:border-blue-300 hover:bg-blue-50 transition-all">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-bold text-slate-800 truncate">{c.name}</span>
+                          <span className="break-words text-sm font-bold text-slate-800">{c.name}</span>
                           <span className="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full"
                             style={{
                               background: c.loanStatus === 'approved' ? '#f0fdf4' : c.loanStatus === 'denied' ? '#fff1f2' : '#fffbeb',
@@ -305,7 +305,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
                 style={{ background: '#e8eef7', border: '2px solid #c5d5ea' }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Cliente seleccionado</p>
-                  <p className="text-sm font-bold truncate" style={{ color: '#0D2B5E' }}>{selected.name}</p>
+                  <p className="break-words text-sm font-bold" style={{ color: '#0D2B5E' }}>{selected.name}</p>
                 </div>
                 <button onClick={() => { setSelected(null); setSearch('') }}
                   className="text-xs text-slate-400 hover:text-slate-600 underline flex-shrink-0 transition-colors">
@@ -381,7 +381,7 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
                       title="Quitar imagen">
                       ✕
                     </button>
-                    <div className="px-3 py-1.5 text-xs text-slate-400 border-t border-slate-100 truncate">
+                    <div className="break-words px-3 py-1.5 text-xs text-slate-400 border-t border-slate-100">
                       {comprobanteFile?.name}
                     </div>
                   </div>

@@ -900,7 +900,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                           {c.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate" style={{ color: '#0D2B5E' }}>{c.name}</p>
+                          <p className="break-words text-sm font-bold" style={{ color: '#0D2B5E' }}>{c.name}</p>
                           <p className="text-xs text-slate-400">Cuota: {fmtLoan(c.result?.monthlyPayment ?? 0, c.params.currency)} · vence {payDateStr}</p>
                         </div>
                         <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"

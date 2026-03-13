@@ -180,8 +180,8 @@ export default function ClienteSelectField({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">{client.name}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                        <p className="break-words text-sm font-semibold text-slate-800">{client.name}</p>
+                        <p className="mt-1 break-words text-xs leading-5 text-slate-500">
                           {[client.phone, client.email].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
                         </p>
                       </div>

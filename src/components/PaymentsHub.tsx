@@ -290,7 +290,7 @@ export default function PaymentsHub({
                 <button key={client.id} onClick={() => onViewClient(client.id)} className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-left transition-colors hover:border-blue-200 hover:bg-blue-50">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-slate-900">{client.name}</p>
+                      <p className="break-words text-sm font-bold text-slate-900">{client.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{[client.phone, client.email, client.branchName].filter(Boolean).join(' · ') || 'Sin datos adicionales'}</p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
