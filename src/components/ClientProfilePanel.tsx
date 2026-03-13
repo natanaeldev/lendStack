@@ -766,18 +766,18 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW MODE
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="space-y-6 sm:space-y-7">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           onClick={onBack}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
         >
-          {'← Volver a clientes'}
+          {'\u2190 Volver a clientes'}
         </button>
-        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Perfil del cliente</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 sm:ml-1">Perfil del cliente</span>
         <button
           onClick={openEdit}
-          className="ml-auto inline-flex min-h-11 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-5 text-sm font-bold text-blue-700 transition hover:bg-blue-100 sm:ml-auto sm:w-auto"
         >
           Editar cliente
         </button>
@@ -788,8 +788,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         style={{ boxShadow: '0 18px 42px rgba(15,23,42,.08)', borderColor: sCfg.border }}
       >
         <div className="h-1.5" style={{ background: `linear-gradient(90deg,${sCfg.btnBg},${sCfg.border})` }} />
-        <div className="space-y-5 px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
             <div
               className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-black text-white sm:h-20 sm:w-20 sm:text-2xl"
               style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}
@@ -799,7 +799,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
             <div className="min-w-0 flex-1">
               <h1 className="break-words text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{client.name}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <ClienteStatusBadge label={cfg.label} tone="info" />
                 <ClienteStatusBadge
                   label={sCfg.label}
@@ -811,38 +811,38 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {client.phone && (
-                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{'Teléfono'}</p>
+                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 sm:px-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{'Tel\u00E9fono'}</p>
                     <p className="mt-1 break-words text-sm font-semibold text-slate-800">{client.phone}</p>
                   </div>
                 )}
                 {client.email && (
-                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
+                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 sm:px-4">
                     <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Email</p>
                     <p className="mt-1 break-all text-sm font-semibold text-slate-800">{client.email}</p>
                   </div>
                 )}
                 {client.idNumber && (
-                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{'Identificación'}</p>
+                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 sm:px-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{'Identificaci\u00F3n'}</p>
                     <p className="mt-1 break-words text-sm font-semibold text-slate-800">{client.idType}: {client.idNumber}</p>
                   </div>
                 )}
                 {client.nationality && (
-                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
+                  <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 sm:px-4">
                     <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Nacionalidad</p>
                     <p className="mt-1 break-words text-sm font-semibold text-slate-800">{client.nationality}</p>
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-xs text-slate-400">Solicitud registrada el {formatDate(client.savedAt)}</p>
+              <p className="mt-3 text-xs font-medium text-slate-400">Solicitud registrada el {formatDate(client.savedAt)}</p>
             </div>
 
-            <div className="grid shrink-0 gap-2 sm:w-[210px]">
+            <div className="grid shrink-0 gap-2 sm:w-[210px] lg:pt-1">
               <button
                 onClick={() => updateStatus('approved')}
                 disabled={updatingStatus}
-                className="rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-40"
+                className="min-h-11 rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-40"
                 style={{
                   background: client.loanStatus === 'approved' ? '#16A34A' : '#F0FDF4',
                   color: client.loanStatus === 'approved' ? '#fff' : '#15803D',
@@ -854,7 +854,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
               <button
                 onClick={() => updateStatus('denied')}
                 disabled={updatingStatus}
-                className="rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-40"
+                className="min-h-11 rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-40"
                 style={{
                   background: client.loanStatus === 'denied' ? '#DC2626' : '#FFF1F2',
                   color: client.loanStatus === 'denied' ? '#fff' : '#DC2626',
@@ -867,7 +867,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 <button
                   onClick={() => updateStatus('pending')}
                   disabled={updatingStatus}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-40"
+                  className="min-h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-40"
                 >
                   Restablecer estado
                 </button>
@@ -877,11 +877,11 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {onViewLoan && client.loanId && (
           <button
             onClick={() => onViewLoan(client.loanId!)}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
           >
             {'Ver pr\u00E9stamo completo'}
           </button>
@@ -890,15 +890,15 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
           <button
             onClick={syncLoanToLifecycle}
             disabled={syncingLoan}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition disabled:opacity-50"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition disabled:opacity-50 sm:w-auto"
           >
-            {syncingLoan ? 'Registrando…' : 'Registrar en sistema de préstamos'}
+            {syncingLoan ? 'Registrando\u2026' : 'Registrar en sistema de pr\u00E9stamos'}
           </button>
         )}
         <PdfExportButton params={loanParams} result={client.result} config={riskCfg} />
         <button
           onClick={() => setEmailOpen(true)}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
         >
           Enviar por email
         </button>
@@ -906,7 +906,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
       <section className="overflow-hidden rounded-[28px] bg-white" style={{ boxShadow: '0 16px 36px rgba(15,23,42,.06)' }}>
         <div className="flex items-center gap-2 bg-slate-950 px-5 py-3 text-white">
-          <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-200">{'Resumen del préstamo'}</span>
+          <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-200">{'Resumen del pr\u00E9stamo'}</span>
         </div>
         <div className="px-5 py-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
@@ -933,7 +933,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
           className="inline-flex min-h-11 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition"
           style={{ background: showAmort ? '#0D2B5E' : '#e8eef7', color: showAmort ? '#fff' : '#0D2B5E', borderColor: showAmort ? '#0D2B5E' : '#c5d5ea' }}
         >
-          {showAmort ? 'Ocultar tabla de amortización' : 'Ver tabla de amortización'}
+          {showAmort ? 'Ocultar tabla de amortizaci\u00F3n' : 'Ver tabla de amortizaci\u00F3n'}
         </button>
         {showAmort && (
           <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white" style={{ boxShadow: '0 16px 36px rgba(15,23,42,.06)' }}>
@@ -991,7 +991,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 <p className="mt-1 text-sm text-slate-500">{paidCount} pago{paidCount !== 1 ? 's' : ''} registrado{paidCount !== 1 ? 's' : ''}</p>
               </div>
             </div>
-            <div className="space-y-5 px-5 py-4">
+            <div className="space-y-5 px-4 py-4 sm:px-5">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
                   { label: 'Cuotas pagadas', value: String(paidCount), tone: paidCount > 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-700 bg-slate-50 border-slate-200' },
@@ -1109,7 +1109,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                     </label>
                   )}
                 </div>
-                <button onClick={registerPayment} disabled={payLoading} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40">{payLoading ? 'Registrando…' : 'Registrar pago'}</button>
+                <button onClick={registerPayment} disabled={payLoading} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40 sm:w-auto">{payLoading ? 'Registrando…' : 'Registrar pago'}</button>
               </div>
             </div>
           </section>
@@ -1135,7 +1135,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 >
                   <span className="text-2xl">{docIcon(doc.type)}</span>
                   <span className="break-words text-xs font-semibold leading-5 text-slate-700 group-hover:text-blue-700">{doc.name}</span>
-                  <span className="text-xs text-slate-400">{(doc.size / 1024).toFixed(0)} KB · {formatDate(doc.uploadedAt)}</span>
+                  <span className="text-xs text-slate-400">{`${(doc.size / 1024).toFixed(0)} KB \u00B7 ${formatDate(doc.uploadedAt)}`}</span>
                 </a>
               ))}
             </div>
