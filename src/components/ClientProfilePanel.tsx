@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   formatCurrency,
@@ -22,7 +22,7 @@ import type { ReceiptData } from '@/components/PaymentReceipt'
 import EmailModal       from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type LoanStatus = 'pending' | 'approved' | 'denied'
 
@@ -72,22 +72,22 @@ type EditForm = {
   branchId: string
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string; color: string; border: string; btnBg: string }> = {
-  pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
-  approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
-  denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
+  pending:  { label: 'Pendiente', emoji: 'â³', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
+  approved: { label: 'Aprobado',  emoji: 'âœ…', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
+  denied:   { label: 'Denegado',  emoji: 'âŒ', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
 }
 
 function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'CL'
 }
 function docIcon(type: string) {
-  return type.includes('pdf') ? '📄' : type.includes('image') ? '🖼️' : type.includes('word') ? '📝' : '📁'
+  return type.includes('pdf') ? 'ðŸ“„' : type.includes('image') ? 'ðŸ–¼ï¸' : type.includes('word') ? 'ðŸ“' : 'ðŸ“'
 }
 function formatDate(iso: string) {
-  if (!iso) return '—'
+  if (!iso) return 'â€”'
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }) }
   catch { return iso }
 }
@@ -129,11 +129,11 @@ function getLoanProfileMeta(client: ClientProfile) {
   const remainingInstallments = Math.max(0, totalInstallments - paidInstallments)
   const nextInstallmentNumber = Math.min(totalInstallments, paidInstallments + 1)
 
-  const installmentLabel = paymentFrequency === 'monthly' ? 'Cuota/mes' : paymentFrequency === 'weekly' ? 'Cuota/semana' : 'Cuota/dia'
+  const installmentLabel = paymentFrequency === 'monthly' ? 'Cuota/mes' : paymentFrequency === 'weekly' ? 'Cuota/semana' : 'Cuota/día'
   const termLabel = loanType === 'weekly'
     ? `${client.params.termWeeks ?? client.result.totalWeeks ?? totalInstallments} semanas`
     : loanType === 'carrito'
-      ? `${client.params.carritoTerm ?? totalInstallments} ${paymentFrequency === 'daily' ? 'dias' : 'semanas'}`
+      ? `${client.params.carritoTerm ?? totalInstallments} ${paymentFrequency === 'daily' ? 'días' : 'semanas'}`
       : `${client.params.termYears ?? 0} anos`
 
   const amortizationTitle = loanType === 'weekly'
@@ -157,11 +157,11 @@ function getLoanProfileMeta(client: ClientProfile) {
   }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function InfoBlock({ label, value }: { label: string; value?: string | boolean }) {
   if (!value && value !== false) return null
-  const display = typeof value === 'boolean' ? (value ? 'Sí' : 'No') : value
+  const display = typeof value === 'boolean' ? (value ? 'SÃ­' : 'No') : value
   return (
     <div className="py-2.5 border-b border-slate-100 last:border-0">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
@@ -206,7 +206,7 @@ function EditField({ label, children, full }: { label: string; children: React.R
   )
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Props â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface Props {
   clientId:     string
@@ -214,7 +214,7 @@ interface Props {
   onViewLoan?:  (loanId: string) => void
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Props) {
   const [client,         setClient]        = useState<ClientProfile | null>(null)
@@ -225,7 +225,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const [emailOpen,      setEmailOpen]     = useState(false)
   const [showAmort,      setShowAmort]     = useState(false)
 
-  // ── Edit mode ──────────────────────────────────────────────────────────────
+  // â”€â”€ Edit mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [editMode,  setEditMode]  = useState(false)
   const [editForm,  setEditForm]  = useState<EditForm | null>(null)
   const [saving,    setSaving]    = useState(false)
@@ -233,7 +233,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
   const [syncingLoan, setSyncingLoan] = useState(false)
 
-  // ── Payment registration ────────────────────────────────────────────────────
+  // â”€â”€ Payment registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [payForm,             setPayForm]             = useState({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
   const [payLoading,          setPayLoading]          = useState(false)
   const [deletingPayId,       setDeletingPayId]       = useState<string | null>(null)
@@ -258,7 +258,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const sf = (k: keyof EditForm) => (v: string | boolean) =>
     setEditForm(prev => prev ? { ...prev, [k]: v } : prev)
 
-  // ── Fetch client ───────────────────────────────────────────────────────────
+  // â”€â”€ Fetch client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const loadClient = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -284,7 +284,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       .catch(() => {})
   }, [])
 
-  // ── Update status ──────────────────────────────────────────────────────────
+  // â”€â”€ Update status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const updateStatus = async (next: LoanStatus) => {
     if (!client || updatingStatus) return
     const target = client.loanStatus === next ? 'pending' : next
@@ -300,7 +300,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     setUpdatingStatus(false)
   }
 
-  // ── Sync legacy loan to lifecycle system ───────────────────────────────────
+  // â”€â”€ Sync legacy loan to lifecycle system â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const syncLoanToLifecycle = async () => {
     if (!client || syncingLoan) return
     const loanMeta = getLoanProfileMeta(client)
@@ -334,14 +334,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         }),
       })
       const data = await res.json()
-      if (!res.ok) { showToast('❌', data.error ?? 'Error al sincronizar'); return }
-      showToast('💳', 'Préstamo registrado en el sistema')
+      if (!res.ok) { showToast('âŒ', data.error ?? 'Error al sincronizar'); return }
+      showToast('ðŸ’³', 'PrÃ©stamo registrado en el sistema')
       loadClient()
-    } catch { showToast('❌', 'Error de red') }
+    } catch { showToast('âŒ', 'Error de red') }
     finally { setSyncingLoan(false) }
   }
 
-  // ── Open edit mode ─────────────────────────────────────────────────────────
+  // â”€â”€ Open edit mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const openEdit = () => {
     if (!client) return
     setEditForm(clientToForm(client))
@@ -353,13 +353,13 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     setEditForm(null)
   }
 
-  // ── Save edits ─────────────────────────────────────────────────────────────
+  // â”€â”€ Save edits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const saveEdit = async () => {
     if (!editForm || saving) return
-    if (!editForm.name.trim()) { showToast('⚠️', 'El nombre es obligatorio'); return }
+    if (!editForm.name.trim()) { showToast('âš ï¸', 'El nombre es obligatorio'); return }
     setSaving(true)
     try {
-      // Transform branchId: '' → null (empty string = "clear branch assignment")
+      // Transform branchId: '' â†’ null (empty string = "clear branch assignment")
       const { branchId: rawBranchId, ...rest } = editForm
       const branchId = rawBranchId || null
       const res = await fetch(`/api/clients/${clientId}`, {
@@ -369,10 +369,10 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       })
       if (!res.ok) {
         const data = await res.json()
-        showToast('❌', data.error ?? 'Error al guardar')
+        showToast('âŒ', data.error ?? 'Error al guardar')
         return
       }
-      // Optimistic update — derive branch type + name from local branches cache
+      // Optimistic update â€” derive branch type + name from local branches cache
       const selectedBranch = branchId ? branches.find(b => b.id === branchId) : null
       setClient(prev => prev ? {
         ...prev, ...rest,
@@ -382,19 +382,19 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
       } : prev)
       setEditMode(false)
       setEditForm(null)
-      showToast('✅', 'Datos del cliente actualizados')
+      showToast('âœ…', 'Datos del cliente actualizados')
     } catch {
-      showToast('❌', 'No se pudo conectar')
+      showToast('âŒ', 'No se pudo conectar')
     } finally {
       setSaving(false)
     }
   }
 
-  // ── Register payment ───────────────────────────────────────────────────────
+  // â”€â”€ Register payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const registerPayment = async () => {
     const amount = parseFloat(payForm.amount)
     if (!payForm.date || isNaN(amount) || amount <= 0) {
-      showToast('⚠️', 'Completá la fecha y un monto válido')
+      showToast('âš ï¸', 'CompletÃ¡ la fecha y un monto vÃ¡lido')
       return
     }
     setPayLoading(true)
@@ -412,12 +412,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         method: 'POST',
         body:   fd,
       })
-      if (!res.ok) { const d = await res.json(); showToast('❌', d.error ?? 'Error'); return }
+      if (!res.ok) { const d = await res.json(); showToast('âŒ', d.error ?? 'Error'); return }
       const { payment } = await res.json()
       setClient(prev => prev ? { ...prev, payments: [...prev.payments, payment] } : prev)
       setPayForm({ date: new Date().toISOString().slice(0, 10), amount: '', cuotaNumber: '', notes: '' })
       clearPayComprobante()
-      showToast('✅', 'Pago registrado correctamente')
+      showToast('âœ…', 'Pago registrado correctamente')
       // Show inline receipt modal (avoids browser popup blockers)
       if (client) setReceiptData({
         clientName:     client.name,
@@ -435,7 +435,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         totalMonths:    loanMeta.totalInstallments,
         profile:        client.params.profile,
       })
-    } catch { showToast('❌', 'No se pudo conectar') }
+    } catch { showToast('âŒ', 'No se pudo conectar') }
     finally  { setPayLoading(false) }
   }
 
@@ -452,7 +452,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     setDeletingPayId(null)
   }
 
-  // ── Upload document ────────────────────────────────────────────────────────
+  // â”€â”€ Upload document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const uploadDoc = async (file: File) => {
     if (!client) return
     setUploading(true)
@@ -467,12 +467,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     } finally { setUploading(false) }
   }
 
-  // ── Render states ──────────────────────────────────────────────────────────
+  // â”€â”€ Render states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-slate-500">Cargando perfil del cliente…</p>
+        <p className="text-sm text-slate-500">Cargando perfil del clienteâ€¦</p>
       </div>
     </div>
   )
@@ -480,9 +480,9 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   if (error || !client) return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center max-w-sm">
-        <p className="text-4xl mb-4">😕</p>
+        <p className="text-4xl mb-4">ðŸ˜•</p>
         <p className="text-slate-700 font-semibold mb-2">{error || 'Cliente no encontrado'}</p>
-        <button onClick={onBack} className="text-sm text-blue-600 underline">← Volver a la lista</button>
+        <button onClick={onBack} className="text-sm text-blue-600 underline">â† Volver a la lista</button>
       </div>
     </div>
   )
@@ -545,9 +545,9 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         }))
       : buildAmortization(loanParams)
 
-  // ════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EDIT MODE
-  // ════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (editMode && editForm) {
     return (
       <div className="space-y-5">
@@ -557,10 +557,10 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
           <button onClick={cancelEdit}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
             style={{ background: '#e8eef7', color: '#0D2B5E' }}>
-            ← Cancelar
+            â† Cancelar
           </button>
           <span className="text-sm font-bold" style={{ color: '#0D2B5E' }}>
-            ✏️ Editando: {client.name}
+            âœï¸ Editando: {client.name}
           </span>
           <div className="ml-auto flex gap-3">
             <button onClick={cancelEdit}
@@ -570,7 +570,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             <button onClick={saveEdit} disabled={saving}
               className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-              {saving ? '⏳ Guardando...' : '💾 Guardar cambios'}
+              {saving ? 'â³ Guardando...' : 'ðŸ’¾ Guardar cambios'}
             </button>
           </div>
         </div>
@@ -579,8 +579,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         <div className="rounded-2xl p-6 bg-white border border-slate-200"
           style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
 
-          {/* Sección 1 — Personal */}
-          <EditSectionHeader emoji="👤" title="Sección 1 — Información Personal" />
+          {/* SecciÃ³n 1 â€” Personal */}
+          <EditSectionHeader emoji="ðŸ‘¤" title="SecciÃ³n 1 â€” InformaciÃ³n Personal" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <EditField label="Nombre completo *">
@@ -588,26 +588,26 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="Correo electrónico">
+            <EditField label="Correo electrÃ³nico">
               <input type="email" value={editForm.email} onChange={e => sf('email')(e.target.value)}
                 className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="Teléfono">
+            <EditField label="TelÃ©fono">
               <input type="text" value={editForm.phone} onChange={e => sf('phone')(e.target.value)}
                 placeholder="+54 11 1234-5678" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="Tipo y número de identificación">
+            <EditField label="Tipo y nÃºmero de identificaciÃ³n">
               <div className="flex gap-2">
                 <select value={editForm.idType} onChange={e => sf('idType')(e.target.value)}
                   className="px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
                   style={{ color: '#374151', minWidth: '80px' }}>
-                  {['DNI','CUIT','CUIL','Pasaporte','RUT','RUC','CC','NIT','Cédula'].map(t =>
+                  {['DNI','CUIT','CUIL','Pasaporte','RUT','RUC','CC','NIT','CÃ©dula'].map(t =>
                     <option key={t}>{t}</option>)}
                 </select>
                 <input type="text" value={editForm.idNumber} onChange={e => sf('idNumber')(e.target.value)}
-                  placeholder="Número de documento" className={inputCls} style={{ color: '#374151' }} />
+                  placeholder="NÃºmero de documento" className={inputCls} style={{ color: '#374151' }} />
               </div>
             </EditField>
 
@@ -621,18 +621,18 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 placeholder="Ej: Argentina" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
-            <EditField label="Dirección actual" full>
+            <EditField label="DirecciÃ³n actual" full>
               <input type="text" value={editForm.address} onChange={e => sf('address')(e.target.value)}
-                placeholder="Calle, número, ciudad, provincia" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Calle, nÃºmero, ciudad, provincia" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
           </div>
 
-          {/* Sección 2 — Financiera */}
-          <EditSectionHeader emoji="💰" title="Sección 2 — Información Financiera" />
+          {/* SecciÃ³n 2 â€” Financiera */}
+          <EditSectionHeader emoji="ðŸ’°" title="SecciÃ³n 2 â€” InformaciÃ³n Financiera" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            <EditField label="Ocupación / Empleador">
+            <EditField label="OcupaciÃ³n / Empleador">
               <input type="text" value={editForm.occupation} onChange={e => sf('occupation')(e.target.value)}
                 className={inputCls} style={{ color: '#374151' }} />
             </EditField>
@@ -649,7 +649,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                     <input type="radio" checked={editForm.hasIncomeProof === val}
                       onChange={() => sf('hasIncomeProof')(val)}
                       className="accent-blue-600" />
-                    <span className="text-sm text-slate-700">{val ? 'Sí' : 'No'}</span>
+                    <span className="text-sm text-slate-700">{val ? 'SÃ­' : 'No'}</span>
                   </label>
                 ))}
               </div>
@@ -672,8 +672,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
           </div>
 
-          {/* Sección 3 — Garantías */}
-          <EditSectionHeader emoji="🏠" title="Sección 3 — Garantías y Arraigo" />
+          {/* SecciÃ³n 3 â€” GarantÃ­as */}
+          <EditSectionHeader emoji="ðŸ " title="SecciÃ³n 3 â€” GarantÃ­as y Arraigo" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <EditField label="Colateral disponible" full>
@@ -683,13 +683,13 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
             <EditField label="Arraigo territorial" full>
               <input type="text" value={editForm.territorialTies} onChange={e => sf('territorialTies')(e.target.value)}
-                placeholder="Ej: 15 años de residencia, propietario, empleo estable" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Ej: 15 aÃ±os de residencia, propietario, empleo estable" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
           </div>
 
-          {/* Sección 4 — Historial */}
-          <EditSectionHeader emoji="📋" title="Sección 4 — Historial y Referencias" />
+          {/* SecciÃ³n 4 â€” Historial */}
+          <EditSectionHeader emoji="ðŸ“‹" title="SecciÃ³n 4 â€” Historial y Referencias" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             <EditField label="Historial crediticio" full>
@@ -699,12 +699,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
             <EditField label="Referencia 1">
               <input type="text" value={editForm.reference1} onChange={e => sf('reference1')(e.target.value)}
-                placeholder="Nombre y teléfono" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Nombre y telÃ©fono" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
             <EditField label="Referencia 2">
               <input type="text" value={editForm.reference2} onChange={e => sf('reference2')(e.target.value)}
-                placeholder="Nombre y teléfono" className={inputCls} style={{ color: '#374151' }} />
+                placeholder="Nombre y telÃ©fono" className={inputCls} style={{ color: '#374151' }} />
             </EditField>
 
             <EditField label="Notas del asesor" full>
@@ -714,19 +714,19 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
           </div>
 
-          {/* Sección 5 — Sucursal */}
-          <EditSectionHeader emoji="🏢" title="Sección 5 — Sucursal Asignada" />
+          {/* SecciÃ³n 5 â€” Sucursal */}
+          <EditSectionHeader emoji="ðŸ¢" title="SecciÃ³n 5 â€” Sucursal Asignada" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <EditField label="Sucursal" full>
               {branches.length > 0 ? (
                 <select value={editForm.branchId} onChange={e => sf('branchId')(e.target.value)}
                   className={inputCls} style={{ color: editForm.branchId ? '#374151' : '#94a3b8' }}>
-                  <option value="">— Sin asignar —</option>
+                  <option value="">â€” Sin asignar â€”</option>
                   {(['sede', 'rutas'] as const).map(type => {
                     const group = branches.filter(b => b.type === type)
                     if (!group.length) return null
                     return (
-                      <optgroup key={type} label={type === 'sede' ? '🏢 Sede' : '🛣️ Rutas'}>
+                      <optgroup key={type} label={type === 'sede' ? 'ðŸ¢ Sede' : 'ðŸ›£ï¸ Rutas'}>
                         {group.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </optgroup>
                     )
@@ -734,7 +734,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 </select>
               ) : (
                 <p className="text-sm text-slate-400 px-4 py-2.5 rounded-xl border-2 border-slate-100 bg-slate-50">
-                  No hay sucursales creadas — creá una en <span className="font-semibold">Admin → Sucursales</span>.
+                  No hay sucursales creadas â€” creÃ¡ una en <span className="font-semibold">Admin â†’ Sucursales</span>.
                 </p>
               )}
             </EditField>
@@ -745,7 +745,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             <button onClick={saveEdit} disabled={saving}
               className="px-8 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-              {saving ? '⏳ Guardando...' : '💾 Guardar cambios'}
+              {saving ? 'â³ Guardando...' : 'ðŸ’¾ Guardar cambios'}
             </button>
             <button onClick={cancelEdit}
               className="px-5 py-3 rounded-xl text-sm font-bold border-2 border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors">
@@ -759,28 +759,28 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     )
   }
 
-  // ════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW MODE
-  // ════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div className="space-y-5">
 
-      {/* ── Back + Edit buttons ── */}
+      {/* â”€â”€ Back + Edit buttons â”€â”€ */}
       <div className="flex items-center gap-3 flex-wrap">
         <button onClick={onBack}
           className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
           style={{ background: '#e8eef7', color: '#0D2B5E' }}>
-          ← Volver a clientes
+          â† Volver a clientes
         </button>
         <span className="text-xs text-slate-400">Perfil del cliente</span>
         <button onClick={openEdit}
           className="ml-auto flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
           style={{ background: '#fff', color: '#1565C0', borderColor: '#1565C0' }}>
-          ✏️ Editar cliente
+          âœï¸ Editar cliente
         </button>
       </div>
 
-      {/* ── Hero card ── */}
+      {/* â”€â”€ Hero card â”€â”€ */}
       <div className="rounded-2xl overflow-hidden"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,.08)', border: `2px solid ${sCfg.border}` }}>
         <div className="h-1.5" style={{ background: `linear-gradient(90deg,${sCfg.btnBg},${sCfg.border})` }} />
@@ -812,22 +812,22 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 {(client.branchName || client.branch) && (
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
                     style={{ background: '#e8eef7', color: '#0D2B5E', border: '1.5px solid #c5d5ea' }}>
-                    🏢 {client.branchName ?? (client.branch === 'sede' ? 'Sede' : 'Rutas')}
+                    ðŸ¢ {client.branchName ?? (client.branch === 'sede' ? 'Sede' : 'Rutas')}
                   </span>
                 )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs sm:text-sm text-slate-500">
-                {client.email    && <span>✉️ {client.email}</span>}
-                {client.phone    && <span>📞 {client.phone}</span>}
-                {client.idNumber && <span>🪪 {client.idType}: {client.idNumber}</span>}
-                {client.nationality && <span>🌍 {client.nationality}</span>}
+                {client.email    && <span>âœ‰ï¸ {client.email}</span>}
+                {client.phone    && <span>ðŸ“ž {client.phone}</span>}
+                {client.idNumber && <span>ðŸªª {client.idType}: {client.idNumber}</span>}
+                {client.nationality && <span>ðŸŒ {client.nationality}</span>}
               </div>
               <p className="text-xs text-slate-400 mt-1.5">
                 Solicitud registrada el {formatDate(client.savedAt)}
               </p>
             </div>
 
-            {/* Approve / Deny — desktop only (vertical column) */}
+            {/* Approve / Deny â€” desktop only (vertical column) */}
             <div className="hidden sm:flex flex-col gap-2 flex-shrink-0">
               <button onClick={() => updateStatus('approved')} disabled={updatingStatus}
                 className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
@@ -836,7 +836,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                   color:      client.loanStatus === 'approved' ? '#fff'    : '#15803D',
                   border:     `2px solid ${client.loanStatus === 'approved' ? '#16A34A' : '#86EFAC'}`,
                 }}>
-                ✅ {client.loanStatus === 'approved' ? 'Aprobado ✓' : 'Aprobar'}
+                âœ… {client.loanStatus === 'approved' ? 'Aprobado âœ“' : 'Aprobar'}
               </button>
               <button onClick={() => updateStatus('denied')} disabled={updatingStatus}
                 className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 hover:opacity-90 active:scale-95"
@@ -845,18 +845,18 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                   color:      client.loanStatus === 'denied' ? '#fff'    : '#DC2626',
                   border:     `2px solid ${client.loanStatus === 'denied' ? '#DC2626' : '#FECDD3'}`,
                 }}>
-                ❌ {client.loanStatus === 'denied' ? 'Denegado ✓' : 'Denegar'}
+                âŒ {client.loanStatus === 'denied' ? 'Denegado âœ“' : 'Denegar'}
               </button>
               {client.loanStatus !== 'pending' && (
                 <button onClick={() => updateStatus('pending')} disabled={updatingStatus}
                   className="text-xs text-slate-400 hover:text-slate-600 underline text-center disabled:opacity-40 transition-colors">
-                  ↩ Restablecer
+                  â†© Restablecer
                 </button>
               )}
             </div>
           </div>
 
-          {/* Approve / Deny — mobile only (full-width row below name) */}
+          {/* Approve / Deny â€” mobile only (full-width row below name) */}
           <div className="sm:hidden flex gap-2 mt-3">
             <button onClick={() => updateStatus('approved')} disabled={updatingStatus}
               className="flex-1 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
@@ -865,7 +865,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 color:      client.loanStatus === 'approved' ? '#fff'    : '#15803D',
                 border:     `2px solid ${client.loanStatus === 'approved' ? '#16A34A' : '#86EFAC'}`,
               }}>
-              ✅ {client.loanStatus === 'approved' ? 'Aprobado ✓' : 'Aprobar'}
+              âœ… {client.loanStatus === 'approved' ? 'Aprobado âœ“' : 'Aprobar'}
             </button>
             <button onClick={() => updateStatus('denied')} disabled={updatingStatus}
               className="flex-1 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
@@ -874,12 +874,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 color:      client.loanStatus === 'denied' ? '#fff'    : '#DC2626',
                 border:     `2px solid ${client.loanStatus === 'denied' ? '#DC2626' : '#FECDD3'}`,
               }}>
-              ❌ {client.loanStatus === 'denied' ? 'Denegado ✓' : 'Denegar'}
+              âŒ {client.loanStatus === 'denied' ? 'Denegado âœ“' : 'Denegar'}
             </button>
             {client.loanStatus !== 'pending' && (
               <button onClick={() => updateStatus('pending')} disabled={updatingStatus}
                 className="px-3 py-2 rounded-xl text-xs text-slate-500 border border-slate-200 bg-slate-50 disabled:opacity-40 transition-colors flex-shrink-0">
-                ↩
+                â†©
               </button>
             )}
           </div>
@@ -887,14 +887,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         </div>
       </div>
 
-      {/* ── Loan lifecycle actions ── */}
+      {/* â”€â”€ Loan lifecycle actions â”€â”€ */}
       <div className="flex flex-wrap gap-2 justify-end">
         {onViewLoan && client.loanId && (
           <button
             onClick={() => onViewLoan(client.loanId!)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
-            Ver préstamo completo →
+            Ver prÃ©stamo completo â†’
           </button>
         )}
         {!client.loanId && client.params && (
@@ -903,17 +903,17 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             disabled={syncingLoan}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all disabled:opacity-50"
             style={{ borderColor: '#2563EB', color: '#2563EB', background: '#EFF6FF' }}>
-            {syncingLoan ? 'Registrando…' : '🔗 Registrar en sistema de préstamos'}
+            {syncingLoan ? 'Registrandoâ€¦' : 'ðŸ”— Registrar en sistema de prÃ©stamos'}
           </button>
         )}
       </div>
 
-      {/* ── Loan summary ── */}
+      {/* â”€â”€ Loan summary â”€â”€ */}
       <div className="rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
         <div className="px-5 py-3 flex items-center gap-2"
           style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-          <span className="text-base">💳</span>
-          <span className="text-xs font-bold uppercase tracking-widest text-blue-100">Simulación del Préstamo</span>
+          <span className="text-base">ðŸ’³</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-blue-100">SimulaciÃ³n del PrÃ©stamo</span>
         </div>
         <div className="bg-white px-5 py-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
@@ -934,22 +934,22 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         </div>
       </div>
 
-      {/* ── Action buttons ── */}
+      {/* â”€â”€ Action buttons â”€â”€ */}
       <div className="flex flex-wrap gap-3">
         <PdfExportButton params={loanParams} result={client.result} config={riskCfg} />
         <button onClick={() => setEmailOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
           style={{ color: '#1565C0', borderColor: '#1565C0', background: '#fff' }}>
-          ✉️ Enviar por email
+          âœ‰ï¸ Enviar por email
         </button>
       </div>
 
-      {/* ── Amortization table ── */}
+      {/* â”€â”€ Amortization table â”€â”€ */}
       <div>
         <button onClick={() => setShowAmort(s => !s)}
           className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
           style={{ background: showAmort ? '#0D2B5E' : '#e8eef7', color: showAmort ? '#fff' : '#0D2B5E', border: `1px solid ${showAmort ? '#0D2B5E' : '#c5d5ea'}` }}>
-          {showAmort ? '▲ Ocultar tabla de amortización' : '▼ Ver tabla de amortización'}
+          {showAmort ? 'â–² Ocultar tabla de amortizaciÃ³n' : 'â–¼ Ver tabla de amortizaciÃ³n'}
         </button>
         {showAmort && (
           <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
@@ -957,7 +957,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between"
               style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
               <div className="flex items-center gap-2">
-                <span className="text-base">📊</span>
+                <span className="text-base">ðŸ“Š</span>
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
                   {loanMeta.amortizationTitle}
                 </span>
@@ -974,28 +974,28 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         )}
       </div>
 
-      {/* ── Info grid ── */}
+      {/* â”€â”€ Info grid â”€â”€ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <SectionCard emoji="👤" title="Información Personal">
+        <SectionCard emoji="ðŸ‘¤" title="InformaciÃ³n Personal">
           <InfoBlock label="Fecha de nacimiento" value={client.birthDate} />
           <InfoBlock label="Nacionalidad"        value={client.nationality} />
-          <InfoBlock label="Dirección"           value={client.address} />
+          <InfoBlock label="DirecciÃ³n"           value={client.address} />
           <InfoBlock label="Tipo de ID"          value={client.idType} />
-          <InfoBlock label="Número de ID"        value={client.idNumber} />
+          <InfoBlock label="NÃºmero de ID"        value={client.idNumber} />
         </SectionCard>
-        <SectionCard emoji="💰" title="Información Financiera">
-          <InfoBlock label="Ocupación / Empleador"      value={client.occupation} />
+        <SectionCard emoji="ðŸ’°" title="InformaciÃ³n Financiera">
+          <InfoBlock label="OcupaciÃ³n / Empleador"      value={client.occupation} />
           <InfoBlock label="Ingresos mensuales"         value={client.monthlyIncome} />
           <InfoBlock label="Adjunta comprobantes"       value={client.hasIncomeProof} />
           <InfoBlock label="Detalle de deudas actuales" value={client.currentDebts} />
           <InfoBlock label="Valor total de deudas"      value={client.totalDebtValue} />
           <InfoBlock label="Capacidad de pago mensual"  value={client.paymentCapacity} />
         </SectionCard>
-        <SectionCard emoji="🏠" title="Garantías y Arraigo">
+        <SectionCard emoji="ðŸ " title="GarantÃ­as y Arraigo">
           <InfoBlock label="Colateral disponible" value={client.collateral} />
           <InfoBlock label="Arraigo territorial"  value={client.territorialTies} />
         </SectionCard>
-        <SectionCard emoji="📋" title="Historial y Referencias">
+        <SectionCard emoji="ðŸ“‹" title="Historial y Referencias">
           <InfoBlock label="Historial crediticio" value={client.creditHistory} />
           <InfoBlock label="Referencia 1"         value={client.reference1} />
           <InfoBlock label="Referencia 2"         value={client.reference2} />
@@ -1003,7 +1003,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         </SectionCard>
       </div>
 
-      {/* ── Historial de pagos ── */}
+      {/* â”€â”€ Historial de pagos â”€â”€ */}
       {(() => {
         const payments    = client.payments ?? []
         const totalPaid   = loanMeta.totalPaid
@@ -1018,7 +1018,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
             {/* Header */}
             <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2"
               style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
-              <span className="text-base">💵</span>
+              <span className="text-base">ðŸ’µ</span>
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Historial de pagos</span>
               <span className="ml-auto text-xs text-slate-400">
                 {paidCount} pago{paidCount !== 1 ? 's' : ''} registrado{paidCount !== 1 ? 's' : ''}
@@ -1027,7 +1027,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
             <div className="px-5 py-4 space-y-5">
 
-              {/* ── Quota KPI cards ── */}
+              {/* â”€â”€ Quota KPI cards â”€â”€ */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {([
                   {
@@ -1063,7 +1063,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 ))}
               </div>
 
-              {/* ── Progress bar ── */}
+              {/* â”€â”€ Progress bar â”€â”€ */}
               <div>
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700"
@@ -1074,18 +1074,18 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                     {progress}% del total cubierto
                   </span>
                   <span className="text-slate-400">
-                    Total préstamo: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(client.result.totalPayment)}</span>
+                    Total prÃ©stamo: <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmt(client.result.totalPayment)}</span>
                   </span>
                 </div>
               </div>
 
-              {/* ── Payment history table ── */}
+              {/* â”€â”€ Payment history table â”€â”€ */}
               {payments.length > 0 ? (
                 <div>
                   <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2">Detalle de cobros</p>
                   <div className="rounded-xl border border-slate-100 overflow-hidden">
 
-                    {/* Column headers — desktop */}
+                    {/* Column headers â€” desktop */}
                     <div className="hidden sm:flex items-center gap-4 px-4 py-2 bg-slate-50 border-b border-slate-100">
                       <span className="w-14 flex-shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400">Cuota</span>
                       <span className="w-28 flex-shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400">Monto</span>
@@ -1109,7 +1109,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                           ) : (
                             <span className="inline-block text-xs font-semibold px-2 py-1 rounded-lg"
                               style={{ background: '#f1f5f9', color: '#94a3b8' }}>
-                              —
+                              â€”
                             </span>
                           )}
                         </div>
@@ -1121,7 +1121,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
 
                         {/* Date */}
                         <p className="w-36 text-xs text-slate-500 flex-shrink-0">
-                          📅 {formatDate(p.date)}
+                          ðŸ“… {formatDate(p.date)}
                         </p>
 
                         {/* Notes */}
@@ -1160,7 +1160,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                             disabled={deletingPayId === p.id}
                             className="text-xs text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40 flex-shrink-0"
                             title="Eliminar pago">
-                            {deletingPayId === p.id ? '⏳' : '✕'}
+                            {deletingPayId === p.id ? 'â³' : 'âœ•'}
                           </button>
                         </div>
                       </div>
@@ -1169,13 +1169,13 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 </div>
               ) : (
                 <div className="text-center py-6 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="text-2xl mb-2">📭</p>
-                  <p className="text-sm font-medium text-slate-400">Sin pagos registrados todavía.</p>
-                  <p className="text-xs text-slate-400 mt-1">Usá el formulario de abajo para registrar el primer pago.</p>
+                  <p className="text-2xl mb-2">ðŸ“­</p>
+                  <p className="text-sm font-medium text-slate-400">Sin pagos registrados todavÃ­a.</p>
+                  <p className="text-xs text-slate-400 mt-1">UsÃ¡ el formulario de abajo para registrar el primer pago.</p>
                 </div>
               )}
 
-              {/* ── Register new payment form ── */}
+              {/* â”€â”€ Register new payment form â”€â”€ */}
               <div className="rounded-xl border-2 border-dashed border-slate-200 p-4 space-y-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Registrar nuevo pago</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1195,7 +1195,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                       style={{ color: '#374151' }} />
                   </div>
                   <div className="min-w-0">
-                    <label className="block text-xs text-slate-500 mb-1">N.º de cuota (opcional)</label>
+                    <label className="block text-xs text-slate-500 mb-1">N.Âº de cuota (opcional)</label>
                     <input type="number" min="1" max={totalMonths} value={payForm.cuotaNumber}
                       onChange={e => setPayForm(f => ({ ...f, cuotaNumber: e.target.value }))}
                       placeholder={paidCount < totalMonths ? `Siguiente: ${loanMeta.nextInstallmentNumber}` : `1 - ${totalMonths}`}
@@ -1206,14 +1206,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                     <label className="block text-xs text-slate-500 mb-1">Notas (opcional)</label>
                     <input type="text" value={payForm.notes}
                       onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
-                      placeholder="Ej: pago parcial, en efectivo…"
+                      placeholder="Ej: pago parcial, en efectivoâ€¦"
                       className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 bg-white"
                       style={{ color: '#374151' }} />
                   </div>
                 </div>
                 {/* Comprobante capture */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-500 mb-1">📸 Comprobante (opcional)</label>
+                  <label className="block text-xs text-slate-500 mb-1">ðŸ“¸ Comprobante (opcional)</label>
                   {payComprobantePreview ? (
                     <div className="relative rounded-xl overflow-hidden border-2 border-blue-200 bg-slate-50">
                       <img src={payComprobantePreview} alt="Comprobante" className="w-full max-h-40 object-contain" />
@@ -1222,7 +1222,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                         className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
                         style={{ background: '#DC2626' }}
                         title="Quitar imagen">
-                        ✕
+                        âœ•
                       </button>
                       <p className="px-3 py-1 text-xs text-slate-400 border-t border-slate-100 truncate">
                         {payComprobanteFile?.name}
@@ -1242,10 +1242,10 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                           e.target.value = ''
                         }}
                       />
-                      <span className="text-xl">📸</span>
+                      <span className="text-xl">ðŸ“¸</span>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-600 leading-tight">Adjuntar comprobante</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Usá la cámara o elegí una imagen</p>
+                        <p className="text-xs text-slate-400 mt-0.5">UsÃ¡ la cÃ¡mara o elegÃ­ una imagen</p>
                       </div>
                     </label>
                   )}
@@ -1253,7 +1253,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                 <button onClick={registerPayment} disabled={payLoading}
                   className="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
                   style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-                  {payLoading ? '⏳ Registrando…' : '+ Registrar pago'}
+                  {payLoading ? 'â³ Registrandoâ€¦' : '+ Registrar pago'}
                 </button>
               </div>
 
@@ -1262,12 +1262,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         )
       })()}
 
-      {/* ── Documents ── */}
+      {/* â”€â”€ Documents â”€â”€ */}
       <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
         style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
         <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2"
           style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
-          <span className="text-base">📎</span>
+          <span className="text-base">ðŸ“Ž</span>
           <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Documentos adjuntos</span>
           <span className="ml-auto text-xs text-slate-400">
             {client.documents.length} archivo{client.documents.length !== 1 ? 's' : ''}
@@ -1286,27 +1286,27 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
                   style={{ borderColor: '#e2e8f0', minWidth: '140px' }}>
                   <span className="text-2xl">{docIcon(doc.type)}</span>
                   <span className="text-xs font-semibold text-slate-700 group-hover:text-blue-700 leading-tight">{doc.name}</span>
-                  <span className="text-xs text-slate-400">{(doc.size / 1024).toFixed(0)} KB · {formatDate(doc.uploadedAt)}</span>
+                  <span className="text-xs text-slate-400">{(doc.size / 1024).toFixed(0)} KB Â· {formatDate(doc.uploadedAt)}</span>
                 </a>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 mb-4">Sin documentos adjuntos todavía.</p>
+            <p className="text-sm text-slate-400 mb-4">Sin documentos adjuntos todavÃ­a.</p>
           )}
           <label className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-2 border-dashed transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'}`}
             style={{ borderColor: '#c5d5ea', color: '#64748b' }}>
             <input type="file" className="hidden" disabled={uploading}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx"
               onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc(f); e.target.value = '' }} />
-            {uploading ? '⏳ Subiendo…' : '+ Adjuntar documento'}
+            {uploading ? 'â³ Subiendoâ€¦' : '+ Adjuntar documento'}
           </label>
-          <p className="text-xs text-slate-400 mt-1.5">PDF, Word, Excel, imágenes · Máx. 10 MB</p>
+          <p className="text-xs text-slate-400 mt-1.5">PDF, Word, Excel, imÃ¡genes Â· MÃ¡x. 10 MB</p>
         </div>
       </div>
 
       <div className="h-4" />
 
-      {/* ── Modals ── */}
+      {/* â”€â”€ Modals â”€â”€ */}
       <EmailModal
         isOpen={emailOpen}
         onClose={() => setEmailOpen(false)}
@@ -1340,7 +1340,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
               onClick={() => setLightboxUrl(null)}
               className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white transition-opacity hover:opacity-80"
               style={{ background: 'rgba(0,0,0,.5)' }}>
-              ✕
+              âœ•
             </button>
             <a
               href={lightboxUrl}
@@ -1349,7 +1349,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
               className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-bold text-white"
               style={{ background: 'rgba(0,0,0,.5)' }}
               onClick={e => e.stopPropagation()}>
-              🔗 Ver original
+              ðŸ”— Ver original
             </a>
           </div>
         </div>
@@ -1359,3 +1359,4 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     </div>
   )
 }
+

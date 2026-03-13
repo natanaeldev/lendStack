@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ import PdfExportButton  from '@/components/PdfExport'
 import EmailModal       from '@/components/EmailModal'
 import ToastProvider    from '@/components/Toast'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type LoanStatus = 'pending' | 'approved' | 'denied'
 
@@ -33,37 +33,37 @@ interface ClientProfile {
   documents: ClientDoc[]
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const STATUS_CFG: Record<LoanStatus, { label: string; emoji: string; bg: string; color: string; border: string; btnBg: string }> = {
-  pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
-  approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
-  denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
+  pending:  { label: 'Pendiente', emoji: 'â³', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', btnBg: '#F59E0B' },
+  approved: { label: 'Aprobado',  emoji: 'âœ…', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC', btnBg: '#16A34A' },
+  denied:   { label: 'Denegado',  emoji: 'âŒ', bg: '#FFF1F2', color: '#881337', border: '#FECDD3', btnBg: '#DC2626' },
 }
 
 const BRANCH_CFG: Record<Branch, { label: string; emoji: string; bg: string; color: string; border: string }> = {
-  sede:  { label: 'Sede',  emoji: '🏢', bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE' },
-  rutas: { label: 'Rutas', emoji: '🛵', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' },
+  sede:  { label: 'Sede',  emoji: 'ðŸ¢', bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE' },
+  rutas: { label: 'Rutas', emoji: 'ðŸ›µ', bg: '#FFF7ED', color: '#9A3412', border: '#FED7AA' },
 }
 
 function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'CL'
 }
 function docIcon(type: string) {
-  return type.includes('pdf') ? '📄' : type.includes('image') ? '🖼️' : type.includes('word') ? '📝' : '📁'
+  return type.includes('pdf') ? 'ðŸ“„' : type.includes('image') ? 'ðŸ–¼ï¸' : type.includes('word') ? 'ðŸ“' : 'ðŸ“'
 }
 function formatDate(iso: string) {
-  if (!iso) return '—'
+  if (!iso) return 'â€”'
   try {
     return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
   } catch { return iso }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function InfoBlock({ label, value }: { label: string; value?: string | boolean }) {
   if (!value && value !== false) return null
-  const display = typeof value === 'boolean' ? (value ? 'Sí' : 'No') : value
+  const display = typeof value === 'boolean' ? (value ? 'SÃ­' : 'No') : value
   return (
     <div className="py-2.5 border-b border-slate-100 last:border-0">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
@@ -86,7 +86,7 @@ function SectionCard({ emoji, title, children }: { emoji: string; title: string;
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ClientProfilePage() {
   const { id }   = useParams<{ id: string }>()
@@ -100,7 +100,7 @@ export default function ClientProfilePage() {
   const [emailOpen,      setEmailOpen]     = useState(false)
   const [showAmort,      setShowAmort]     = useState(false)
 
-  // ── Fetch client ───────────────────────────────────────────────────────────
+  // â”€â”€ Fetch client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const loadClient = useCallback(async () => {
     try {
       const res  = await fetch(`/api/clients/${id}`)
@@ -116,7 +116,7 @@ export default function ClientProfilePage() {
 
   useEffect(() => { loadClient() }, [loadClient])
 
-  // ── Update status ──────────────────────────────────────────────────────────
+  // â”€â”€ Update status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const updateStatus = async (next: LoanStatus) => {
     if (!client || updatingStatus) return
     const target = client.loanStatus === next ? 'pending' : next
@@ -132,7 +132,7 @@ export default function ClientProfilePage() {
     setUpdatingStatus(false)
   }
 
-  // ── Upload document ────────────────────────────────────────────────────────
+  // â”€â”€ Upload document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const uploadDoc = async (file: File) => {
     if (!client) return
     setUploading(true)
@@ -147,12 +147,12 @@ export default function ClientProfilePage() {
     } finally { setUploading(false) }
   }
 
-  // ── Render states ──────────────────────────────────────────────────────────
+  // â”€â”€ Render states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-slate-500">Cargando perfil del cliente…</p>
+        <p className="text-sm text-slate-500">Cargando perfil del clienteâ€¦</p>
       </div>
     </div>
   )
@@ -160,9 +160,9 @@ export default function ClientProfilePage() {
   if (error || !client) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center max-w-sm">
-        <p className="text-4xl mb-4">😕</p>
+        <p className="text-4xl mb-4">ðŸ˜•</p>
         <p className="text-slate-700 font-semibold mb-2">{error || 'Cliente no encontrado'}</p>
-        <Link href="/app" className="text-sm text-blue-600 underline">← Volver a la aplicación</Link>
+        <Link href="/app" className="text-sm text-blue-600 underline">â† Volver a la aplicaciÃ³n</Link>
       </div>
     </div>
   )
@@ -188,12 +188,12 @@ export default function ClientProfilePage() {
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* ── Top bar ── */}
+      {/* â”€â”€ Top bar â”€â”€ */}
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3"
         style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
         <button onClick={() => router.back()}
           className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
-          ← Volver
+          â† Volver
         </button>
         <div className="flex-1" />
         {/* LendStack brand */}
@@ -202,7 +202,7 @@ export default function ClientProfilePage() {
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
 
-        {/* ── Hero card ── */}
+        {/* â”€â”€ Hero card â”€â”€ */}
         <div className="rounded-2xl overflow-hidden"
           style={{ boxShadow: '0 4px 24px rgba(0,0,0,.08)', border: `2px solid ${sCfg.border}` }}>
 
@@ -241,10 +241,10 @@ export default function ClientProfilePage() {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 mt-1">
-                  {client.email && <span>✉️ {client.email}</span>}
-                  {client.phone && <span>📞 {client.phone}</span>}
-                  {client.idNumber && <span>🪪 {client.idType}: {client.idNumber}</span>}
-                  {client.nationality && <span>🌍 {client.nationality}</span>}
+                  {client.email && <span>âœ‰ï¸ {client.email}</span>}
+                  {client.phone && <span>ðŸ“ž {client.phone}</span>}
+                  {client.idNumber && <span>ðŸªª {client.idType}: {client.idNumber}</span>}
+                  {client.nationality && <span>ðŸŒ {client.nationality}</span>}
                 </div>
                 <p className="text-xs text-slate-400 mt-2">
                   Solicitud registrada el {formatDate(client.savedAt)}
@@ -262,7 +262,7 @@ export default function ClientProfilePage() {
                     color:      client.loanStatus === 'approved' ? '#fff'    : '#15803D',
                     border:     `2px solid ${client.loanStatus === 'approved' ? '#16A34A' : '#86EFAC'}`,
                   }}>
-                  ✅ {client.loanStatus === 'approved' ? 'Aprobado ✓' : 'Aprobar'}
+                  âœ… {client.loanStatus === 'approved' ? 'Aprobado âœ“' : 'Aprobar'}
                 </button>
                 <button
                   onClick={() => updateStatus('denied')}
@@ -273,12 +273,12 @@ export default function ClientProfilePage() {
                     color:      client.loanStatus === 'denied' ? '#fff'    : '#DC2626',
                     border:     `2px solid ${client.loanStatus === 'denied' ? '#DC2626' : '#FECDD3'}`,
                   }}>
-                  ❌ {client.loanStatus === 'denied' ? 'Denegado ✓' : 'Denegar'}
+                  âŒ {client.loanStatus === 'denied' ? 'Denegado âœ“' : 'Denegar'}
                 </button>
                 {client.loanStatus !== 'pending' && (
                   <button onClick={() => updateStatus('pending')} disabled={updatingStatus}
                     className="text-xs text-slate-400 hover:text-slate-600 underline text-center disabled:opacity-40 transition-colors">
-                    ↩ Restablecer
+                    â†© Restablecer
                   </button>
                 )}
               </div>
@@ -286,14 +286,14 @@ export default function ClientProfilePage() {
           </div>
         </div>
 
-        {/* ── Loan summary ── */}
+        {/* â”€â”€ Loan summary â”€â”€ */}
         <div className="rounded-2xl overflow-hidden"
           style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
           <div className="px-5 py-3 flex items-center gap-2"
             style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-            <span className="text-base">💳</span>
+            <span className="text-base">ðŸ’³</span>
             <span className="text-xs font-bold uppercase tracking-widest text-blue-100">
-              Simulación del Préstamo
+              SimulaciÃ³n del PrÃ©stamo
             </span>
           </div>
           <div className="bg-white px-5 py-4">
@@ -302,7 +302,7 @@ export default function ClientProfilePage() {
                 { label: 'Monto solicitado',  value: fmt(client.result.monthlyPayment !== 0 ? client.params.amount : 0),
                   big: fmt(client.params.amount) },
                 { label: 'Cuota mensual',     big: fmt(client.result.monthlyPayment) },
-                { label: 'Plazo',             big: `${client.params.termYears} años` },
+                { label: 'Plazo',             big: `${client.params.termYears} aÃ±os` },
                 { label: 'Tasa anual',        big: formatPercent(client.result.annualRate) },
                 { label: 'Total a pagar',     big: fmt(client.result.totalPayment) },
                 { label: 'Total intereses',   big: fmt(client.result.totalInterest) },
@@ -316,24 +316,24 @@ export default function ClientProfilePage() {
           </div>
         </div>
 
-        {/* ── Action buttons ── */}
+        {/* â”€â”€ Action buttons â”€â”€ */}
         <div className="flex flex-wrap gap-3">
           <PdfExportButton params={loanParams} result={client.result} config={riskCfg} />
           <button
             onClick={() => setEmailOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
             style={{ color: '#1565C0', borderColor: '#1565C0', background: '#fff' }}>
-            ✉️ Enviar por email
+            âœ‰ï¸ Enviar por email
           </button>
         </div>
 
-        {/* ── Amortization table ── */}
+        {/* â”€â”€ Amortization table â”€â”€ */}
         <div>
           <button
             onClick={() => setShowAmort(s => !s)}
             className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
             style={{ background: showAmort ? '#0D2B5E' : '#e8eef7', color: showAmort ? '#fff' : '#0D2B5E', border: `1px solid ${showAmort ? '#0D2B5E' : '#c5d5ea'}` }}>
-            {showAmort ? '▲ Ocultar tabla de amortización' : '▼ Ver tabla de amortización'}
+            {showAmort ? 'â–² Ocultar tabla de amortizaciÃ³n' : 'â–¼ Ver tabla de amortizaciÃ³n'}
           </button>
           {showAmort && (
             <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
@@ -341,9 +341,9 @@ export default function ClientProfilePage() {
               <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between"
                 style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
                 <div className="flex items-center gap-2">
-                  <span className="text-base">📊</span>
+                  <span className="text-base">ðŸ“Š</span>
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                    Tabla de amortización — {client.result.totalMonths} cuotas
+                    Tabla de amortizaciÃ³n â€” {client.result.totalMonths} cuotas
                   </span>
                 </div>
                 <span className="text-xs font-bold px-3 py-1 rounded-full"
@@ -358,21 +358,21 @@ export default function ClientProfilePage() {
           )}
         </div>
 
-        {/* ── Info grid ── */}
+        {/* â”€â”€ Info grid â”€â”€ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* Personal */}
-          <SectionCard emoji="👤" title="Información Personal">
+          <SectionCard emoji="ðŸ‘¤" title="InformaciÃ³n Personal">
             <InfoBlock label="Fecha de nacimiento"  value={client.birthDate} />
             <InfoBlock label="Nacionalidad"         value={client.nationality} />
-            <InfoBlock label="Dirección"            value={client.address} />
+            <InfoBlock label="DirecciÃ³n"            value={client.address} />
             <InfoBlock label="Tipo de ID"           value={client.idType} />
-            <InfoBlock label="Número de ID"         value={client.idNumber} />
+            <InfoBlock label="NÃºmero de ID"         value={client.idNumber} />
           </SectionCard>
 
           {/* Financial */}
-          <SectionCard emoji="💰" title="Información Financiera">
-            <InfoBlock label="Ocupación / Empleador"       value={client.occupation} />
+          <SectionCard emoji="ðŸ’°" title="InformaciÃ³n Financiera">
+            <InfoBlock label="OcupaciÃ³n / Empleador"       value={client.occupation} />
             <InfoBlock label="Ingresos mensuales"          value={client.monthlyIncome} />
             <InfoBlock label="Adjunta comprobantes"        value={client.hasIncomeProof} />
             <InfoBlock label="Detalle de deudas actuales"  value={client.currentDebts} />
@@ -381,13 +381,13 @@ export default function ClientProfilePage() {
           </SectionCard>
 
           {/* Collateral */}
-          <SectionCard emoji="🏠" title="Garantías y Arraigo">
+          <SectionCard emoji="ðŸ " title="GarantÃ­as y Arraigo">
             <InfoBlock label="Colateral disponible" value={client.collateral} />
             <InfoBlock label="Arraigo territorial"  value={client.territorialTies} />
           </SectionCard>
 
           {/* History */}
-          <SectionCard emoji="📋" title="Historial y Referencias">
+          <SectionCard emoji="ðŸ“‹" title="Historial y Referencias">
             <InfoBlock label="Historial crediticio" value={client.creditHistory} />
             <InfoBlock label="Referencia 1"         value={client.reference1} />
             <InfoBlock label="Referencia 2"         value={client.reference2} />
@@ -396,12 +396,12 @@ export default function ClientProfilePage() {
 
         </div>
 
-        {/* ── Documents ── */}
+        {/* â”€â”€ Documents â”€â”€ */}
         <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden"
           style={{ boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
           <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2"
             style={{ background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)' }}>
-            <span className="text-base">📎</span>
+            <span className="text-base">ðŸ“Ž</span>
             <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
               Documentos adjuntos
             </span>
@@ -425,13 +425,13 @@ export default function ClientProfilePage() {
                       {doc.name}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {(doc.size / 1024).toFixed(0)} KB · {formatDate(doc.uploadedAt)}
+                      {(doc.size / 1024).toFixed(0)} KB Â· {formatDate(doc.uploadedAt)}
                     </span>
                   </a>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400 mb-4">Sin documentos adjuntos todavía.</p>
+              <p className="text-sm text-slate-400 mb-4">Sin documentos adjuntos todavÃ­a.</p>
             )}
 
             {/* Upload */}
@@ -444,9 +444,9 @@ export default function ClientProfilePage() {
                   if (f) uploadDoc(f)
                   e.target.value = ''
                 }} />
-              {uploading ? '⏳ Subiendo…' : '+ Adjuntar documento'}
+              {uploading ? 'â³ Subiendoâ€¦' : '+ Adjuntar documento'}
             </label>
-            <p className="text-xs text-slate-400 mt-1.5">PDF, Word, Excel, imágenes · Máx. 10 MB</p>
+            <p className="text-xs text-slate-400 mt-1.5">PDF, Word, Excel, imÃ¡genes Â· MÃ¡x. 10 MB</p>
           </div>
         </div>
 
@@ -454,7 +454,7 @@ export default function ClientProfilePage() {
         <div className="h-6" />
       </div>
 
-      {/* ── Modals ── */}
+      {/* â”€â”€ Modals â”€â”€ */}
       <EmailModal
         isOpen={emailOpen}
         onClose={() => setEmailOpen(false)}
@@ -467,3 +467,4 @@ export default function ClientProfilePage() {
     </div>
   )
 }
+
