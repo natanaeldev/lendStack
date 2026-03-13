@@ -1,13 +1,11 @@
 'use client'
 
-import type { ReactNode } from 'react'
-
 export type CalculatorLoanKind = 'weekly' | 'monthly' | 'carrito' | 'amortized'
 
 const OPTIONS: { id: CalculatorLoanKind; label: string; description: string; badge: string }[] = [
-  { id: 'weekly', label: 'Semanal', description: 'Cuotas reducidas por semana', badge: '7 d?as' },
-  { id: 'monthly', label: 'Mensual', description: 'Simulaci?n r?pida por meses', badge: '12 cuotas' },
-  { id: 'carrito', label: 'Carrito', description: 'Inter?s plano para ruta', badge: 'Cobro fijo' },
+  { id: 'weekly', label: 'Semanal', description: 'Cuotas reducidas por semana', badge: '7 días' },
+  { id: 'monthly', label: 'Mensual', description: 'Simulación rápida por meses', badge: '12 cuotas' },
+  { id: 'carrito', label: 'Carrito', description: 'Interés plano para ruta', badge: 'Cobro fijo' },
   { id: 'amortized', label: 'Amortizado', description: 'Saldo reducible profesional', badge: 'Institucional' },
 ]
 

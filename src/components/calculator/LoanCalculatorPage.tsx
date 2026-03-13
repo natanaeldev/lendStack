@@ -70,11 +70,12 @@ export default function LoanCalculatorPage({
     setHasCalculated(true)
   }, [uiType, amount, currency, termValue, termUnit, customMonthlyRate, weeklyMonthlyRate, weeklyTermWeeks, carritoFlatRate, carritoTerm, carritoPayments, carritoFreq])
 
-  const amortizedResult = useMemo(() => calculateLoan({ amount, termYears: termUnit === 'months' ? termValue / 12 : termValue, profile: 'Medium Risk', currency, rateMode, customMonthlyRate }), [amount, currency, customMonthlyRate, rateMode, termUnit, termValue])
+  const amortizedResult = useMemo(
+    () => calculateLoan({ amount, termYears: termUnit === 'months' ? termValue / 12 : termValue, profile: 'Medium Risk', currency, rateMode, customMonthlyRate }),
+    [amount, currency, customMonthlyRate, rateMode, termUnit, termValue],
+  )
   const weeklyResult = useMemo(() => calculateWeeklyLoan(amount, weeklyTermWeeks, weeklyMonthlyRate), [amount, weeklyMonthlyRate, weeklyTermWeeks])
   const carritoResult = useMemo(() => calculateCarritoLoan(amount, carritoFlatRate, carritoTerm, carritoPayments), [amount, carritoFlatRate, carritoPayments, carritoTerm])
-
-  const activeResult = uiType === 'weekly' ? weeklyResult : uiType === 'carrito' ? carritoResult : amortizedResult
 
   const results = useMemo(() => {
     if (uiType === 'weekly') {
@@ -98,7 +99,7 @@ export default function LoanCalculatorPage({
         installmentValue: formatCurrency(carritoResult.fixedPayment, currency),
         totalValue: formatCurrency(carritoResult.totalPayment, currency),
         interestValue: formatCurrency(carritoResult.totalInterest, currency),
-        summary: `Carrito con inter?s plano de ${formatPercent(carritoFlatRate)} durante ${carritoTerm} periodos.`,
+        summary: `Carrito con interés plano de ${formatPercent(carritoFlatRate)} durante ${carritoTerm} períodos.`,
         items: [
           { label: 'Pagos', value: String(carritoPayments) },
           { label: 'Frecuencia', value: carritoFreq === 'daily' ? 'Diaria' : 'Semanal' },
@@ -113,7 +114,7 @@ export default function LoanCalculatorPage({
         installmentValue: formatCurrency(amortizedResult.monthlyPayment, currency),
         totalValue: formatCurrency(amortizedResult.totalPayment, currency),
         interestValue: formatCurrency(amortizedResult.totalInterest, currency),
-        summary: `Simulaci?n mensual con ${termValue} meses y tasa de ${formatPercent(customMonthlyRate)} por mes.`,
+        summary: `Simulación mensual con ${termValue} meses y tasa de ${formatPercent(customMonthlyRate)} por mes.`,
         items: [
           { label: 'Pagos', value: String(amortizedResult.totalMonths) },
           { label: 'Frecuencia', value: 'Mensual' },
@@ -127,7 +128,7 @@ export default function LoanCalculatorPage({
       installmentValue: formatCurrency(amortizedResult.monthlyPayment, currency),
       totalValue: formatCurrency(amortizedResult.totalPayment, currency),
       interestValue: formatCurrency(amortizedResult.totalInterest, currency),
-      summary: `Amortizado institucional con ${termValue} ${termUnit === 'years' ? 'a?os' : 'meses'} y ${rateMode === 'annual' ? 'tasa anual' : 'tasa mensual'}.`,
+      summary: `Amortizado institucional con ${termValue} ${termUnit === 'years' ? 'años' : 'meses'} y ${rateMode === 'annual' ? 'tasa anual' : 'tasa mensual'}.`,
       items: [
         { label: 'Pagos', value: String(amortizedResult.totalMonths) },
         { label: 'Frecuencia', value: 'Mensual' },
@@ -135,7 +136,7 @@ export default function LoanCalculatorPage({
         { label: 'Tasa usada', value: rateMode === 'annual' ? `${formatPercent(amortizedResult.annualRate)} anual` : `${formatPercent(customMonthlyRate)} mensual` },
       ],
     }
-  }, [amortizedResult, carritoFlatRate, carritoFreq, carritoResult, carritoTerm, carritoPayments, currency, customMonthlyRate, rateMode, termUnit, termValue, uiType, weeklyResult])
+  }, [amortizedResult, carritoFlatRate, carritoFreq, carritoPayments, carritoResult, carritoTerm, currency, customMonthlyRate, rateMode, termUnit, termValue, uiType, weeklyResult])
 
   const handleLoanKindChange = (next: CalculatorLoanKind) => {
     if (next === 'weekly') {
@@ -161,21 +162,21 @@ export default function LoanCalculatorPage({
     <div className="space-y-4 sm:space-y-5">
       <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-[linear-gradient(135deg,#071A3E_0%,#0D2B5E_54%,#1565C0_100%)] p-4 text-white shadow-[0_24px_60px_rgba(7,26,62,.28)] sm:p-6">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Calculadora</p>
-        <h1 className="mt-2 text-2xl font-black leading-tight sm:text-3xl">Calculadora de pr?stamos</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">Simula cuotas y condiciones r?pidamente</p>
+        <h1 className="mt-2 text-2xl font-black leading-tight sm:text-3xl">Calculadora de préstamos</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">Simula cuotas y condiciones rápidamente</p>
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,.95fr)]">
         <div className="space-y-4">
           <section className="rounded-[30px] border border-slate-200 bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,.06)] sm:p-5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Configuraci?n</p>
-            <h2 className="mt-1 text-lg font-black text-slate-950">Simulaci?n r?pida</h2>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Configuración</p>
+            <h2 className="mt-1 text-lg font-black text-slate-950">Simulación rápida</h2>
             <div className="mt-4">
               <LoanTypeSelector value={uiType} onChange={handleLoanKindChange} />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <CalculatorInputField label="Monto del pr?stamo">
+              <CalculatorInputField label="Monto del préstamo">
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">{CURRENCIES[currency].symbol}</span>
                   <input type="number" min={0} step={1000} value={amount} onChange={(event) => onAmountChange(Number(event.target.value) || 0)} inputMode="decimal" className={`${inputCls} pl-12`} />
@@ -190,44 +191,66 @@ export default function LoanCalculatorPage({
                 </select>
               </CalculatorInputField>
 
-              {(uiType === 'amortized' || uiType === 'monthly') ? (
+              {(uiType === 'amortized' || uiType === 'monthly') && (
                 <>
-                  <CalculatorInputField label="Tasa de inter?s" helper={uiType === 'monthly' ? 'Porcentaje mensual' : rateMode === 'annual' ? 'Porcentaje anual' : 'Porcentaje mensual'}>
+                  <CalculatorInputField label="Tasa de interés" helper={uiType === 'monthly' ? 'Porcentaje mensual' : rateMode === 'annual' ? 'Porcentaje anual' : 'Porcentaje mensual'}>
                     <div className="relative">
-                      <input type="number" min={0} step={0.1} value={rateMode === 'annual' ? Number((amortizedResult.annualRate * 100).toFixed(2)) : Number((customMonthlyRate * 100).toFixed(2))} onChange={(event) => {
-                        const raw = (Number(event.target.value) || 0) / 100
-                        if (uiType === 'monthly') {
-                          onRateModeChange('monthly')
-                          onCustomMonthlyRateChange(raw)
-                        } else if (rateMode === 'annual') {
-                          onRateModeChange('monthly')
-                          onCustomMonthlyRateChange(raw / 12)
-                        } else {
-                          onCustomMonthlyRateChange(raw)
-                        }
-                      }} inputMode="decimal" className={`${inputCls} pr-12`} />
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={rateMode === 'annual' ? Number((amortizedResult.annualRate * 100).toFixed(2)) : Number((customMonthlyRate * 100).toFixed(2))}
+                        onChange={(event) => {
+                          const raw = (Number(event.target.value) || 0) / 100
+                          if (uiType === 'monthly') {
+                            onRateModeChange('monthly')
+                            onCustomMonthlyRateChange(raw)
+                          } else if (rateMode === 'annual') {
+                            onRateModeChange('monthly')
+                            onCustomMonthlyRateChange(raw / 12)
+                          } else {
+                            onCustomMonthlyRateChange(raw)
+                          }
+                        }}
+                        inputMode="decimal"
+                        className={`${inputCls} pr-12`}
+                      />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
                     </div>
                   </CalculatorInputField>
 
                   <CalculatorInputField label="Plazo">
                     <div className="flex gap-2">
-                      <input type="number" min={1} step={1} value={termValue} onChange={(event) => onTermValueChange(Math.max(1, Number(event.target.value) || 1))} inputMode="numeric" className={`${inputCls} flex-1`} />
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={termValue}
+                        onChange={(event) => onTermValueChange(Math.max(1, Number(event.target.value) || 1))}
+                        inputMode="numeric"
+                        className={`${inputCls} flex-1`}
+                      />
                       <div className="inline-flex overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50">
                         {(uiType === 'monthly' ? (['months'] as const) : (['years', 'months'] as const)).map((unit) => (
-                          <button key={unit} type="button" onClick={() => onTermUnitChange(unit)} className="min-h-[54px] px-4 text-sm font-bold transition" style={{ background: termUnit === unit ? '#0D2B5E' : 'transparent', color: termUnit === unit ? '#FFFFFF' : '#64748B' }}>
-                            {unit === 'years' ? 'A?os' : 'Meses'}
+                          <button
+                            key={unit}
+                            type="button"
+                            onClick={() => onTermUnitChange(unit)}
+                            className="min-h-[54px] px-4 text-sm font-bold transition"
+                            style={{ background: termUnit === unit ? '#0D2B5E' : 'transparent', color: termUnit === unit ? '#FFFFFF' : '#64748B' }}
+                          >
+                            {unit === 'years' ? 'Años' : 'Meses'}
                           </button>
                         ))}
                       </div>
                     </div>
                   </CalculatorInputField>
                 </>
-              ) : null}
+              )}
 
-              {uiType === 'weekly' ? (
+              {uiType === 'weekly' && (
                 <>
-                  <CalculatorInputField label="Tasa de inter?s" helper="Porcentaje mensual de referencia">
+                  <CalculatorInputField label="Tasa de interés" helper="Porcentaje mensual de referencia">
                     <div className="relative">
                       <input type="number" min={0} step={0.1} value={Number((weeklyMonthlyRate * 100).toFixed(2))} onChange={(event) => onWeeklyMonthlyRateChange((Number(event.target.value) || 0) / 100)} inputMode="decimal" className={`${inputCls} pr-12`} />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
@@ -237,17 +260,17 @@ export default function LoanCalculatorPage({
                     <input type="number" min={1} step={1} value={weeklyTermWeeks} onChange={(event) => onWeeklyTermWeeksChange(Math.max(1, Number(event.target.value) || 1))} inputMode="numeric" className={inputCls} />
                   </CalculatorInputField>
                 </>
-              ) : null}
+              )}
 
-              {uiType === 'carrito' ? (
+              {uiType === 'carrito' && (
                 <>
-                  <CalculatorInputField label="Tasa de inter?s" helper="Tasa plana por per?odo">
+                  <CalculatorInputField label="Tasa de interés" helper="Tasa plana por período">
                     <div className="relative">
                       <input type="number" min={0} step={0.1} value={Number((carritoFlatRate * 100).toFixed(2))} onChange={(event) => onCarritoFlatRateChange((Number(event.target.value) || 0) / 100)} inputMode="decimal" className={`${inputCls} pr-12`} />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
                     </div>
                   </CalculatorInputField>
-                  <CalculatorInputField label="Plazo" helper="Cantidad de per?odos">
+                  <CalculatorInputField label="Plazo" helper="Cantidad de períodos">
                     <input type="number" min={1} step={1} value={carritoTerm} onChange={(event) => onCarritoTermChange(Math.max(1, Number(event.target.value) || 1))} inputMode="numeric" className={inputCls} />
                   </CalculatorInputField>
                   <CalculatorInputField label="Pagos">
@@ -256,14 +279,20 @@ export default function LoanCalculatorPage({
                   <CalculatorInputField label="Frecuencia">
                     <div className="inline-flex w-full overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50">
                       {(['daily', 'weekly'] as const).map((value) => (
-                        <button key={value} type="button" onClick={() => onCarritoFreqChange(value)} className="min-h-[54px] flex-1 px-4 text-sm font-bold transition" style={{ background: carritoFreq === value ? '#0D2B5E' : 'transparent', color: carritoFreq === value ? '#FFFFFF' : '#64748B' }}>
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => onCarritoFreqChange(value)}
+                          className="min-h-[54px] flex-1 px-4 text-sm font-bold transition"
+                          style={{ background: carritoFreq === value ? '#0D2B5E' : 'transparent', color: carritoFreq === value ? '#FFFFFF' : '#64748B' }}
+                        >
                           {value === 'daily' ? 'Diario' : 'Semanal'}
                         </button>
                       ))}
                     </div>
                   </CalculatorInputField>
                 </>
-              ) : null}
+              )}
             </div>
 
             <div className="mt-5">
@@ -273,7 +302,7 @@ export default function LoanCalculatorPage({
         </div>
 
         <div className="space-y-4">
-          {hasCalculated ? (
+          {hasCalculated && (
             <>
               <CalculatorResultsCard
                 installmentLabel={results.installmentLabel}
@@ -284,11 +313,11 @@ export default function LoanCalculatorPage({
               />
               <LoanSummary items={results.items} />
             </>
-          ) : null}
+          )}
 
           <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,.06)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Vista r?pida</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Esta simulaci?n usa las f?rmulas existentes de LendStack para mostrar una cuota confiable en campo, con formato claro y listo para conversar con el cliente.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Vista rápida</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Esta simulación usa las fórmulas existentes de LendStack para mostrar una cuota confiable en campo, con formato claro y listo para conversar con el cliente.</p>
           </div>
         </div>
       </div>

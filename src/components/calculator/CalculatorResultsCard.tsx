@@ -26,7 +26,7 @@ export default function CalculatorResultsCard({
           <p className="mt-2 break-words text-lg font-black text-white">{totalValue}</p>
         </div>
         <div className="rounded-[22px] border border-white/10 bg-slate-950/20 p-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-100">Inter?s total</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-100">Interés total</p>
           <p className="mt-2 break-words text-lg font-black text-white">{interestValue}</p>
         </div>
       </div>

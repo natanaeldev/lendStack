@@ -80,7 +80,7 @@ export default function PrestamoFormCarrito({
             ))}
           </select>
         </Field>
-        <Field label="Tasa plana (%)" hint="InterÃ©s total plano aplicado al producto.">
+        <Field label="Tasa plana (%)" hint="Interés total plano aplicado al producto.">
           <input type="number" min="0" step="0.5" value={Number((flatRate * 100).toFixed(2))} onChange={(event) => onChange({ carritoFlatRate: Number(event.target.value) / 100 })} className={inputClassName} />
         </Field>
         <Field label="Frecuencia">
@@ -91,8 +91,8 @@ export default function PrestamoFormCarrito({
         </Field>
       </Section>
 
-      <Section title="Cobro" subtitle="Ajusta plazo y nÃºmero de cuotas segÃºn la operaciÃ³n real.">
-        <Field label={`Plazo (${frequency === 'daily' ? 'dÃ­as' : 'semanas'})`} hint="DuraciÃ³n total del producto.">
+      <Section title="Cobro" subtitle="Ajusta plazo y número de cuotas según la operación real.">
+        <Field label={`Plazo (${frequency === 'daily' ? 'días' : 'semanas'})`} hint="Duración total del producto.">
           <input type="number" min="1" step="1" value={term} onChange={(event) => onChange({ carritoTerm: Number(event.target.value) })} className={inputClassName} />
         </Field>
         <Field label="Cuotas" hint="Cantidad de pagos esperados durante el plazo.">
@@ -103,9 +103,9 @@ export default function PrestamoFormCarrito({
         </Field>
       </Section>
 
-      <Section title="Notas operativas" subtitle="Incluye contexto de ruta, garantÃ­a o seguimiento solo si aporta.">
-        <Field label="Observaciones" hint="Ej: frecuencia real de visita, referencia o garantÃ­a.">
-          <textarea value={notes} onChange={(event) => onChange({ notes: event.target.value })} rows={4} placeholder="Notas sobre ruta, cobrador, garantÃ­a o seguimiento" className={`${inputClassName} min-h-[120px] resize-y`} />
+      <Section title="Notas operativas" subtitle="Incluye contexto de ruta, garantía o seguimiento solo si aporta.">
+        <Field label="Observaciones" hint="Ej: frecuencia real de visita, referencia o garantía.">
+          <textarea value={notes} onChange={(event) => onChange({ notes: event.target.value })} rows={4} placeholder="Notas sobre ruta, cobrador, garantía o seguimiento" className={`${inputClassName} min-h-[120px] resize-y`} />
         </Field>
       </Section>
     </div>

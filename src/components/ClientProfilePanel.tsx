@@ -363,7 +363,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
     if (!editForm.name.trim()) { showToast('\u26A0\uFE0F', 'El nombre es obligatorio'); return }
     setSaving(true)
     try {
-      // Transform branchId: '' â†’ null (empty string = "clear branch assignment")
+      // Transform branchId: '' -> null (empty string = "clear branch assignment")
       const { branchId: rawBranchId, ...rest } = editForm
       const branchId = rawBranchId || null
       const res = await fetch(`/api/clients/${clientId}`, {
@@ -376,7 +376,7 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         showToast('\u274C', data.error ?? 'Error al guardar')
         return
       }
-      // Optimistic update â€” derive branch type + name from local branches cache
+      // Optimistic update - derive branch type + name from local branches cache
       const selectedBranch = branchId ? branches.find(b => b.id === branchId) : null
       setClient(prev => prev ? {
         ...prev, ...rest,
