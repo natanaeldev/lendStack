@@ -8,6 +8,11 @@ export type InterestMethod =
 export type PaymentFrequency = 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'CUSTOM'
 export type RateUnit = 'PERCENT' | 'DECIMAL'
 export type TermUnit = 'DAYS' | 'WEEKS' | 'MONTHS' | 'YEARS'
+export type ScheduleGenerationMethod =
+  | 'EQUAL_INSTALLMENT_LAST_ADJUSTMENT'
+  | 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT'
+  | 'INTEREST_ONLY_BALLOON'
+  | 'ZERO_INTEREST_LAST_ADJUSTMENT'
 
 export interface LoanEngineInput {
   principal: number
@@ -36,6 +41,7 @@ export interface LoanEngineResult {
   interestMethod: InterestMethod
   paymentFrequency: PaymentFrequency
   installmentCount: number
+  scheduleGenerationMethod: ScheduleGenerationMethod
   rateDecimal: number
   interestPeriodCount: number
   totalInterest: number
@@ -68,7 +74,7 @@ function requiresExplicitRate(method: InterestMethod) {
   return method !== 'ZERO_INTEREST'
 }
 
-function cents(value: number) {
+function toCents(value: number) {
   return Math.round(value * 100)
 }
 
@@ -76,15 +82,21 @@ function fromCents(value: number) {
   return value / 100
 }
 
-function roundCurrency(value: number) {
-  return fromCents(cents(value))
+function roundMoney(value: number) {
+  return fromCents(toCents(value))
 }
 
-function distributeAcrossInstallments(total: number, count: number) {
-  const totalCents = cents(total)
-  const base = Math.floor(totalCents / count)
-  const remainder = totalCents - base * count
-  return Array.from({ length: count }, (_, index) => fromCents(base + (index === count - 1 ? remainder : 0)))
+function sumMoney(values: number[]) {
+  return roundMoney(values.reduce((sum, value) => sum + value, 0))
+}
+
+function allocateRoundedInstallments(total: number, count: number) {
+  if (count === 1) return [roundMoney(total)]
+
+  const roundedBase = roundMoney(total / count)
+  const installments = Array.from({ length: count }, () => roundedBase)
+  installments[count - 1] = roundMoney(total - roundMoney(roundedBase * (count - 1)))
+  return installments
 }
 
 function addFrequency(date: Date, paymentFrequency: PaymentFrequency, count: number, customFrequencyDays?: number) {
@@ -118,16 +130,17 @@ function buildDueDate(startDate: string | undefined, paymentFrequency: PaymentFr
 }
 
 function buildFlatSchedule(input: LoanEngineInput, rateDecimal: number, interestPeriodCount: number, totalInterest: number): LoanEngineResult {
-  const principalParts = distributeAcrossInstallments(input.principal, input.installmentCount)
-  const interestParts = distributeAcrossInstallments(totalInterest, input.installmentCount)
+  const totalPayable = roundMoney(input.principal + totalInterest)
+  const paymentParts = allocateRoundedInstallments(totalPayable, input.installmentCount)
+  const principalParts = allocateRoundedInstallments(input.principal, input.installmentCount)
   const schedule: LoanEngineScheduleRow[] = []
-  let openingBalance = roundCurrency(input.principal)
+  let openingBalance = roundMoney(input.principal)
 
   for (let index = 0; index < input.installmentCount; index++) {
+    const paymentAmount = paymentParts[index]
     const principalAmount = principalParts[index]
-    const interestAmount = interestParts[index]
-    const paymentAmount = roundCurrency(principalAmount + interestAmount)
-    const closingBalance = roundCurrency(Math.max(openingBalance - principalAmount, 0))
+    const interestAmount = roundMoney(paymentAmount - principalAmount)
+    const closingBalance = roundMoney(Math.max(openingBalance - principalAmount, 0))
 
     schedule.push({
       installmentNumber: index + 1,
@@ -142,29 +155,29 @@ function buildFlatSchedule(input: LoanEngineInput, rateDecimal: number, interest
     openingBalance = closingBalance
   }
 
-  const totalPayable = roundCurrency(schedule.reduce((sum, row) => sum + row.paymentAmount, 0))
   return {
-    principal: roundCurrency(input.principal),
+    principal: roundMoney(input.principal),
     interestMethod: input.interestMethod,
     paymentFrequency: input.paymentFrequency,
     installmentCount: input.installmentCount,
+    scheduleGenerationMethod: 'EQUAL_INSTALLMENT_LAST_ADJUSTMENT',
     rateDecimal,
     interestPeriodCount,
-    totalInterest: roundCurrency(schedule.reduce((sum, row) => sum + row.interestAmount, 0)),
-    totalPayable,
+    totalInterest: sumMoney(schedule.map((row) => row.interestAmount)),
+    totalPayable: sumMoney(schedule.map((row) => row.paymentAmount)),
     periodicPayment: schedule[0]?.paymentAmount ?? 0,
     schedule,
   }
 }
 
 function buildZeroInterestSchedule(input: LoanEngineInput, rateDecimal: number): LoanEngineResult {
-  const principalParts = distributeAcrossInstallments(input.principal, input.installmentCount)
+  const principalParts = allocateRoundedInstallments(input.principal, input.installmentCount)
   const schedule: LoanEngineScheduleRow[] = []
-  let openingBalance = roundCurrency(input.principal)
+  let openingBalance = roundMoney(input.principal)
 
   for (let index = 0; index < input.installmentCount; index++) {
     const principalAmount = principalParts[index]
-    const closingBalance = roundCurrency(Math.max(openingBalance - principalAmount, 0))
+    const closingBalance = roundMoney(Math.max(openingBalance - principalAmount, 0))
 
     schedule.push({
       installmentNumber: index + 1,
@@ -180,14 +193,15 @@ function buildZeroInterestSchedule(input: LoanEngineInput, rateDecimal: number):
   }
 
   return {
-    principal: roundCurrency(input.principal),
+    principal: roundMoney(input.principal),
     interestMethod: 'ZERO_INTEREST',
     paymentFrequency: input.paymentFrequency,
     installmentCount: input.installmentCount,
+    scheduleGenerationMethod: 'ZERO_INTEREST_LAST_ADJUSTMENT',
     rateDecimal,
     interestPeriodCount: input.installmentCount,
     totalInterest: 0,
-    totalPayable: roundCurrency(schedule.reduce((sum, row) => sum + row.paymentAmount, 0)),
+    totalPayable: sumMoney(schedule.map((row) => row.paymentAmount)),
     periodicPayment: schedule[0]?.paymentAmount ?? 0,
     schedule,
   }
@@ -200,15 +214,15 @@ function buildDecliningBalanceSchedule(input: LoanEngineInput, rateDecimal: numb
   const periodicPaymentRaw =
     (input.principal * (rateDecimal * Math.pow(1 + rateDecimal, input.installmentCount))) /
     (Math.pow(1 + rateDecimal, input.installmentCount) - 1)
-  const standardPayment = roundCurrency(periodicPaymentRaw)
-  let openingBalance = roundCurrency(input.principal)
+  const standardPayment = roundMoney(periodicPaymentRaw)
+  let openingBalance = roundMoney(input.principal)
 
   for (let index = 0; index < input.installmentCount; index++) {
-    const interestAmount = roundCurrency(openingBalance * rateDecimal)
+    const interestAmount = roundMoney(openingBalance * rateDecimal)
     const isLast = index === input.installmentCount - 1
-    const principalAmount = isLast ? openingBalance : roundCurrency(Math.min(standardPayment - interestAmount, openingBalance))
-    const paymentAmount = roundCurrency(principalAmount + interestAmount)
-    const closingBalance = roundCurrency(Math.max(openingBalance - principalAmount, 0))
+    const principalAmount = isLast ? openingBalance : roundMoney(Math.min(standardPayment - interestAmount, openingBalance))
+    const paymentAmount = roundMoney(principalAmount + interestAmount)
+    const closingBalance = roundMoney(Math.max(openingBalance - principalAmount, 0))
 
     schedule.push({
       installmentNumber: index + 1,
@@ -224,14 +238,15 @@ function buildDecliningBalanceSchedule(input: LoanEngineInput, rateDecimal: numb
   }
 
   return {
-    principal: roundCurrency(input.principal),
+    principal: roundMoney(input.principal),
     interestMethod: 'DECLINING_BALANCE',
     paymentFrequency: input.paymentFrequency,
     installmentCount: input.installmentCount,
+    scheduleGenerationMethod: 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT',
     rateDecimal,
     interestPeriodCount: input.installmentCount,
-    totalInterest: roundCurrency(schedule.reduce((sum, row) => sum + row.interestAmount, 0)),
-    totalPayable: roundCurrency(schedule.reduce((sum, row) => sum + row.paymentAmount, 0)),
+    totalInterest: sumMoney(schedule.map((row) => row.interestAmount)),
+    totalPayable: sumMoney(schedule.map((row) => row.paymentAmount)),
     periodicPayment: schedule[0]?.paymentAmount ?? 0,
     schedule,
   }
@@ -239,14 +254,14 @@ function buildDecliningBalanceSchedule(input: LoanEngineInput, rateDecimal: numb
 
 function buildInterestOnlySchedule(input: LoanEngineInput, rateDecimal: number): LoanEngineResult {
   const schedule: LoanEngineScheduleRow[] = []
-  let openingBalance = roundCurrency(input.principal)
-  const periodicInterest = roundCurrency(input.principal * rateDecimal)
+  let openingBalance = roundMoney(input.principal)
+  const periodicInterest = roundMoney(input.principal * rateDecimal)
 
   for (let index = 0; index < input.installmentCount; index++) {
     const isLast = index === input.installmentCount - 1
     const principalAmount = isLast ? openingBalance : 0
-    const paymentAmount = roundCurrency(principalAmount + periodicInterest)
-    const closingBalance = roundCurrency(Math.max(openingBalance - principalAmount, 0))
+    const paymentAmount = roundMoney(principalAmount + periodicInterest)
+    const closingBalance = roundMoney(Math.max(openingBalance - principalAmount, 0))
 
     schedule.push({
       installmentNumber: index + 1,
@@ -262,14 +277,15 @@ function buildInterestOnlySchedule(input: LoanEngineInput, rateDecimal: number):
   }
 
   return {
-    principal: roundCurrency(input.principal),
+    principal: roundMoney(input.principal),
     interestMethod: 'INTEREST_ONLY',
     paymentFrequency: input.paymentFrequency,
     installmentCount: input.installmentCount,
+    scheduleGenerationMethod: 'INTEREST_ONLY_BALLOON',
     rateDecimal,
     interestPeriodCount: input.installmentCount,
-    totalInterest: roundCurrency(schedule.reduce((sum, row) => sum + row.interestAmount, 0)),
-    totalPayable: roundCurrency(schedule.reduce((sum, row) => sum + row.paymentAmount, 0)),
+    totalInterest: sumMoney(schedule.map((row) => row.interestAmount)),
+    totalPayable: sumMoney(schedule.map((row) => row.paymentAmount)),
     periodicPayment: schedule[0]?.paymentAmount ?? 0,
     schedule,
   }
@@ -289,13 +305,13 @@ export function calculateLoanQuote(input: LoanEngineInput): LoanEngineResult {
   const interestPeriodCount = input.interestPeriodCount ?? input.installmentCount
 
   if (input.interestMethod === 'FLAT_TOTAL') {
-    const totalInterest = roundCurrency(input.principal * rateDecimal)
+    const totalInterest = roundMoney(input.principal * rateDecimal)
     return buildFlatSchedule(input, rateDecimal, 1, totalInterest)
   }
 
   if (input.interestMethod === 'FLAT_PER_PERIOD') {
     assertPositiveInteger(interestPeriodCount, 'interestPeriodCount')
-    const totalInterest = roundCurrency(roundCurrency(input.principal * rateDecimal) * interestPeriodCount)
+    const totalInterest = roundMoney(input.principal * rateDecimal * interestPeriodCount)
     return buildFlatSchedule(input, rateDecimal, interestPeriodCount, totalInterest)
   }
 

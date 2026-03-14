@@ -5,6 +5,7 @@ import {
   type LoanEngineScheduleRow,
   type PaymentFrequency,
   type RateUnit,
+  type ScheduleGenerationMethod,
   inferLegacyInterestMethod,
   inferLegacyPaymentFrequency,
 } from './loanEngine'
@@ -376,4 +377,5 @@ export {
   type InterestMethod,
   type PaymentFrequency,
   type RateUnit,
+  type ScheduleGenerationMethod,
 }

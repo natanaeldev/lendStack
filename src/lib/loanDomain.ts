@@ -4,7 +4,7 @@
 // The `loans` collection is the operational loan record.
 // `installments`, `payments`, and `collection_actions` are child collections.
 
-import type { Currency, InterestMethod, PaymentFrequency, RateUnit } from './loan'
+import type { Currency, InterestMethod, PaymentFrequency, RateUnit, ScheduleGenerationMethod } from './loan'
 
 // ─── Loan Lifecycle ───────────────────────────────────────────────────────────
 
@@ -93,6 +93,7 @@ export interface LoanDoc {
   interestPeriodCount?: number
   rateValue?:        number
   rateUnit?:         RateUnit
+  scheduleGenerationMethod?: ScheduleGenerationMethod
   annualRate?:       number
   monthlyRate?:      number
   weeklyRate?:       number
@@ -113,7 +114,7 @@ export interface LoanDoc {
   paidPrincipal:  number   // default 0
   paidInterest:   number   // default 0
   paidTotal:      number   // default 0
-  remainingBalance: number  // amount - paidPrincipal
+  remainingBalance: number  // contractual outstanding amount remaining
 
   // Delinquency snapshot (updated by delinquency job or on-demand)
   daysPastDue?:              number

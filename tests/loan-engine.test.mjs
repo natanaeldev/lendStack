@@ -24,6 +24,7 @@ run('Case A flat total weekly loan', () => {
   assert.equal(result.totalInterest, 1000)
   assert.equal(result.totalPayable, 11000)
   assert.equal(result.periodicPayment, 846.15)
+  assert.deepEqual(result.schedule.map((row) => row.paymentAmount), [846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.15, 846.2])
   assert.equal(sumPayments(result.schedule), 11000)
 })
 
@@ -50,7 +51,25 @@ run('Case B flat total monthly keeps same contract total', () => {
   assert.equal(monthly.totalPayable, 11000)
   assert.equal(monthly.totalInterest, 1000)
   assert.equal(monthly.periodicPayment, 846.15)
+  assert.deepEqual(monthly.schedule.map((row) => row.paymentAmount), weekly.schedule.map((row) => row.paymentAmount))
   assert.notEqual(weekly.schedule[0].dueDate, monthly.schedule[0].dueDate)
+})
+
+run('Case A monthly flat total uses rounded base payment with final adjustment', () => {
+  const result = calculateLoanQuote({
+    principal: 10000,
+    interestMethod: 'FLAT_TOTAL',
+    paymentFrequency: 'MONTHLY',
+    installmentCount: 12,
+    rateValue: 10,
+    rateUnit: 'PERCENT',
+  })
+
+  assert.equal(result.totalInterest, 1000)
+  assert.equal(result.totalPayable, 11000)
+  assert.deepEqual(result.schedule.slice(0, 11).map((row) => row.paymentAmount), Array(11).fill(916.67))
+  assert.equal(result.schedule.at(-1).paymentAmount, 916.63)
+  assert.equal(sumPayments(result.schedule), 11000)
 })
 
 run('Case C flat per period', () => {
@@ -137,7 +156,7 @@ run('small loans and decimal rates keep deterministic sums', () => {
   })
 
   assert.equal(result.totalInterest, 2.5)
-  assert.deepEqual(result.schedule.map((row) => row.paymentAmount), [34.16, 34.16, 34.18])
+  assert.deepEqual(result.schedule.map((row) => row.paymentAmount), [34.17, 34.17, 34.16])
   assert.equal(sumPayments(result.schedule), 102.5)
 })
 

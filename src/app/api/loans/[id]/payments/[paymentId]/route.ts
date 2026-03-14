@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse }          from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
-import { computeDelinquency }               from '@/lib/installmentEngine'
+import { computeDelinquency, computeLoanContractBalance } from '@/lib/installmentEngine'
 import type { InstallmentDoc }              from '@/lib/loanDomain'
 
 // ─── DELETE /api/loans/[id]/payments/[paymentId] — reverse a payment ──────────
@@ -81,18 +81,22 @@ export async function DELETE(
       )
     }
 
-    // Update loan running totals
-    const newPaidTotal   = Math.max((loan.paidTotal    ?? 0) - payment.amount, 0)
-    const newPaidPrin    = Math.max((loan.paidPrincipal ?? 0) - (payment.appliedPrincipal ?? 0), 0)
-    const newPaidInt     = Math.max((loan.paidInterest  ?? 0) - (payment.appliedInterest  ?? 0), 0)
-    const newRemaining   = Math.min((loan.remainingBalance ?? 0) + (payment.appliedPrincipal ?? 0), loan.amount)
-
     // Recompute delinquency from updated installments
     const rawInstallments = await db.collection('installments')
       .find({ loanId: params.id, organizationId: orgId })
       .sort({ installmentNumber: 1 })
       .toArray()
     const installments = rawInstallments as unknown as InstallmentDoc[]
+
+    // Update loan running totals
+    const newPaidTotal   = Math.max((loan.paidTotal    ?? 0) - payment.amount, 0)
+    const newPaidPrin    = Math.max((loan.paidPrincipal ?? 0) - (payment.appliedPrincipal ?? 0), 0)
+    const newPaidInt     = Math.max((loan.paidInterest  ?? 0) - (payment.appliedInterest  ?? 0), 0)
+    const newRemaining   = computeLoanContractBalance({
+      totalPayment: loan.totalPayment,
+      paidTotal: newPaidTotal,
+      remainingBalance: loan.remainingBalance,
+    } as any, installments)
 
     const delinquency = computeDelinquency(installments)
 

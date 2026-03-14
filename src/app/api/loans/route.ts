@@ -160,6 +160,14 @@ export async function POST(req: NextRequest) {
         : normalizedLoanType === 'weekly'
           ? totalWeeks ?? termWeeks
           : carritoPayments)
+    const scheduleGenerationMethod =
+      resolvedInterestMethod === 'DECLINING_BALANCE'
+        ? 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT'
+        : resolvedInterestMethod === 'INTEREST_ONLY'
+          ? 'INTEREST_ONLY_BALLOON'
+          : resolvedInterestMethod === 'ZERO_INTEREST'
+            ? 'ZERO_INTEREST_LAST_ADJUSTMENT'
+            : 'EQUAL_INSTALLMENT_LAST_ADJUSTMENT'
 
     const now    = new Date().toISOString()
     const loanId = uuidv4()
@@ -183,6 +191,7 @@ export async function POST(req: NextRequest) {
       rateMode:          rateMode          ?? 'annual',
       customMonthlyRate: customMonthlyRate ?? undefined,
       interestMethod:    resolvedInterestMethod as InterestMethod,
+      scheduleGenerationMethod,
       paymentFrequency:  resolvedPaymentFrequency,
       installmentCount:  resolvedInstallmentCount ?? undefined,
       interestPeriodCount: interestPeriodCount ?? undefined,
@@ -200,7 +209,7 @@ export async function POST(req: NextRequest) {
       paidPrincipal:   0,
       paidInterest:    0,
       paidTotal:       0,
-      remainingBalance: amount,
+      remainingBalance: totalPayment ?? amount,
       notes:           notes ?? undefined,
     }
 

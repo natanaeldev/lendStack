@@ -10,6 +10,14 @@ import {
 } from './loan'
 import type { InstallmentDoc, LoanDoc } from './loanDomain'
 
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+function sumMoney(values: number[]) {
+  return roundMoney(values.reduce((sum, value) => sum + value, 0))
+}
+
 // ─── Main Generator ───────────────────────────────────────────────────────────
 
 /**
@@ -87,6 +95,21 @@ export function generateInstallments(
   }
 
   return installments
+}
+
+export function computeOutstandingAmount(installments: Pick<InstallmentDoc, 'remainingAmount'>[]) {
+  return roundMoney(sumMoney(installments.map((installment) => installment.remainingAmount)))
+}
+
+export function computeLoanContractBalance(
+  loan: Pick<LoanDoc, 'totalPayment' | 'paidTotal' | 'remainingBalance'>,
+  installments: Pick<InstallmentDoc, 'remainingAmount'>[] = [],
+) {
+  if (installments.length > 0) {
+    return computeOutstandingAmount(installments)
+  }
+
+  return roundMoney(Math.max((loan.totalPayment ?? loan.remainingBalance ?? 0) - (loan.paidTotal ?? 0), 0))
 }
 
 // ─── Delinquency Snapshot ─────────────────────────────────────────────────────

@@ -239,6 +239,7 @@ export async function POST(req: NextRequest) {
         id:             loanId,
         loanType:       'weekly',
         interestMethod: 'DECLINING_BALANCE',
+        scheduleGenerationMethod: 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT',
         paymentFrequency: 'WEEKLY',
         installmentCount: termWeeks,
         interestPeriodCount: termWeeks,
@@ -270,6 +271,7 @@ export async function POST(req: NextRequest) {
         id:             loanId,
         loanType:       'carrito',
         interestMethod,
+        scheduleGenerationMethod: interestMethod === 'ZERO_INTEREST' ? 'ZERO_INTEREST_LAST_ADJUSTMENT' : 'EQUAL_INSTALLMENT_LAST_ADJUSTMENT',
         paymentFrequency: frequency === 'daily' ? 'DAILY' : 'WEEKLY',
         installmentCount: numPayments,
         interestPeriodCount: interestMethod === 'FLAT_PER_PERIOD' ? term : 1,
@@ -302,6 +304,7 @@ export async function POST(req: NextRequest) {
         id:                loanId,
         loanType:          'amortized',
         interestMethod:    'DECLINING_BALANCE',
+        scheduleGenerationMethod: 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT',
         paymentFrequency:  'MONTHLY',
         installmentCount:  result.totalMonths,
         interestPeriodCount: result.totalMonths,
@@ -376,6 +379,7 @@ export async function POST(req: NextRequest) {
         updatedAt:      savedAt,
         loanType:       params.loanType ?? 'amortized',
         interestMethod: loanDoc.interestMethod,
+        scheduleGenerationMethod: loanDoc.scheduleGenerationMethod,
         paymentFrequency: loanDoc.paymentFrequency,
         installmentCount: loanDoc.installmentCount,
         interestPeriodCount: loanDoc.interestPeriodCount,
@@ -401,7 +405,7 @@ export async function POST(req: NextRequest) {
         paidPrincipal:  0,
         paidInterest:   0,
         paidTotal:      0,
-        remainingBalance: params.amount,
+        remainingBalance: result.totalPayment,
       } as any)
     }
 
