@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse }                  from 'next/server'
 import { getDb, isDbConfigured }                     from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }         from '@/lib/orgAuth'
+import { inferLegacyInterestMethod, inferLegacyPaymentFrequency } from '@/lib/loan'
 
 
 function inferLoanType(loan: any): 'amortized' | 'weekly' | 'carrito' {
@@ -74,6 +75,12 @@ export async function GET(
           currency:          c.loan.currency,
           rateMode:          c.loan.rateMode,
           customMonthlyRate: c.loan.customMonthlyRate,
+          interestMethod:    c.loan.interestMethod ?? inferLegacyInterestMethod(c.loan.loanType, c.loan.interestMethod),
+          paymentFrequency:  c.loan.paymentFrequency ?? inferLegacyPaymentFrequency(c.loan.loanType, c.loan.frequency),
+          installmentCount:  c.loan.installmentCount ?? c.loan.numPayments ?? c.loan.termWeeks ?? c.loan.totalMonths ?? null,
+          interestPeriodCount: c.loan.interestPeriodCount ?? c.loan.carritoTerm ?? null,
+          rateValue:         c.loan.rateValue ?? c.loan.flatRate ?? c.loan.monthlyRate ?? c.loan.customMonthlyRate ?? 0,
+          rateUnit:          c.loan.rateUnit ?? 'DECIMAL',
           startDate:         c.loan.startDate ?? '',
           termWeeks:         c.loan.termWeeks ?? null,
           carritoTerm:       c.loan.carritoTerm ?? null,
@@ -88,6 +95,7 @@ export async function GET(
           monthlyRate:    c.loan.monthlyRate,
           totalMonths:    c.loan.totalMonths,
           interestRatio:  c.loan.interestRatio,
+          interestMethod: c.loan.interestMethod ?? inferLegacyInterestMethod(c.loan.loanType, c.loan.interestMethod),
           weeklyPayment:  c.loan.weeklyPayment ?? null,
           totalWeeks:     c.loan.termWeeks ?? null,
           fixedPayment:   c.loan.fixedPayment ?? null,

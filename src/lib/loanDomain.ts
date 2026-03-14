@@ -4,7 +4,7 @@
 // The `loans` collection is the operational loan record.
 // `installments`, `payments`, and `collection_actions` are child collections.
 
-import type { Currency } from './loan'
+import type { Currency, InterestMethod, PaymentFrequency, RateUnit } from './loan'
 
 // ─── Loan Lifecycle ───────────────────────────────────────────────────────────
 
@@ -87,6 +87,12 @@ export interface LoanDoc {
   profile?:          string    // risk profile for amortized
   rateMode?:         string
   customMonthlyRate?: number
+  interestMethod?:   InterestMethod
+  paymentFrequency?: PaymentFrequency
+  installmentCount?: number
+  interestPeriodCount?: number
+  rateValue?:        number
+  rateUnit?:         RateUnit
   annualRate?:       number
   monthlyRate?:      number
   weeklyRate?:       number

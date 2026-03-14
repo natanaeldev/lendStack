@@ -2,6 +2,7 @@ import { NextRequest, NextResponse }                    from 'next/server'
 import { getDb, isDbConfigured }                       from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }           from '@/lib/orgAuth'
 import { migrateLegacyStatus }                         from '@/lib/loanDomain'
+import { inferLegacyInterestMethod, inferLegacyPaymentFrequency, type InterestMethod } from '@/lib/loan'
 import { ObjectId }                                    from 'mongodb'
 import { v4 as uuidv4 }                               from 'uuid'
 
@@ -106,6 +107,12 @@ export async function GET() {
         currency:          c.loan.currency,
         rateMode:          c.loan.rateMode          ?? 'annual',
         customMonthlyRate: c.loan.customMonthlyRate ?? 0,
+        interestMethod:    c.loan.interestMethod ?? inferLegacyInterestMethod(c.loan.loanType, c.loan.interestMethod),
+        paymentFrequency:  c.loan.paymentFrequency ?? inferLegacyPaymentFrequency(c.loan.loanType, c.loan.frequency),
+        installmentCount:  c.loan.installmentCount ?? c.loan.numPayments ?? c.loan.termWeeks ?? c.loan.totalMonths ?? null,
+        interestPeriodCount: c.loan.interestPeriodCount ?? c.loan.carritoTerm ?? null,
+        rateValue:         c.loan.rateValue ?? c.loan.flatRate ?? c.loan.monthlyRate ?? c.loan.customMonthlyRate ?? 0,
+        rateUnit:          c.loan.rateUnit ?? 'DECIMAL',
         startDate:         c.loan.startDate         ?? '',
         // weekly extras
         termWeeks:   c.loan.termWeeks   ?? null,
@@ -124,6 +131,7 @@ export async function GET() {
         monthlyRate:    c.loan.monthlyRate    ?? 0,
         totalMonths:    c.loan.totalMonths    ?? null,
         interestRatio:  c.loan.interestRatio,
+        interestMethod: c.loan.interestMethod ?? inferLegacyInterestMethod(c.loan.loanType, c.loan.interestMethod),
         // weekly extras
         weeklyPayment: c.loan.weeklyPayment ?? null,
         weeklyRate:    c.loan.weeklyRate    ?? null,
@@ -230,6 +238,10 @@ export async function POST(req: NextRequest) {
       loanDoc = {
         id:             loanId,
         loanType:       'weekly',
+        interestMethod: 'DECLINING_BALANCE',
+        paymentFrequency: 'WEEKLY',
+        installmentCount: termWeeks,
+        interestPeriodCount: termWeeks,
         amount:         params.amount,
         profile:        params.profile         ?? 'Medium Risk',
         currency:       params.currency        ?? 'USD',
@@ -237,6 +249,8 @@ export async function POST(req: NextRequest) {
         // Weekly-specific
         termWeeks,
         weeklyRate:     result.weeklyRate,
+        rateValue:      result.weeklyRate,
+        rateUnit:       'DECIMAL',
         weeklyPayment:  result.weeklyPayment,
         monthlyRate,
         annualRate:     result.annualRate,
@@ -248,19 +262,25 @@ export async function POST(req: NextRequest) {
         interestRatio:  result.interestRatio,
       }
     } else if (loanType === 'carrito' && carritoParams && result) {
-      const { flatRate, term, numPayments, frequency } = carritoParams
+      const { flatRate, term, numPayments, frequency, interestMethod = 'FLAT_TOTAL' } = carritoParams as typeof carritoParams & { interestMethod?: InterestMethod }
       const effectiveMonthly = frequency === 'daily'
         ? result.fixedPayment * AVG_DAYS_PER_MONTH
         : result.fixedPayment * AVG_WEEKS_PER_MONTH
       loanDoc = {
         id:             loanId,
         loanType:       'carrito',
+        interestMethod,
+        paymentFrequency: frequency === 'daily' ? 'DAILY' : 'WEEKLY',
+        installmentCount: numPayments,
+        interestPeriodCount: interestMethod === 'FLAT_PER_PERIOD' ? term : 1,
         amount:         params.amount,
         profile:        params.profile   ?? 'Medium Risk',
         currency:       params.currency  ?? 'USD',
         startDate:      params.startDate ?? '',
         // Carrito-specific
         flatRate,
+        rateValue:      flatRate,
+        rateUnit:       'DECIMAL',
         carritoTerm:    term,
         numPayments,
         frequency,
@@ -281,12 +301,18 @@ export async function POST(req: NextRequest) {
       loanDoc = {
         id:                loanId,
         loanType:          'amortized',
+        interestMethod:    'DECLINING_BALANCE',
+        paymentFrequency:  'MONTHLY',
+        installmentCount:  result.totalMonths,
+        interestPeriodCount: result.totalMonths,
         amount:            params.amount,
         termYears:         params.termYears,
         profile:           params.profile,
         currency:          params.currency,
         rateMode:          params.rateMode          ?? 'annual',
         customMonthlyRate: params.customMonthlyRate ?? 0,
+        rateValue:         result.monthlyRate,
+        rateUnit:          'DECIMAL',
         startDate:         params.startDate         ?? '',
         monthlyPayment:    result.monthlyPayment,
         totalPayment:      result.totalPayment,
@@ -349,6 +375,10 @@ export async function POST(req: NextRequest) {
         createdAt:      savedAt,
         updatedAt:      savedAt,
         loanType:       params.loanType ?? 'amortized',
+        interestMethod: loanDoc.interestMethod,
+        paymentFrequency: loanDoc.paymentFrequency,
+        installmentCount: loanDoc.installmentCount,
+        interestPeriodCount: loanDoc.interestPeriodCount,
         currency:       params.currency,
         amount:         params.amount,
         termYears:      params.termYears       ?? undefined,
@@ -359,6 +389,8 @@ export async function POST(req: NextRequest) {
         profile:        params.profile         ?? undefined,
         rateMode:       params.rateMode        ?? 'annual',
         customMonthlyRate: params.customMonthlyRate ?? undefined,
+        rateValue:      loanDoc.rateValue ?? undefined,
+        rateUnit:       loanDoc.rateUnit ?? 'DECIMAL',
         annualRate:     result.annualRate      ?? undefined,
         monthlyRate:    result.monthlyRate     ?? undefined,
         totalMonths:    result.totalMonths     ?? undefined,

@@ -75,7 +75,7 @@ export default function LoanCalculatorPage({
     [amount, currency, customMonthlyRate, rateMode, termUnit, termValue],
   )
   const weeklyResult = useMemo(() => calculateWeeklyLoan(amount, weeklyTermWeeks, weeklyMonthlyRate), [amount, weeklyMonthlyRate, weeklyTermWeeks])
-  const carritoResult = useMemo(() => calculateCarritoLoan(amount, carritoFlatRate, carritoTerm, carritoPayments), [amount, carritoFlatRate, carritoPayments, carritoTerm])
+  const carritoResult = useMemo(() => calculateCarritoLoan(amount, carritoFlatRate, carritoTerm, carritoPayments, 'FLAT_TOTAL'), [amount, carritoFlatRate, carritoPayments, carritoTerm])
 
   const results = useMemo(() => {
     if (uiType === 'weekly') {
@@ -99,12 +99,12 @@ export default function LoanCalculatorPage({
         installmentValue: formatCurrency(carritoResult.fixedPayment, currency),
         totalValue: formatCurrency(carritoResult.totalPayment, currency),
         interestValue: formatCurrency(carritoResult.totalInterest, currency),
-        summary: `Carrito con interés plano de ${formatPercent(carritoFlatRate)} durante ${carritoTerm} períodos.`,
+        summary: `Producto de interés total sobre capital por ${formatPercent(carritoFlatRate)}. La frecuencia solo ordena fechas y cuotas.`,
         items: [
           { label: 'Pagos', value: String(carritoPayments) },
           { label: 'Frecuencia', value: carritoFreq === 'daily' ? 'Diaria' : 'Semanal' },
           { label: 'Primera fecha', value: nextDueLabel('carrito', carritoFreq) },
-          { label: 'Tasa usada', value: `${formatPercent(carritoFlatRate)} plana` },
+          { label: 'Tasa usada', value: `${formatPercent(carritoFlatRate)} total sobre capital` },
         ],
       }
     }
@@ -264,7 +264,7 @@ export default function LoanCalculatorPage({
 
               {uiType === 'carrito' && (
                 <>
-                  <CalculatorInputField label="Tasa de interés" helper="Tasa plana por período">
+                  <CalculatorInputField label="Tasa de interés" helper="Tasa total aplicada una sola vez sobre el capital">
                     <div className="relative min-w-0">
                       <input type="number" min={0} step={0.1} value={Number((carritoFlatRate * 100).toFixed(2))} onChange={(event) => onCarritoFlatRateChange((Number(event.target.value) || 0) / 100)} inputMode="decimal" className={`${inputCls} pr-12`} />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>

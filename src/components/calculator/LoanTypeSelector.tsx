@@ -5,7 +5,7 @@ export type CalculatorLoanKind = 'weekly' | 'monthly' | 'carrito' | 'amortized'
 const OPTIONS: { id: CalculatorLoanKind; label: string; description: string; badge: string }[] = [
   { id: 'weekly', label: 'Semanal', description: 'Cuotas reducidas por semana', badge: '7 días' },
   { id: 'monthly', label: 'Mensual', description: 'Simulación rápida por meses', badge: '12 cuotas' },
-  { id: 'carrito', label: 'Carrito', description: 'Interés plano para ruta', badge: 'Cobro fijo' },
+  { id: 'carrito', label: 'Carrito', description: 'Interés total sobre capital', badge: 'Cobro fijo' },
   { id: 'amortized', label: 'Amortizado', description: 'Saldo reducible profesional', badge: 'Institucional' },
 ]
 

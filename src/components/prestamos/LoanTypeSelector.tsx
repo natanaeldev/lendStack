@@ -10,14 +10,14 @@ const LABELS: Record<LoanType, string> = {
 
 const SUBTITLES: Record<LoanType, string> = {
   amortized: 'Cuotas mensuales con saldo amortizado',
-  weekly: 'Cobro semanal para operacion en calle',
-  carrito: 'Interes plano con pagos diarios o semanales',
+  weekly: 'Cobro semanal con saldo amortizado',
+  carrito: 'Interés total sobre capital con pagos diarios o semanales',
 }
 
 const HINTS: Record<LoanType, string> = {
-  amortized: 'Ideal para prestamos con mayor plazo y cuota estable.',
+  amortized: 'Ideal para préstamos con mayor plazo y cuota estable.',
   weekly: 'Ideal para ruta activa y seguimiento frecuente.',
-  carrito: 'Ideal para producto rapido con estructura flexible.',
+  carrito: 'Ideal para producto rápido con cuota fija y cálculo explícito.',
 }
 
 export default function LoanTypeSelector({

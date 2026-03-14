@@ -14,6 +14,7 @@ import {
   RiskProfile,
   LoanType,
   CarritoFrequency,
+  InterestMethod,
 } from '@/lib/loan'
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
@@ -51,10 +52,12 @@ interface ClientProfile {
   params: {
     amount: number; termYears?: number | null; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number
     startDate?: string; termWeeks?: number | null; carritoTerm?: number | null; numPayments?: number | null; frequency?: CarritoFrequency | null
+    interestMethod?: InterestMethod | null; paymentFrequency?: string | null; installmentCount?: number | null; interestPeriodCount?: number | null
+    rateValue?: number | null; rateUnit?: string | null
   }
   result: {
     monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number
-    weeklyPayment?: number | null; totalWeeks?: number | null; fixedPayment?: number | null; numPayments?: number | null
+    weeklyPayment?: number | null; totalWeeks?: number | null; fixedPayment?: number | null; numPayments?: number | null; interestMethod?: InterestMethod | null
   }
   documents: ClientDoc[]
   payments: Payment[]
@@ -500,9 +503,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const startDate = client.params.startDate ? new Date(client.params.startDate) : new Date()
   const carritoTerm = client.params.carritoTerm ?? loanMeta.totalInstallments
   const carritoPayments = client.result.numPayments ?? client.params.numPayments ?? loanMeta.totalInstallments
-  const carritoFlatRate = carritoTerm > 0
-    ? client.result.totalInterest / Math.max(client.params.amount * carritoTerm, 1)
-    : 0
+  const carritoFlatRate = client.params.rateValue ?? client.params.customMonthlyRate ?? 0
+  const carritoInterestMethod = client.params.interestMethod ?? client.result.interestMethod ?? 'FLAT_TOTAL'
   const loanParams: LoanParams = {
     amount:            client.params.amount,
     termYears:         client.params.termYears ?? 0,
@@ -530,13 +532,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         cumPrincipal: row.cumPrincipal,
       }))
     : loanMeta.loanType === 'carrito'
-      ? buildCarritoSchedule(
+        ? buildCarritoSchedule(
           client.params.amount,
           carritoFlatRate,
           carritoTerm,
           carritoPayments,
           (client.params.frequency ?? 'weekly') as CarritoFrequency,
           startDate,
+          carritoInterestMethod,
         ).map((row, index, rows) => ({
           month: row.period,
           openingBalance: index === 0 ? client.params.amount : rows[index - 1].balance,
