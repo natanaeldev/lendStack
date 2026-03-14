@@ -13,6 +13,7 @@ interface LoanRow {
   borrowerPhone: string
   status: LoanStatus
   loanType: string
+  interestMethod?: string
   currency: Currency
   amount: number
   scheduledPayment: number
@@ -70,6 +71,13 @@ const LOAN_TYPE_LABELS: Record<string, string> = {
 }
 
 function loanTypeLabel(loan: LoanRow) {
+  const normalizedMethod = String(loan.interestMethod ?? '').toUpperCase().trim()
+  if (normalizedMethod === 'FLAT_TOTAL') return 'Interés total'
+  if (normalizedMethod === 'FLAT_PER_PERIOD') return 'Interés por período'
+  if (normalizedMethod === 'INTEREST_ONLY') return 'Solo interés'
+  if (normalizedMethod === 'ZERO_INTEREST') return 'Sin interés'
+  if (normalizedMethod === 'DECLINING_BALANCE') return 'Amortizado'
+
   const rawType = loan.loanType
   if (!rawType) return 'No disponible'
 

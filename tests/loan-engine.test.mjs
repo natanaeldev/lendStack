@@ -177,3 +177,48 @@ run('flat per period schedule matches contract total', () => {
   })
   assert.equal(sumPayments(result.schedule), 23000)
 })
+
+run('interest only keeps principal until balloon payment', () => {
+  const result = calculateLoanQuote({
+    principal: 10000,
+    interestMethod: 'INTEREST_ONLY',
+    paymentFrequency: 'MONTHLY',
+    installmentCount: 4,
+    rateValue: 2,
+    rateUnit: 'PERCENT',
+  })
+
+  assert.deepEqual(result.schedule.map((row) => row.interestAmount), [200, 200, 200, 200])
+  assert.deepEqual(result.schedule.map((row) => row.principalAmount), [0, 0, 0, 10000])
+  assert.deepEqual(result.schedule.map((row) => row.paymentAmount), [200, 200, 200, 10200])
+  assert.equal(result.totalInterest, 800)
+  assert.equal(result.totalPayable, 10800)
+  assert.equal(sumPayments(result.schedule), 10800)
+  assert.equal(result.schedule.at(-1).closingBalance, 0)
+})
+
+run('flat total without rateValue fails fast', () => {
+  assert.throws(
+    () =>
+      calculateLoanQuote({
+        principal: 10000,
+        interestMethod: 'FLAT_TOTAL',
+        paymentFrequency: 'WEEKLY',
+        installmentCount: 13,
+      }),
+    /rateValue is required for FLAT_TOTAL\./,
+  )
+})
+
+run('custom frequency requires explicit day interval', () => {
+  assert.throws(
+    () =>
+      calculateLoanQuote({
+        principal: 1000,
+        interestMethod: 'ZERO_INTEREST',
+        paymentFrequency: 'CUSTOM',
+        installmentCount: 2,
+      }),
+    /customFrequencyDays is required and must be a positive integer when paymentFrequency is CUSTOM\./,
+  )
+})

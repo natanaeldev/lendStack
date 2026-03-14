@@ -64,6 +64,10 @@ function normalizeRate(value: number | undefined, unit: RateUnit = 'DECIMAL') {
   return unit === 'PERCENT' ? safeValue / 100 : safeValue
 }
 
+function requiresExplicitRate(method: InterestMethod) {
+  return method !== 'ZERO_INTEREST'
+}
+
 function cents(value: number) {
   return Math.round(value * 100)
 }
@@ -274,6 +278,12 @@ function buildInterestOnlySchedule(input: LoanEngineInput, rateDecimal: number):
 export function calculateLoanQuote(input: LoanEngineInput): LoanEngineResult {
   assertMoney(input.principal, 'principal')
   assertPositiveInteger(input.installmentCount, 'installmentCount')
+  if (requiresExplicitRate(input.interestMethod) && input.rateValue === undefined) {
+    throw new Error(`rateValue is required for ${input.interestMethod}.`)
+  }
+  if (input.paymentFrequency === 'CUSTOM' && (!Number.isInteger(input.customFrequencyDays) || (input.customFrequencyDays ?? 0) < 1)) {
+    throw new Error('customFrequencyDays is required and must be a positive integer when paymentFrequency is CUSTOM.')
+  }
 
   const rateDecimal = normalizeRate(input.rateValue, input.rateUnit ?? 'DECIMAL')
   const interestPeriodCount = input.interestPeriodCount ?? input.installmentCount
