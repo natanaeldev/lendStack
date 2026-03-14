@@ -11,6 +11,7 @@ import QuickActionsPanel, { type QuickActionItem } from './dashboard/QuickAction
 import RecentActivityCard from './dashboard/RecentActivityCard'
 import ResponsiveDashboardSection from './dashboard/ResponsiveDashboardSection'
 import UrgentItemsPanel from './dashboard/UrgentItemsPanel'
+import QuickPaymentModal from './QuickPaymentModal'
 import { AlertIcon, CalendarIcon, CollectionIcon, LoanIcon, PaymentIcon, PortfolioIcon, SearchIcon, TrendIcon, UserPlusIcon } from './dashboard/DashboardIcons'
 import { buildRecentActivity, buildUrgentItems, formatDashboardDate } from './dashboard/helpers'
 import type { ClientRow, OrgInfo, StatsData } from './dashboard/types'
@@ -42,6 +43,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [orgInfo, setOrgInfo] = useState<OrgInfo | null>(null)
   const [dashboardCurrency, setDashboardCurrency] = useState<Currency>('USD')
   const [search, setSearch] = useState('')
+  const [quickPayClientId, setQuickPayClientId] = useState<string | null>(null)
 
   const urgentRef = useRef<HTMLDivElement | null>(null)
   const clientRef = useRef<HTMLDivElement | null>(null)
@@ -177,7 +179,8 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <>
+      <div className="space-y-4 sm:space-y-5">
       <DashboardHeader
         title={dashboardTitle}
         description="Centro de operaciones para cartera, cobranza y seguimiento diario."
@@ -231,7 +234,11 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
       <div ref={urgentRef}>
         <ResponsiveDashboardSection eyebrow="Urgente" title="Qué requiere atención ahora" description="Lista priorizada con mora, pagos del día y próximos vencimientos para reducir retrasos y acelerar el seguimiento.">
-          <UrgentItemsPanel items={urgentItems} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
+          <UrgentItemsPanel
+            items={urgentItems}
+            onOpenClient={(clientId) => onViewProfile?.(clientId)}
+            onQuickPay={(clientId) => setQuickPayClientId(clientId)}
+          />
         </ResponsiveDashboardSection>
       </div>
 
@@ -277,6 +284,9 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
           </ResponsiveDashboardSection>
         </div>
       </div>
-    </div>
+      </div>
+
+      <QuickPaymentModal isOpen={quickPayClientId !== null} initialClientId={quickPayClientId} onClose={() => setQuickPayClientId(null)} />
+    </>
   )
 }

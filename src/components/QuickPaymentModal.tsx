@@ -21,11 +21,12 @@ interface ClientOption {
 interface Props {
   isOpen:  boolean
   onClose: () => void
+  initialClientId?: string | null
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function QuickPaymentModal({ isOpen, onClose }: Props) {
+export default function QuickPaymentModal({ isOpen, onClose, initialClientId = null }: Props) {
   const [clients,    setClients]    = useState<ClientOption[]>([])
   const [loading,    setLoading]    = useState(false)
   const [search,     setSearch]     = useState('')
@@ -64,10 +65,22 @@ export default function QuickPaymentModal({ isOpen, onClose }: Props) {
           paidTotal:      (c.payments ?? []).reduce((s: number, p: any) => s + p.amount, 0),
         }))
         setClients(list)
+        if (initialClientId) {
+          const matched = list.find((client) => client.id === initialClientId) ?? null
+          setSelected(matched)
+        }
       })
       .catch(() => setError('No se pudo cargar la lista de clientes.'))
       .finally(() => setLoading(false))
-  }, [isOpen])
+  }, [initialClientId, isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !initialClientId || clients.length === 0) return
+    setSelected((current) => {
+      if (current?.id === initialClientId) return current
+      return clients.find((client) => client.id === initialClientId) ?? current
+    })
+  }, [clients, initialClientId, isOpen])
 
   // Pre-fill amount when client selected
   useEffect(() => {
