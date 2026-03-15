@@ -3,45 +3,22 @@
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import LendStackLogo from '@/components/LendStackLogo'
 
-type Plan = 'starter' | 'pro'
+type AvailablePlan = {
+  key: string
+  productKey: string
+  name: string
+  description: string
+  interval: 'month' | 'year'
+  badge?: string | null
+  amountLabel: string
+  features: string[]
+}
 
-const PLAN_DETAILS: Record<
-  Plan,
-  {
-    label: string
-    price: string
-    priceNote: string
-    features: string[]
-    badge?: string
-  }
-> = {
-  starter: {
-    label: 'Starter',
-    price: 'Gratis',
-    priceNote: 'Siempre',
-    features: [
-      'Hasta 50 clientes',
-      '3 usuarios (master + 2)',
-      'Recordatorios automáticos',
-      'Dashboard básico',
-    ],
-  },
-  pro: {
-    label: 'Pro',
-    price: 'USD 29',
-    priceNote: 'por mes',
-    features: [
-      'Clientes ilimitados',
-      'Usuarios ilimitados',
-      'Recordatorios automáticos',
-      'Dashboard avanzado',
-      'Soporte prioritario',
-    ],
-    badge: 'Recomendado',
-  },
+function intervalLabel(interval: 'month' | 'year') {
+  return interval === 'year' ? 'Anual' : 'Mensual'
 }
 
 export default function RegisterPage() {
@@ -52,17 +29,36 @@ export default function RegisterPage() {
   const [adminEmail, setAdminEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [plan, setPlan] = useState<Plan>('starter')
+  const [plans, setPlans] = useState<AvailablePlan[]>([])
+  const [selectedPlanKey, setSelectedPlanKey] = useState<string>('')
+  const [plansLoading, setPlansLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  useEffect(() => {
+    fetch('/api/register/plans')
+      .then((response) => response.json())
+      .then((json) => {
+        const nextPlans = Array.isArray(json.plans) ? json.plans : []
+        setPlans(nextPlans)
+        if (nextPlans[0]) setSelectedPlanKey(nextPlans[0].key)
+      })
+      .catch(() => setError('No se pudieron cargar los planes disponibles.'))
+      .finally(() => setPlansLoading(false))
+  }, [])
+
+  const selectedPlan = useMemo(
+    () => plans.find((plan) => plan.key === selectedPlanKey) ?? null,
+    [plans, selectedPlanKey],
+  )
 
   const handleNext = (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
 
     if (!orgName.trim()) {
-      setError('Ingresá el nombre de tu organización.')
+      setError('Ingresa el nombre de tu organizacion.')
       return
     }
     if (!adminEmail.trim()) {
@@ -70,11 +66,15 @@ export default function RegisterPage() {
       return
     }
     if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.')
+      setError('La contrasena debe tener al menos 8 caracteres.')
       return
     }
     if (password !== confirm) {
-      setError('Las contraseñas no coinciden.')
+      setError('Las contrasenas no coinciden.')
+      return
+    }
+    if (!selectedPlanKey) {
+      setError('Selecciona un plan para continuar.')
       return
     }
 
@@ -82,7 +82,7 @@ export default function RegisterPage() {
   }
 
   const handleSubmit = async () => {
-    if (loading) return
+    if (loading || !selectedPlanKey) return
     setLoading(true)
     setError('')
 
@@ -90,13 +90,13 @@ export default function RegisterPage() {
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgName, adminName, adminEmail, password, plan }),
+        body: JSON.stringify({ orgName, adminName, adminEmail, password, planKey: selectedPlanKey }),
       })
       const data = await response.json()
 
       if (!response.ok) {
         setError(data.error ?? 'Error al registrar.')
-        setStep(1)
+        setStep(2)
         return
       }
 
@@ -121,7 +121,7 @@ export default function RegisterPage() {
       router.refresh()
     } catch {
       setError('No se pudo conectar con el servidor.')
-      setStep(1)
+      setStep(2)
     } finally {
       setLoading(false)
     }
@@ -141,9 +141,9 @@ export default function RegisterPage() {
         }}
       />
 
-      <div className="flex-1 flex items-center justify-center p-4 relative z-10">
-        <div className="w-full max-w-lg">
-          <div className="flex justify-center mb-8">
+      <div className="relative z-10 flex flex-1 items-center justify-center p-4">
+        <div className="w-full max-w-5xl">
+          <div className="mb-8 flex justify-center">
             <div
               className="rounded-2xl flex-shrink-0"
               style={{ background: 'rgba(255,255,255,.95)', padding: '10px 20px', boxShadow: '0 4px 32px rgba(0,0,0,.3)' }}
@@ -152,11 +152,11 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="mb-6 flex items-center justify-center gap-3">
             {[1, 2].map((stepNumber) => (
               <div key={stepNumber} className="flex items-center gap-2">
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all"
                   style={{
                     background: step >= stepNumber ? '#1565C0' : 'rgba(255,255,255,.2)',
                     color: step >= stepNumber ? '#fff' : 'rgba(255,255,255,.5)',
@@ -164,195 +164,229 @@ export default function RegisterPage() {
                 >
                   {stepNumber}
                 </div>
-                {stepNumber < 2 && (
-                  <div
-                    className="w-12 h-0.5 rounded"
-                    style={{ background: step > stepNumber ? '#1565C0' : 'rgba(255,255,255,.2)' }}
-                  />
-                )}
+                {stepNumber < 2 ? (
+                  <div className="h-0.5 w-12 rounded" style={{ background: step > stepNumber ? '#1565C0' : 'rgba(255,255,255,.2)' }} />
+                ) : null}
               </div>
             ))}
           </div>
 
-          <div className="bg-white rounded-2xl p-8" style={{ boxShadow: '0 8px 48px rgba(0,0,0,.35)' }}>
-            {step === 1 && (
-              <>
-                <h2
-                  className="text-2xl font-bold mb-1"
-                  style={{ color: '#0D2B5E', fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  Crear organización
-                </h2>
-                <p className="text-sm text-slate-400 mb-6">
-                  Registrá tu empresa en LendStack. El workspace queda listo para probar préstamos desde el primer ingreso.
-                </p>
+          <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className="rounded-2xl bg-white p-8 shadow-[0_8px_48px_rgba(0,0,0,.35)]">
+              {step === 1 ? (
+                <>
+                  <h2 className="mb-1 text-2xl font-bold" style={{ color: '#0D2B5E', fontFamily: "'DM Sans', sans-serif" }}>
+                    Crear organizacion
+                  </h2>
+                  <p className="mb-6 text-sm text-slate-400">
+                    Registra tu empresa y selecciona un plan real de Stripe. El checkout se abrira automaticamente al finalizar.
+                  </p>
 
-                <form onSubmit={handleNext} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Nombre de la organización *
-                    </label>
-                    <input
-                      type="text"
-                      value={orgName}
-                      onChange={(event) => setOrgName(event.target.value)}
-                      placeholder="Ej: Créditos Rápidos SRL"
-                      autoComplete="organization"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#374151' }}
-                    />
+                  <form onSubmit={handleNext} className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Nombre de la organizacion *
+                      </label>
+                      <input
+                        type="text"
+                        value={orgName}
+                        onChange={(event) => setOrgName(event.target.value)}
+                        placeholder="Ej: Creditos Rapidos SRL"
+                        autoComplete="organization"
+                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+                        style={{ color: '#374151' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Tu nombre
+                      </label>
+                      <input
+                        type="text"
+                        value={adminName}
+                        onChange={(event) => setAdminName(event.target.value)}
+                        placeholder="Ej: Maria Garcia"
+                        autoComplete="name"
+                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+                        style={{ color: '#374151' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        value={adminEmail}
+                        onChange={(event) => setAdminEmail(event.target.value)}
+                        placeholder="admin@tuempresa.com"
+                        required
+                        autoComplete="email"
+                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+                        style={{ color: '#374151' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Contrasena *
+                      </label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="********"
+                        required
+                        autoComplete="new-password"
+                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+                        style={{ color: '#374151' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Confirmar contrasena *
+                      </label>
+                      <input
+                        type="password"
+                        value={confirm}
+                        onChange={(event) => setConfirm(event.target.value)}
+                        placeholder="********"
+                        required
+                        autoComplete="new-password"
+                        className={`w-full rounded-xl border-2 px-4 py-3 text-sm transition-colors focus:outline-none ${
+                          confirm && confirm !== password ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
+                        }`}
+                        style={{ color: '#374151' }}
+                      />
+                    </div>
+
+                    {error ? (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                        {error}
+                      </div>
+                    ) : null}
+
+                    <button
+                      type="submit"
+                      disabled={!orgName || !adminEmail || !password || !confirm || password !== confirm || plansLoading || !selectedPlanKey}
+                      className="mt-2 w-full rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
+                      style={{ background: 'linear-gradient(135deg, #0D2B5E, #1565C0)' }}
+                    >
+                      Siguiente: confirmar plan
+                    </button>
+                  </form>
+
+                  <p className="mt-5 text-center text-xs text-slate-400">
+                    Ya tienes cuenta?{' '}
+                    <Link href="/login" className="font-semibold hover:underline" style={{ color: '#1565C0' }}>
+                      Iniciar sesion
+                    </Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setStep(1)}
+                    className="mb-4 flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-700"
+                  >
+                    Volver
+                  </button>
+
+                  <h2 className="mb-1 text-2xl font-bold" style={{ color: '#0D2B5E', fontFamily: "'DM Sans', sans-serif" }}>
+                    Confirmar suscripcion
+                  </h2>
+                  <p className="mb-6 text-sm text-slate-400">
+                    Vas a crear el workspace y luego iras a Stripe Checkout con el plan seleccionado.
+                  </p>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Plan seleccionado</p>
+                    <p className="mt-2 text-lg font-black text-slate-950">
+                      {selectedPlan ? `${selectedPlan.name} · ${intervalLabel(selectedPlan.interval)}` : 'No disponible'}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">{selectedPlan?.description ?? 'Selecciona un plan valido.'}</p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Tu nombre
-                    </label>
-                    <input
-                      type="text"
-                      value={adminName}
-                      onChange={(event) => setAdminName(event.target.value)}
-                      placeholder="Ej: María García"
-                      autoComplete="name"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#374151' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      value={adminEmail}
-                      onChange={(event) => setAdminEmail(event.target.value)}
-                      placeholder="admin@tuempresa.com"
-                      required
-                      autoComplete="email"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#374151' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Contraseña * <span className="font-normal normal-case text-slate-400">(mín. 8 caracteres)</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="••••••••"
-                      required
-                      autoComplete="new-password"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#374151' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Confirmar contraseña *
-                    </label>
-                    <input
-                      type="password"
-                      value={confirm}
-                      onChange={(event) => setConfirm(event.target.value)}
-                      placeholder="••••••••"
-                      required
-                      autoComplete="new-password"
-                      className={`w-full px-4 py-3 rounded-xl border-2 text-sm focus:outline-none transition-colors ${
-                        confirm && confirm !== password ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
-                      }`}
-                      style={{ color: '#374151' }}
-                    />
-                    {confirm && confirm !== password && (
-                      <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden.</p>
-                    )}
-                  </div>
-
-                  {error && (
-                    <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+                  {successMsg ? (
+                    <div className="mb-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      {successMsg}
+                    </div>
+                  ) : null}
+                  {error ? (
+                    <div className="mb-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                       {error}
                     </div>
-                  )}
+                  ) : null}
 
                   <button
-                    type="submit"
-                    disabled={!orgName || !adminEmail || !password || !confirm || password !== confirm}
-                    className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 mt-2"
+                    onClick={handleSubmit}
+                    disabled={loading || !selectedPlan}
+                    className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #0D2B5E, #1565C0)' }}
                   >
-                    Siguiente: elegir plan
+                    {loading ? 'Creando cuenta...' : 'Continuar a Stripe Checkout'}
                   </button>
-                </form>
+                </>
+              )}
+            </div>
 
-                <p className="text-center text-xs text-slate-400 mt-5">
-                  ¿Ya tenés cuenta?{' '}
-                  <Link href="/login" className="font-semibold hover:underline" style={{ color: '#1565C0' }}>
-                    Iniciar sesión
-                  </Link>
-                </p>
-              </>
-            )}
+            <div className="rounded-2xl bg-white/95 p-6 shadow-[0_8px_48px_rgba(0,0,0,.25)]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Planes disponibles</p>
+              <h3 className="mt-2 text-2xl font-black text-slate-950">Catalogo conectado a Stripe</h3>
+              <p className="mt-3 text-sm text-slate-600">
+                Los planes visibles salen del entorno real. Si un price ID no existe en Vercel, el plan no se muestra aqui.
+              </p>
 
-            {step === 2 && (
-              <>
-                <button
-                  onClick={() => setStep(1)}
-                  className="text-xs font-semibold text-slate-400 hover:text-slate-700 mb-4 flex items-center gap-1"
-                >
-                  Volver
-                </button>
-
-                <h2
-                  className="text-2xl font-bold mb-1"
-                  style={{ color: '#0D2B5E', fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  Elegí tu plan
-                </h2>
-                <p className="text-sm text-slate-400 mb-6">
-                  Podés empezar gratis y entrar directamente al dashboard para validar el producto.
-                </p>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-6">
-                  {(Object.keys(PLAN_DETAILS) as Plan[]).map((planKey) => {
-                    const details = PLAN_DETAILS[planKey]
-                    const selected = plan === planKey
-
+              {plansLoading ? (
+                <div className="mt-6 space-y-3">
+                  <div className="h-28 animate-pulse rounded-3xl bg-slate-100" />
+                  <div className="h-28 animate-pulse rounded-3xl bg-slate-100" />
+                </div>
+              ) : plans.length === 0 ? (
+                <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                  No hay planes Stripe activos en este entorno. Revisa los price IDs en Vercel.
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-3">
+                  {plans.map((plan) => {
+                    const selected = plan.key === selectedPlanKey
                     return (
                       <button
-                        key={planKey}
+                        key={plan.key}
                         type="button"
-                        onClick={() => setPlan(planKey)}
-                        className="text-left rounded-xl border-2 p-4 transition-all"
+                        onClick={() => setSelectedPlanKey(plan.key)}
+                        className="rounded-[24px] border-2 p-4 text-left transition-all"
                         style={{
                           borderColor: selected ? '#1565C0' : '#E2E8F0',
                           background: selected ? '#EFF6FF' : '#fff',
                         }}
                       >
-                        {details.badge && (
-                          <span
-                            className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2"
-                            style={{ background: '#1565C0', color: '#fff' }}
-                          >
-                            {details.badge}
-                          </span>
-                        )}
-                        <div className="flex items-end gap-1 mb-3">
-                          <span className="text-xl font-black" style={{ color: '#0D2B5E' }}>
-                            {details.price}
-                          </span>
-                          <span className="text-xs text-slate-400 pb-0.5">{details.priceNote}</span>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-base font-black text-slate-950">
+                                {plan.name} · {intervalLabel(plan.interval)}
+                              </p>
+                              {plan.badge ? (
+                                <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                                  {plan.badge}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-2 text-sm text-slate-600">{plan.description}</p>
+                          </div>
+                          <div className="rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white">
+                            {plan.amountLabel}
+                          </div>
                         </div>
-                        <p className="text-sm font-bold mb-2" style={{ color: '#0D2B5E' }}>
-                          {details.label}
-                        </p>
-                        <ul className="space-y-1">
-                          {details.features.map((feature) => (
-                            <li key={feature} className="text-xs text-slate-600 flex items-start gap-1.5">
-                              <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span>
-                              {feature}
+                        <ul className="mt-4 space-y-2">
+                          {plan.features.map((feature) => (
+                            <li key={feature} className="flex items-start gap-2 text-sm text-slate-600">
+                              <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500" />
+                              <span>{feature}</span>
                             </li>
                           ))}
                         </ul>
@@ -360,44 +394,12 @@ export default function RegisterPage() {
                     )
                   })}
                 </div>
-
-                {successMsg && (
-                  <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-700 mb-4">
-                    {successMsg}
-                  </div>
-                )}
-                {error && (
-                  <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600 mb-4">
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #0D2B5E, #1565C0)' }}
-                >
-                  {loading ? 'Creando cuenta...' : plan === 'pro' ? 'Continuar al pago' : 'Crear cuenta gratis'}
-                </button>
-
-                <p className="text-center text-xs text-slate-400 mt-4">
-                  Al registrarte aceptás los{' '}
-                  <span className="underline cursor-pointer" style={{ color: '#1565C0' }}>
-                    Términos de uso
-                  </span>{' '}
-                  y la{' '}
-                  <span className="underline cursor-pointer" style={{ color: '#1565C0' }}>
-                    Política de privacidad
-                  </span>
-                  .
-                </p>
-              </>
-            )}
+              )}
+            </div>
           </div>
 
-          <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,.35)' }}>
-            LendStack · Sistema de gestión de préstamos
+          <p className="mt-6 text-center text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
+            LendStack · Sistema de gestion de prestamos
           </p>
         </div>
       </div>

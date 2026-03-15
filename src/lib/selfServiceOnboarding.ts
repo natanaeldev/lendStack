@@ -8,6 +8,8 @@ export interface SelfServiceOnboardingInput {
   password: string
   organizationName: string
   plan?: 'starter' | 'pro'
+  billingInterval?: 'month' | 'year' | null
+  requiresCheckout?: boolean
 }
 
 export interface SelfServiceOnboardingResult {
@@ -59,7 +61,7 @@ type OrgDoc = {
   plan: 'starter' | 'pro'
   billingPlan: 'starter' | 'pro'
   billingStatus: 'active' | 'pending_checkout'
-  billingInterval: 'month' | null
+  billingInterval: 'month' | 'year' | null
   isPaymentPastDue: boolean
   stripeCustomerId?: string | null
   stripeSubscriptionId?: string | null
@@ -514,8 +516,8 @@ export async function runSelfServiceOnboardingWithRepository(
       environment,
       plan: 'starter',
       billingPlan: input.plan === 'pro' ? 'pro' : 'starter',
-      billingStatus: input.plan === 'pro' ? 'pending_checkout' : 'active',
-      billingInterval: input.plan === 'pro' ? 'month' : null,
+      billingStatus: input.requiresCheckout ? 'pending_checkout' : 'active',
+      billingInterval: input.requiresCheckout ? input.billingInterval ?? 'month' : null,
       isPaymentPastDue: false,
       stripeCustomerId: null,
       stripeSubscriptionId: null,

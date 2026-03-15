@@ -1,5 +1,6 @@
 export type BillingPlanKey = 'starter' | 'pro' | 'enterprise'
 export type BillingInterval = 'month' | 'year' | null
+export type BillingCheckoutInterval = Exclude<BillingInterval, null>
 export type BillingStatus =
   | 'not_started'
   | 'pending_checkout'
@@ -16,6 +17,7 @@ export type ConnectStatus = 'not_connected' | 'onboarding_required' | 'pending_v
 
 export interface BillingPlanDefinition {
   key: BillingPlanKey
+  checkoutKey: string
   name: string
   interval: BillingInterval
   stripePriceId: string | null
@@ -54,6 +56,7 @@ export interface BillingAccess {
 export interface CheckoutSessionInput {
   organizationId: string
   planKey: BillingPlanKey
+  interval?: BillingCheckoutInterval
   userId?: string | null
   userEmail: string
   userName?: string | null
@@ -166,7 +169,7 @@ export function getBillingAccess(status: BillingStatus): BillingAccess {
     case 'pending_checkout':
       return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: false, statusLabel: 'Checkout pendiente' }
     case 'pending_activation':
-      return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: false, statusLabel: 'Activación pendiente' }
+      return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: false, statusLabel: 'Activacion pendiente' }
     case 'canceled':
       return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: true, statusLabel: 'Cancelada' }
     case 'unpaid':
@@ -174,7 +177,7 @@ export function getBillingAccess(status: BillingStatus): BillingAccess {
     case 'incomplete_expired':
       return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: true, statusLabel: 'Cobro fallido' }
     default:
-      return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: false, statusLabel: 'Sin suscripción' }
+      return { allowWorkspace: true, allowPremiumFeatures: false, downgradeToStarter: false, statusLabel: 'Sin suscripcion' }
   }
 }
 
@@ -188,9 +191,22 @@ export function deriveEffectivePlan(planKey: BillingPlanKey | null | undefined, 
   return access.downgradeToStarter ? 'starter' : normalizedPlan
 }
 
+export function buildBillingCheckoutKey(planKey: BillingPlanKey, interval: BillingInterval) {
+  if (!interval) return planKey
+  return `${planKey}_${interval === 'year' ? 'yearly' : 'monthly'}`
+}
+
 export function resolvePlanByPriceId(plans: BillingPlanDefinition[], stripePriceId: string | null | undefined): BillingPlanDefinition | null {
   if (!stripePriceId) return null
   return plans.find((plan) => plan.stripePriceId === stripePriceId) ?? null
+}
+
+export function resolveCheckoutPlan(
+  plans: BillingPlanDefinition[],
+  planKey: BillingPlanKey,
+  interval: BillingCheckoutInterval = 'month',
+) {
+  return plans.find((plan) => plan.key === planKey && plan.interval === interval) ?? null
 }
 
 export function deriveConnectStatus(input: {
@@ -242,7 +258,7 @@ export async function createSubscriptionCheckout(
   const organization = await repository.findOrganizationById(input.organizationId)
   if (!organization) throw new Error('Organization not found.')
 
-  const plan = plans.find((item) => item.key === input.planKey)
+  const plan = resolveCheckoutPlan(plans, input.planKey, input.interval ?? 'month')
   if (!plan || !plan.active || plan.isFree || !plan.stripePriceId) {
     throw new Error('Selected billing plan is not available for checkout.')
   }
@@ -269,10 +285,11 @@ export async function createSubscriptionCheckout(
       userId: input.userId ?? '',
       planKey: input.planKey,
       interval: plan.interval ?? '',
+      checkoutKey: plan.checkoutKey,
     },
     successUrl: input.successUrl,
     cancelUrl: input.cancelUrl,
-    idempotencyKey: `checkout:${input.organizationId}:${input.planKey}`,
+    idempotencyKey: `checkout:${input.organizationId}:${plan.checkoutKey}`,
   })
 
   await repository.updateOrganization(input.organizationId, {
@@ -395,13 +412,14 @@ export async function processStripeWebhookEvent(
     const organizationId = object?.metadata?.organizationId ?? object?.metadata?.orgId ?? null
     if (organizationId) {
       const requestedPlan = (object?.metadata?.planKey as BillingPlanKey | undefined) ?? 'pro'
+      const interval = object?.metadata?.interval === 'year' ? 'year' : 'month'
       await repository.updateOrganization(String(organizationId), {
         stripeCustomerId: object?.customer ? String(object.customer) : null,
         stripeSubscriptionId: object?.subscription ? String(object.subscription) : null,
         stripeCheckoutSessionId: object?.id ? String(object.id) : null,
         billingPlan: requestedPlan,
         billingStatus: 'pending_activation',
-        billingInterval: object?.metadata?.interval || 'month',
+        billingInterval: interval,
         updatedAt: new Date().toISOString(),
       })
     }

@@ -95,6 +95,14 @@ export interface OrgInfo {
   canConnectStripe?: boolean
   portalAvailable?: boolean
   checkoutAvailable?: boolean
+  billingCatalog?: {
+    key: string
+    checkoutKey: string
+    name: string
+    interval: string | null
+    amountLabel: string
+    isCurrent: boolean
+  }[]
   clientCount: number
   maxClients: number | null
   isAtLimit: boolean
