@@ -1,9 +1,11 @@
 import type { Db } from 'mongodb'
 import Stripe from 'stripe'
 import {
+  type BillingCheckoutInterval,
   type BillingPlanDefinition,
-  type BillingRepository,
   type BillingPlanKey,
+  type BillingRepository,
+  buildBillingCheckoutKey,
   createBillingPortal,
   createConnectOnboarding,
   createSubscriptionCheckout,
@@ -17,45 +19,85 @@ export function getAppUrl() {
   return value.replace(/\/+$/, '')
 }
 
+let stripeClient: Stripe | null = null
+
 export function getStripeClient() {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is required.')
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-02-24.acacia' as any,
-  })
+  if (!stripeClient) {
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-02-24.acacia' as any,
+    })
+  }
+  return stripeClient
+}
+
+function makePlanDefinition(input: {
+  key: BillingPlanKey
+  name: string
+  interval: BillingCheckoutInterval
+  priceId?: string | null
+  amountLabel: string
+}) {
+  return {
+    key: input.key,
+    checkoutKey: buildBillingCheckoutKey(input.key, input.interval),
+    name: input.name,
+    interval: input.interval,
+    stripePriceId: input.priceId ?? null,
+    active: !!input.priceId,
+    amountLabel: input.amountLabel,
+    isFree: false,
+  } satisfies BillingPlanDefinition
 }
 
 export function getBillingPlans(env: NodeJS.ProcessEnv = process.env): BillingPlanDefinition[] {
-  return [
-    {
+  const plans: BillingPlanDefinition[] = [
+    makePlanDefinition({
       key: 'starter',
-      name: 'Starter',
-      interval: null,
-      stripePriceId: null,
-      active: true,
-      amountLabel: 'Gratis',
-      isFree: true,
-    },
-    {
+      name: 'Starter mensual',
+      interval: 'month',
+      priceId: env.STRIPE_PRICE_ID_STARTER_MONTHLY ?? null,
+      amountLabel: 'Starter mensual',
+    }),
+    makePlanDefinition({
+      key: 'starter',
+      name: 'Starter anual',
+      interval: 'year',
+      priceId: env.STRIPE_PRICE_ID_STARTER_YEARLY ?? null,
+      amountLabel: 'Starter anual',
+    }),
+    makePlanDefinition({
       key: 'pro',
-      name: 'Pro',
+      name: 'Pro mensual',
       interval: 'month',
-      stripePriceId: env.STRIPE_PRICE_ID_PRO_MONTHLY ?? null,
-      active: !!env.STRIPE_PRICE_ID_PRO_MONTHLY,
-      amountLabel: 'USD 29 / mes',
-      isFree: false,
-    },
-    {
-      key: 'enterprise',
-      name: 'Enterprise',
-      interval: 'month',
-      stripePriceId: env.STRIPE_PRICE_ID_ENTERPRISE_MONTHLY ?? null,
-      active: !!env.STRIPE_PRICE_ID_ENTERPRISE_MONTHLY,
-      amountLabel: 'Personalizado',
-      isFree: false,
-    },
+      priceId: env.STRIPE_PRICE_ID_PRO_MONTHLY ?? null,
+      amountLabel: 'Pro mensual',
+    }),
+    makePlanDefinition({
+      key: 'pro',
+      name: 'Pro anual',
+      interval: 'year',
+      priceId: env.STRIPE_PRICE_ID_PRO_YEARLY ?? null,
+      amountLabel: 'Pro anual',
+    }),
   ]
+
+  const enterpriseMonthly = env.STRIPE_PRICE_ID_ENTERPRISE_MONTHLY ?? null
+  if (enterpriseMonthly) {
+    plans.push(
+      makePlanDefinition({
+        key: 'enterprise',
+        name: 'Enterprise mensual',
+        interval: 'month',
+        priceId: enterpriseMonthly,
+        amountLabel: 'Enterprise mensual',
+      }),
+    )
+  }
+
+  return plans
 }
 
 export function isStripeConfigured(env: NodeJS.ProcessEnv = process.env) {
@@ -95,10 +137,7 @@ class MongoBillingRepository implements BillingRepository {
   }
 
   async updateOrganization(organizationId: string, patch: Record<string, unknown>) {
-    await this.db.collection('organizations').updateOne(
-      { _id: organizationId as any },
-      { $set: patch },
-    )
+    await this.db.collection('organizations').updateOne({ _id: organizationId as any }, { $set: patch })
   }
 
   async markWebhookEventProcessed(eventId: string, eventType: string, payload: Record<string, unknown>) {
@@ -200,32 +239,24 @@ export async function createOrganizationCheckoutSession(input: {
   userEmail: string
   userName?: string | null
   planKey: BillingPlanKey
+  interval?: BillingCheckoutInterval
 }) {
   const db = await getDb()
-  return createSubscriptionCheckout(
-    getRepository(db),
-    getStripeGateway(),
-    getBillingPlans(),
-    {
-      organizationId: input.organizationId,
-      planKey: input.planKey,
-      userId: input.userId,
-      userEmail: input.userEmail,
-      userName: input.userName,
-      successUrl: `${getAppUrl()}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${getAppUrl()}/billing/cancel`,
-    },
-  )
+  return createSubscriptionCheckout(getRepository(db), getStripeGateway(), getBillingPlans(), {
+    organizationId: input.organizationId,
+    planKey: input.planKey,
+    interval: input.interval ?? 'month',
+    userId: input.userId,
+    userEmail: input.userEmail,
+    userName: input.userName,
+    successUrl: `${getAppUrl()}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${getAppUrl()}/billing/cancel`,
+  })
 }
 
 export async function createOrganizationBillingPortal(organizationId: string) {
   const db = await getDb()
-  return createBillingPortal(
-    getRepository(db),
-    getStripeGateway(),
-    organizationId,
-    `${getAppUrl()}/app?billing=1`,
-  )
+  return createBillingPortal(getRepository(db), getStripeGateway(), organizationId, `${getAppUrl()}/app/billing`)
 }
 
 export async function createOrganizationConnectOnboarding(input: {
@@ -233,16 +264,12 @@ export async function createOrganizationConnectOnboarding(input: {
   contactEmail: string
 }) {
   const db = await getDb()
-  return createConnectOnboarding(
-    getRepository(db),
-    getStripeGateway(),
-    {
-      organizationId: input.organizationId,
-      contactEmail: input.contactEmail,
-      returnUrl: process.env.STRIPE_CONNECT_RETURN_URL || `${getAppUrl()}/app?connect=return`,
-      refreshUrl: process.env.STRIPE_CONNECT_REFRESH_URL || `${getAppUrl()}/app?connect=refresh`,
-    },
-  )
+  return createConnectOnboarding(getRepository(db), getStripeGateway(), {
+    organizationId: input.organizationId,
+    contactEmail: input.contactEmail,
+    returnUrl: process.env.STRIPE_CONNECT_RETURN_URL || `${getAppUrl()}/app/billing?connect=return`,
+    refreshUrl: process.env.STRIPE_CONNECT_REFRESH_URL || `${getAppUrl()}/app/billing?connect=refresh`,
+  })
 }
 
 export async function handleStripeWebhook(event: Parameters<typeof processStripeWebhookEvent>[2]) {

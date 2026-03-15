@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createOrganizationCheckoutSession, getBillingPlans, isStripeConfigured } from '@/lib/stripeBilling'
 import { getDb, getMongoClient, isDbConfigured } from '@/lib/mongodb'
 import { OnboardingConflictError, OnboardingValidationError, runSelfServiceOnboarding } from '@/lib/selfServiceOnboarding'
-import { createOrganizationCheckoutSession, getBillingPlans, isStripeConfigured } from '@/lib/stripeBilling'
 
 export async function POST(req: NextRequest) {
   if (!isDbConfigured()) {
@@ -11,10 +11,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const plan = body.plan === 'pro' ? 'pro' : 'starter'
-    const proPlan = getBillingPlans().find((item) => item.key === 'pro')
+    const proMonthlyPlan = getBillingPlans().find((item) => item.key === 'pro' && item.interval === 'month')
 
-    if (plan === 'pro' && (!isStripeConfigured() || !proPlan?.active)) {
-      return NextResponse.json({ error: 'El plan Pro no está disponible en este entorno.' }, { status: 503 })
+    if (plan === 'pro' && (!isStripeConfigured() || !proMonthlyPlan?.active)) {
+      return NextResponse.json({ error: 'El plan Pro no esta disponible en este entorno.' }, { status: 503 })
     }
 
     const client = await getMongoClient()
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
           userEmail: (body.adminEmail ?? body.email ?? '').trim().toLowerCase(),
           userName: body.adminName ?? body.fullName ?? '',
           planKey: 'pro',
+          interval: 'month',
         })
         checkoutUrl = checkout.url
       } catch (checkoutError) {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
           success: true,
           ...onboarding,
           checkoutUrl: null,
-          warning: 'La organización fue creada, pero no se pudo abrir Stripe Checkout. Inicia sesión y reintenta el upgrade desde el panel.',
+          warning: 'La organizacion fue creada, pero no se pudo abrir Stripe Checkout. Inicia sesion y reintenta el upgrade desde billing.',
         })
       }
     }
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
     if (error?.code === 11000) {
-      return NextResponse.json({ error: 'La cuenta ya fue creada. Iniciá sesión.' }, { status: 409 })
+      return NextResponse.json({ error: 'La cuenta ya fue creada. Inicia sesion.' }, { status: 409 })
     }
     console.error('[POST /api/register]', error)
     return NextResponse.json({ error: 'No se pudo completar el onboarding.' }, { status: 500 })

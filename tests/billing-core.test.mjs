@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  buildBillingCheckoutKey,
   canManageOrganizationBilling,
   createBillingPortal,
   createConnectOnboarding,
@@ -9,6 +10,7 @@ import {
   deriveSubscriptionPatch,
   getBillingAccess,
   processStripeWebhookEvent,
+  resolveCheckoutPlan,
 } from '../src/lib/billingCore.ts'
 
 async function run(name, fn) {
@@ -23,9 +25,10 @@ async function run(name, fn) {
 }
 
 const plans = [
-  { key: 'starter', name: 'Starter', interval: null, stripePriceId: null, active: true, amountLabel: 'Gratis', isFree: true },
-  { key: 'pro', name: 'Pro', interval: 'month', stripePriceId: 'price_pro_monthly', active: true, amountLabel: 'USD 29 / mes', isFree: false },
-  { key: 'enterprise', name: 'Enterprise', interval: 'month', stripePriceId: 'price_enterprise_monthly', active: true, amountLabel: 'Personalizado', isFree: false },
+  { key: 'starter', checkoutKey: 'starter_monthly', name: 'Starter mensual', interval: 'month', stripePriceId: 'price_starter_monthly', active: true, amountLabel: 'USD 19 / mes', isFree: false },
+  { key: 'starter', checkoutKey: 'starter_yearly', name: 'Starter anual', interval: 'year', stripePriceId: 'price_starter_yearly', active: true, amountLabel: 'USD 190 / ano', isFree: false },
+  { key: 'pro', checkoutKey: 'pro_monthly', name: 'Pro mensual', interval: 'month', stripePriceId: 'price_pro_monthly', active: true, amountLabel: 'USD 29 / mes', isFree: false },
+  { key: 'pro', checkoutKey: 'pro_yearly', name: 'Pro anual', interval: 'year', stripePriceId: 'price_pro_yearly', active: true, amountLabel: 'USD 290 / ano', isFree: false },
 ]
 
 class InMemoryBillingRepository {
@@ -105,6 +108,7 @@ await run('checkout session creation associates customer and organization', asyn
   const result = await createSubscriptionCheckout(repository, gateway, plans, {
     organizationId: 'org_1',
     planKey: 'pro',
+    interval: 'month',
     userId: 'user_1',
     userEmail: 'owner@example.com',
     userName: 'Owner',
@@ -116,7 +120,35 @@ await run('checkout session creation associates customer and organization', asyn
   assert.equal(repository.orgs[0].stripeCustomerId, 'cus_1')
   assert.equal(repository.orgs[0].billingStatus, 'pending_checkout')
   assert.equal(repository.orgs[0].billingPlan, 'pro')
+  assert.equal(repository.orgs[0].billingInterval, 'month')
   assert.equal(gateway.createdCheckouts[0].priceId, 'price_pro_monthly')
+  assert.equal(gateway.createdCheckouts[0].metadata.checkoutKey, 'pro_monthly')
+})
+
+await run('checkout reuses existing customer and respects yearly interval', async () => {
+  const repository = new InMemoryBillingRepository([{
+    _id: 'org_1',
+    name: 'Org Uno',
+    plan: 'starter',
+    billingPlan: 'starter',
+    billingStatus: 'active',
+    stripeCustomerId: 'cus_existing',
+  }])
+  const gateway = new FakeStripeGateway()
+
+  await createSubscriptionCheckout(repository, gateway, plans, {
+    organizationId: 'org_1',
+    planKey: 'starter',
+    interval: 'year',
+    userEmail: 'owner@example.com',
+    successUrl: 'https://app.test/billing/success',
+    cancelUrl: 'https://app.test/billing/cancel',
+  })
+
+  assert.equal(gateway.createdCustomers.length, 0)
+  assert.equal(gateway.createdCheckouts[0].customerId, 'cus_existing')
+  assert.equal(gateway.createdCheckouts[0].priceId, 'price_starter_yearly')
+  assert.equal(gateway.createdCheckouts[0].idempotencyKey, 'checkout:org_1:starter_yearly')
 })
 
 await run('subscription patch maps active status and totals cleanly', () => {
@@ -126,11 +158,12 @@ await run('subscription patch maps active status and totals cleanly', () => {
     status: 'active',
     current_period_end: 1760000000,
     trial_end: null,
-    items: { data: [{ price: { id: 'price_pro_monthly' } }] },
+    items: { data: [{ price: { id: 'price_pro_yearly' } }] },
   }, plans, 'starter')
 
   assert.equal(patch.billingStatus, 'active')
   assert.equal(patch.billingPlan, 'pro')
+  assert.equal(patch.billingInterval, 'year')
   assert.equal(patch.plan, 'pro')
   assert.equal(patch.isPaymentPastDue, false)
 })
@@ -147,18 +180,20 @@ await run('webhook sync handles checkout and subscription lifecycle transitions'
   await processStripeWebhookEvent(repository, plans, {
     id: 'evt_1',
     type: 'checkout.session.completed',
-    data: { object: { id: 'cs_1', customer: 'cus_1', subscription: 'sub_1', metadata: { organizationId: 'org_1', planKey: 'pro', interval: 'month' } } },
+    data: { object: { id: 'cs_1', customer: 'cus_1', subscription: 'sub_1', metadata: { organizationId: 'org_1', planKey: 'pro', interval: 'year', checkoutKey: 'pro_yearly' } } },
   })
   assert.equal(repository.orgs[0].billingStatus, 'pending_activation')
   assert.equal(repository.orgs[0].stripeSubscriptionId, 'sub_1')
+  assert.equal(repository.orgs[0].billingInterval, 'year')
 
   await processStripeWebhookEvent(repository, plans, {
     id: 'evt_2',
     type: 'customer.subscription.created',
-    data: { object: { id: 'sub_1', customer: 'cus_1', status: 'trialing', current_period_end: 1760000000, trial_end: 1750000000, items: { data: [{ price: { id: 'price_pro_monthly' } }] } } },
+    data: { object: { id: 'sub_1', customer: 'cus_1', status: 'trialing', current_period_end: 1760000000, trial_end: 1750000000, items: { data: [{ price: { id: 'price_pro_yearly' } }] } } },
   })
   assert.equal(repository.orgs[0].billingStatus, 'trialing')
   assert.equal(repository.orgs[0].plan, 'pro')
+  assert.equal(repository.orgs[0].billingInterval, 'year')
 
   await processStripeWebhookEvent(repository, plans, {
     id: 'evt_3',
@@ -171,7 +206,7 @@ await run('webhook sync handles checkout and subscription lifecycle transitions'
   await processStripeWebhookEvent(repository, plans, {
     id: 'evt_4',
     type: 'customer.subscription.deleted',
-    data: { object: { id: 'sub_1', customer: 'cus_1', status: 'canceled', items: { data: [{ price: { id: 'price_pro_monthly' } }] } } },
+    data: { object: { id: 'sub_1', customer: 'cus_1', status: 'canceled', items: { data: [{ price: { id: 'price_pro_yearly' } }] } } },
   })
   assert.equal(repository.orgs[0].billingStatus, 'canceled')
   assert.equal(repository.orgs[0].plan, 'starter')
@@ -182,7 +217,7 @@ await run('duplicate webhook event is idempotent', async () => {
   const event = {
     id: 'evt_duplicate',
     type: 'checkout.session.completed',
-    data: { object: { id: 'cs_1', customer: 'cus_1', subscription: 'sub_1', metadata: { organizationId: 'org_1', planKey: 'pro', interval: 'month' } } },
+    data: { object: { id: 'cs_1', customer: 'cus_1', subscription: 'sub_1', metadata: { organizationId: 'org_1', planKey: 'pro', interval: 'month', checkoutKey: 'pro_monthly' } } },
   }
 
   const first = await processStripeWebhookEvent(repository, plans, event)
@@ -225,4 +260,10 @@ await run('access gating downgrades unpaid subscriptions to starter entitlements
   assert.equal(canManageOrganizationBilling('master'), true)
   assert.equal(canManageOrganizationBilling('admin'), true)
   assert.equal(canManageOrganizationBilling('user'), false)
+})
+
+await run('plan helpers resolve monthly and yearly selections', () => {
+  assert.equal(buildBillingCheckoutKey('starter', 'month'), 'starter_monthly')
+  assert.equal(buildBillingCheckoutKey('pro', 'year'), 'pro_yearly')
+  assert.equal(resolveCheckoutPlan(plans, 'starter', 'year')?.stripePriceId, 'price_starter_yearly')
 })

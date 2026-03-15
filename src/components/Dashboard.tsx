@@ -77,6 +77,10 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     window.dispatchEvent(new Event('lendstack:new-loan'))
   }, [])
 
+  const goToBilling = useCallback(() => {
+    window.location.href = '/app/billing'
+  }, [])
+
   const usdToSelected = useCallback((amountUsd: number) => {
     if (dashboardCurrency === 'USD') return amountUsd
     const rate = stats?.exchangeRatesPerUsd?.[dashboardCurrency] ?? 1
@@ -238,13 +242,13 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               </div>
               {orgInfo.canManageBilling ? (
                 <div className="flex flex-wrap gap-2">
-                  {orgInfo.plan === 'starter' && orgInfo.checkoutAvailable ? (
+                  {orgInfo.checkoutAvailable ? (
                     <button
-                      onClick={() => openBillingUrl('checkout', '/api/billing/checkout', { planKey: 'pro' })}
+                      onClick={goToBilling}
                       disabled={billingLoading !== null}
                       className="min-h-10 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white disabled:opacity-50"
                     >
-                      {billingLoading === 'checkout' ? 'Abriendo checkout...' : 'Actualizar a Pro'}
+                      Ver planes
                     </button>
                   ) : null}
                   {orgInfo.portalAvailable ? (
