@@ -1,12 +1,27 @@
-// ─── Organization model ────────────────────────────────────────────────────────
-// Each organization is a separate tenant. LendStack is seeded as 'org_001'.
-
 export interface Organization {
-  _id:                   string   // 'org_001', 'org_002', etc.
-  name:                  string
-  plan:                  'starter' | 'pro' | 'enterprise'
-  stripeCustomerId?:     string
-  stripeSubscriptionId?: string
-  createdAt:             string
-  updatedAt:             string
+  _id: string
+  name: string
+  plan: 'starter' | 'pro' | 'enterprise'
+  billingPlan?: 'starter' | 'pro' | 'enterprise'
+  billingStatus?:
+    | 'not_started'
+    | 'pending_checkout'
+    | 'pending_activation'
+    | 'trialing'
+    | 'active'
+    | 'past_due'
+    | 'canceled'
+    | 'unpaid'
+    | 'incomplete'
+    | 'incomplete_expired'
+  billingInterval?: 'month' | 'year' | null
+  stripeCustomerId?: string | null
+  stripeSubscriptionId?: string | null
+  stripeConnectedAccountId?: string | null
+  stripeConnectStatus?: 'not_connected' | 'onboarding_required' | 'pending_verification' | 'active'
+  currentPeriodEnd?: string | null
+  trialEndsAt?: string | null
+  isPaymentPastDue?: boolean
+  createdAt: string
+  updatedAt: string
 }

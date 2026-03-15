@@ -44,6 +44,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [dashboardCurrency, setDashboardCurrency] = useState<Currency>('USD')
   const [search, setSearch] = useState('')
   const [quickPayClientId, setQuickPayClientId] = useState<string | null>(null)
+  const [billingLoading, setBillingLoading] = useState<'checkout' | 'portal' | 'connect' | null>(null)
 
   const urgentRef = useRef<HTMLDivElement | null>(null)
   const clientRef = useRef<HTMLDivElement | null>(null)
@@ -167,6 +168,27 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     ? `La vista prioriza cartera activa, mora, cobranza diaria y pagos que requieren seguimiento inmediato. ${stats.portfolio?.dueTodayCount ?? 0} pagos vencen hoy y ${stats.portfolio?.delinquentCount ?? 0} préstamos están en mora.`
     : ''
 
+  const openBillingUrl = useCallback(async (kind: 'checkout' | 'portal' | 'connect', endpoint: string, payload?: Record<string, unknown>) => {
+    try {
+      setBillingLoading(kind)
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify(payload) : undefined,
+      })
+      const data = await response.json()
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'No se pudo abrir la experiencia de facturación.')
+      }
+      window.location.href = data.url
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo abrir la experiencia de facturación.'
+      window.alert(message)
+    } finally {
+      setBillingLoading(null)
+    }
+  }, [])
+
   if (loading) return <DashboardSkeleton />
   if (notConfigured) return <SetupScreen />
   if (!stats) {
@@ -206,9 +228,49 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
                     ? 'La operación está cerca del límite del plan actual.'
                     : 'La capacidad del plan está saludable para la operación actual.'}
               </p>
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                Billing {orgInfo.billingStatus ?? 'active'}{orgInfo.isPaymentPastDue ? ' · revisar pago' : ''}
+              </p>
             </div>
-            <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
-              {orgInfo.plan}
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                {orgInfo.plan}
+              </div>
+              {orgInfo.canManageBilling ? (
+                <div className="flex flex-wrap gap-2">
+                  {orgInfo.plan === 'starter' && orgInfo.checkoutAvailable ? (
+                    <button
+                      onClick={() => openBillingUrl('checkout', '/api/billing/checkout', { planKey: 'pro' })}
+                      disabled={billingLoading !== null}
+                      className="min-h-10 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white disabled:opacity-50"
+                    >
+                      {billingLoading === 'checkout' ? 'Abriendo checkout...' : 'Actualizar a Pro'}
+                    </button>
+                  ) : null}
+                  {orgInfo.portalAvailable ? (
+                    <button
+                      onClick={() => openBillingUrl('portal', '/api/billing/portal')}
+                      disabled={billingLoading !== null}
+                      className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
+                    >
+                      {billingLoading === 'portal' ? 'Abriendo portal...' : 'Gestionar billing'}
+                    </button>
+                  ) : null}
+                  {orgInfo.canConnectStripe ? (
+                    <button
+                      onClick={() => openBillingUrl('connect', '/api/billing/connect')}
+                      disabled={billingLoading !== null}
+                      className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
+                    >
+                      {billingLoading === 'connect'
+                        ? 'Conectando Stripe...'
+                        : orgInfo.stripeConnectStatus === 'active'
+                          ? 'Stripe conectado'
+                          : 'Conectar Stripe'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
