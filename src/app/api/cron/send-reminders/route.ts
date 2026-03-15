@@ -5,6 +5,7 @@ import { upcomingPaymentHtml } from '@/emails/upcoming-payment'
 import { paymentDueHtml } from '@/emails/payment-due'
 import { paymentOverdueHtml } from '@/emails/payment-overdue'
 import { BRAND } from '@/config/branding'
+import { emitNotification } from '@/lib/notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,6 +90,22 @@ export async function GET(req: NextRequest) {
           html: upcomingPaymentHtml({ ...sharedOpts, amount: client.loan?.amount }),
         })
         await markSent('upcoming')
+        await emitNotification(db, {
+          tenantId: String(client.organizationId),
+          type: 'payment.due_soon',
+          entityType: 'client',
+          entityId: String(client._id),
+          actionUrl: `/app/clientes?clientId=${String(client._id)}`,
+          message: `${client.name} tiene una cuota próxima a vencer el ${payDateStr}.`,
+          metadata: {
+            clientId: String(client._id),
+            clientName: client.name as string,
+            dueDate: payDate.toISOString(),
+            monthlyPayment: client.loan?.monthlyPayment ?? null,
+            currency: client.loan?.currency ?? null,
+          },
+          dedupeKey: `payment.due_soon:${String(client._id)}:${monthStr}`,
+        })
         results.sent++
       } catch (error: any) {
         results.errors.push(`upcoming:${String(client._id)}: ${error.message}`)
@@ -142,6 +159,22 @@ export async function GET(req: NextRequest) {
             }),
           })
           await markSent('overdue')
+          await emitNotification(db, {
+            tenantId: String(client.organizationId),
+            type: 'payment.overdue',
+            entityType: 'client',
+            entityId: String(client._id),
+            actionUrl: `/app/clientes?clientId=${String(client._id)}`,
+            message: `${client.name} mantiene una cuota vencida sin registrar pago.`,
+            metadata: {
+              clientId: String(client._id),
+              clientName: client.name as string,
+              dueDate: payDate.toISOString(),
+              monthlyPayment: client.loan?.monthlyPayment ?? null,
+              currency: client.loan?.currency ?? null,
+            },
+            dedupeKey: `payment.overdue:${String(client._id)}:${monthStr}`,
+          })
           results.sent++
         } catch (error: any) {
           results.errors.push(`overdue:${String(client._id)}: ${error.message}`)

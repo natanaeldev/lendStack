@@ -3,6 +3,7 @@ import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { LOAN_STATUS_CONFIG, type LoanStatus } from '@/lib/loanDomain'
 import { computeDelinquency }                from '@/lib/installmentEngine'
+import { emitNotification }                  from '@/lib/notifications'
 
 const VALID_STATUSES = Object.keys(LOAN_STATUS_CONFIG) as LoanStatus[]
 
@@ -91,6 +92,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Sin cambios' }, { status: 400 })
 
     const db  = await getDb()
+    const currentLoan = await db.collection('loans').findOne(
+      { _id: params.id as any, organizationId: session.user.organizationId },
+      { projection: { _id: 1, clientId: 1, status: 1, amount: 1, currency: 1 } },
+    )
     const res = await db.collection('loans').updateOne(
       { _id: params.id as any, organizationId: session.user.organizationId },
       { $set },
@@ -115,12 +120,53 @@ export async function PATCH(
       }
       const legacyStatus = legacyMap[body.status]
       if (legacyStatus) {
-        const loan = await db.collection('loans').findOne({ _id: params.id as any })
+        const loan = currentLoan ?? await db.collection('loans').findOne({ _id: params.id as any })
         if (loan?.clientId) {
           await db.collection('clients').updateOne(
             { _id: loan.clientId as any, organizationId: session.user.organizationId },
             { $set: { loanStatus: legacyStatus } },
           )
+        }
+      }
+
+      if (currentLoan?.status !== body.status) {
+        const client = currentLoan?.clientId
+          ? await db.collection('clients').findOne(
+              { _id: currentLoan.clientId as any, organizationId: session.user.organizationId },
+              { projection: { _id: 1, name: 1 } },
+            )
+          : null
+
+        if (body.status === 'approved') {
+          await emitNotification(db, {
+            tenantId: session.user.organizationId,
+            actorUserId: session.user.id,
+            type: 'loan.approved',
+            entityType: 'loan',
+            entityId: params.id,
+            actionUrl: `/app/prestamos?loanId=${params.id}`,
+            message: `${client?.name ?? 'Cliente'} fue aprobado para desembolso.`,
+            metadata: {
+              clientId: currentLoan?.clientId ?? null,
+              clientName: client?.name ?? 'Cliente',
+            },
+          })
+        }
+
+        if (body.status === 'denied') {
+          await emitNotification(db, {
+            tenantId: session.user.organizationId,
+            actorUserId: session.user.id,
+            type: 'loan.rejected',
+            entityType: 'loan',
+            entityId: params.id,
+            actionUrl: `/app/prestamos?loanId=${params.id}`,
+            message: `${client?.name ?? 'Cliente'} fue rechazado y requiere seguimiento comercial.`,
+            metadata: {
+              clientId: currentLoan?.clientId ?? null,
+              clientName: client?.name ?? 'Cliente',
+            },
+          })
         }
       }
     }
