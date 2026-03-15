@@ -3,7 +3,10 @@ import './globals.css'
 import { Providers } from './providers'
 import { BRAND } from '@/config/branding'
 
+const metadataBase = new URL(process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://lendstack.app')
+
 export const metadata: Metadata = {
+  metadataBase,
   title: BRAND.title,
   description: BRAND.description,
   applicationName: BRAND.appTitle,

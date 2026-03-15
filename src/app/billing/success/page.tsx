@@ -2,27 +2,15 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
-export default function BillingSuccessPage() {
-  const searchParams = useSearchParams()
-  const sessionId = searchParams.get('session_id')
-  const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState<{ status?: string; paymentStatus?: string } | null>(null)
-
-  useEffect(() => {
-    if (!sessionId) {
-      setLoading(false)
-      return
-    }
-
-    fetch(`/api/billing/checkout-session?session_id=${encodeURIComponent(sessionId)}`)
-      .then((response) => response.json())
-      .then((json) => setSummary(json))
-      .catch(() => setSummary(null))
-      .finally(() => setLoading(false))
-  }, [sessionId])
-
+function BillingSuccessCard({
+  loading,
+  summary,
+}: {
+  loading: boolean
+  summary: { status?: string; paymentStatus?: string } | null
+}) {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-20 text-white">
       <div className="mx-auto max-w-xl rounded-[28px] border border-white/10 bg-white/5 p-8 shadow-[0_24px_80px_rgba(0,0,0,.35)]">
@@ -52,5 +40,39 @@ export default function BillingSuccessPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+function BillingSuccessContent() {
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('session_id')
+  const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState<{ status?: string; paymentStatus?: string } | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) {
+      setLoading(false)
+      return
+    }
+
+    fetch(`/api/billing/checkout-session?session_id=${encodeURIComponent(sessionId)}`)
+      .then((response) => response.json())
+      .then((json) => setSummary(json))
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false))
+  }, [sessionId])
+
+  return <BillingSuccessCard loading={loading} summary={summary} />
+}
+
+function BillingSuccessFallback() {
+  return <BillingSuccessCard loading={true} summary={null} />
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={<BillingSuccessFallback />}>
+      <BillingSuccessContent />
+    </Suspense>
   )
 }
