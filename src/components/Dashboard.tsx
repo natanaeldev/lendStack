@@ -33,9 +33,15 @@ function statusTone(value: number, warningAt: number, dangerAt: number): 'brand'
 
 interface DashboardProps {
   onViewProfile?: (id: string) => void
+  externalSearch?: string
+  onExternalSearchChange?: (value: string) => void
 }
 
-export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
+function normalizeSearchValue(value: string) {
+  return value.trim().toLowerCase()
+}
+
+export default function Dashboard({ onViewProfile, externalSearch, onExternalSearchChange }: DashboardProps = {}) {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,17 +103,41 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
   const fmtMoney = useCallback((amount: number, currency: Currency = 'USD') => formatCurrency(amount, currency), [])
 
+  const searchValue = externalSearch ?? search
+  const setSearchValue = onExternalSearchChange ?? setSearch
+  const normalizedSearch = normalizeSearchValue(searchValue)
+
   const urgentItems = useMemo(() => buildUrgentItems(clients), [clients])
   const urgentCriticalCount = urgentItems.filter((item) => item.status === 'overdue' || item.status === 'due_today').length
   const recentActivity = useMemo(() => buildRecentActivity(clients, stats?.recentClients ?? [], fmtMoney), [clients, fmtMoney, stats?.recentClients])
+  const filteredUrgentItems = useMemo(() => {
+    if (!normalizedSearch) return urgentItems
+    return urgentItems.filter((item) =>
+      [item.clientName, item.phone, item.branchName, item.status, item.dueDate]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+    )
+  }, [normalizedSearch, urgentItems])
+
+  const filteredRecentActivity = useMemo(() => {
+    if (!normalizedSearch) return recentActivity
+    return recentActivity.filter((item) =>
+      [item.title, item.subtitle, item.meta, item.amountLabel, item.date]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+    )
+  }, [normalizedSearch, recentActivity])
 
   const filteredClients = useMemo(() => {
-    const normalized = search.trim().toLowerCase()
-    if (!normalized) return clients.slice(0, 6)
+    if (!normalizedSearch) return clients.slice(0, 6)
     return clients
-      .filter((client) => [client.name, client.email, client.phone].filter(Boolean).some((value) => String(value).toLowerCase().includes(normalized)))
+      .filter((client) =>
+        [client.name, client.email, client.phone, client.loanStatus, client.notes]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+      )
       .slice(0, 8)
-  }, [clients, search])
+  }, [clients, normalizedSearch])
 
   const kpis = useMemo<DashboardKpiItem[]>(() => {
     if (!stats) return []
@@ -301,7 +331,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
       <div ref={urgentRef}>
         <ResponsiveDashboardSection eyebrow="Urgente" title="Qué requiere atención ahora" description="Lista priorizada con mora, pagos del día y próximos vencimientos para reducir retrasos y acelerar el seguimiento.">
           <UrgentItemsPanel
-            items={urgentItems}
+            items={filteredUrgentItems}
             onOpenClient={(clientId) => onViewProfile?.(clientId)}
             onQuickPay={(clientId) => setQuickPayClientId(clientId)}
           />
@@ -314,7 +344,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_.9fr]">
         <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisión rápida.">
-          <RecentActivityCard items={recentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
+          <RecentActivityCard items={filteredRecentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
         </ResponsiveDashboardSection>
 
         <div ref={clientRef}>
@@ -323,8 +353,8 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
                 <input
                   type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
                   placeholder="Buscar por nombre, teléfono o email"
                   className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
                 />
