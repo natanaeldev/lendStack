@@ -71,7 +71,7 @@ async function main() {
   }
 
   const client = await new MongoClient(process.env.MONGODB_URI).connect()
-  const db = client.db('jvf')
+  const db = client.db(process.env.MONGODB_DB_NAME || 'lendstack')
 
   const organizations = db.collection('organizations')
   const users = db.collection('users')

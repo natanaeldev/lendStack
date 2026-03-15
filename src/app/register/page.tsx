@@ -1,10 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import LendStackLogo from '@/components/LendStackLogo'
 
 type Plan = 'starter' | 'pro'
 
@@ -148,14 +148,7 @@ export default function RegisterPage() {
               className="rounded-2xl flex-shrink-0"
               style={{ background: 'rgba(255,255,255,.95)', padding: '10px 20px', boxShadow: '0 4px 32px rgba(0,0,0,.3)' }}
             >
-              <Image
-                src="/logo.png"
-                alt="LendStack"
-                width={140}
-                height={48}
-                style={{ objectFit: 'contain', display: 'block' }}
-                priority
-              />
+              <LendStackLogo variant="dark" size={42} />
             </div>
           </div>
 

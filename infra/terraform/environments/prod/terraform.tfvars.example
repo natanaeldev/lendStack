@@ -19,7 +19,7 @@ cloudfront_secret_header = "REPLACE_WITH_RANDOM_SECRET"
 # Secrets — these seed Secrets Manager on first apply.
 # After first apply, update secrets directly in AWS Console or CLI,
 # and the Terraform lifecycle { ignore_changes } will not overwrite them.
-mongodb_uri           = "mongodb+srv://user:pass@cluster.mongodb.net/jvf"
+mongodb_uri           = "mongodb+srv://user:pass@cluster.mongodb.net/lendstack"
 nextauth_secret       = "REPLACE_WITH_RANDOM_SECRET"
 resend_api_key        = "re_xxxxxxxxxxxx"
 stripe_secret_key     = "sk_live_xxxxxxxxxxxx"

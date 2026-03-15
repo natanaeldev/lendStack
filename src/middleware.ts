@@ -27,6 +27,6 @@ export const config = {
   // Protect everything EXCEPT: auth API, cron, register API, Stripe webhooks,
   //   login/signup/register pages, Next.js internals, and static files
   matcher: [
-    '/((?!api/auth|api/cron|api/register|api/webhooks|login|signup|register|_next/static|_next/image|favicon\\.ico|logo\\.png).*)',
+    '/((?!api/auth|api/cron|api/register|api/webhooks|login|signup|register|_next/static|_next/image|favicon\\.ico|lendstack-favicon\\.ico|lendstack-logo\\.svg).*)',
   ],
 }
