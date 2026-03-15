@@ -5,12 +5,12 @@ import {
   type BillingPlanDefinition,
   type BillingPlanKey,
   type BillingRepository,
-  buildBillingCheckoutKey,
   createBillingPortal,
   createConnectOnboarding,
   createSubscriptionCheckout,
   processStripeWebhookEvent,
 } from '@/lib/billingCore'
+import { getStripeBillingPlanDefinitions } from '@/lib/billingPlans'
 import { getDb } from '@/lib/mongodb'
 
 export function getAppUrl() {
@@ -33,71 +33,12 @@ export function getStripeClient() {
   return stripeClient
 }
 
-function makePlanDefinition(input: {
-  key: BillingPlanKey
-  name: string
-  interval: BillingCheckoutInterval
-  priceId?: string | null
-  amountLabel: string
-}) {
-  return {
-    key: input.key,
-    checkoutKey: buildBillingCheckoutKey(input.key, input.interval),
-    name: input.name,
-    interval: input.interval,
-    stripePriceId: input.priceId ?? null,
-    active: !!input.priceId,
-    amountLabel: input.amountLabel,
-    isFree: false,
-  } satisfies BillingPlanDefinition
-}
-
 export function getBillingPlans(env: NodeJS.ProcessEnv = process.env): BillingPlanDefinition[] {
-  const plans: BillingPlanDefinition[] = [
-    makePlanDefinition({
-      key: 'starter',
-      name: 'Starter mensual',
-      interval: 'month',
-      priceId: env.STRIPE_PRICE_ID_STARTER_MONTHLY ?? null,
-      amountLabel: 'Starter mensual',
-    }),
-    makePlanDefinition({
-      key: 'starter',
-      name: 'Starter anual',
-      interval: 'year',
-      priceId: env.STRIPE_PRICE_ID_STARTER_YEARLY ?? null,
-      amountLabel: 'Starter anual',
-    }),
-    makePlanDefinition({
-      key: 'pro',
-      name: 'Pro mensual',
-      interval: 'month',
-      priceId: env.STRIPE_PRICE_ID_PRO_MONTHLY ?? null,
-      amountLabel: 'Pro mensual',
-    }),
-    makePlanDefinition({
-      key: 'pro',
-      name: 'Pro anual',
-      interval: 'year',
-      priceId: env.STRIPE_PRICE_ID_PRO_YEARLY ?? null,
-      amountLabel: 'Pro anual',
-    }),
-  ]
-
-  const enterpriseMonthly = env.STRIPE_PRICE_ID_ENTERPRISE_MONTHLY ?? null
-  if (enterpriseMonthly) {
-    plans.push(
-      makePlanDefinition({
-        key: 'enterprise',
-        name: 'Enterprise mensual',
-        interval: 'month',
-        priceId: enterpriseMonthly,
-        amountLabel: 'Enterprise mensual',
-      }),
-    )
-  }
-
-  return plans
+  return getStripeBillingPlanDefinitions(env).map((plan) => ({
+    ...plan,
+    key: plan.key as BillingPlanKey,
+    interval: plan.interval as BillingCheckoutInterval,
+  }))
 }
 
 export function isStripeConfigured(env: NodeJS.ProcessEnv = process.env) {

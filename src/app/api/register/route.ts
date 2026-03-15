@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createOrganizationCheckoutSession, getBillingPlans, isStripeConfigured } from '@/lib/stripeBilling'
+import { getBillingPlanByCheckoutKey } from '@/lib/billingPlans'
+import { createOrganizationCheckoutSession, isStripeConfigured } from '@/lib/stripeBilling'
 import { getDb, getMongoClient, isDbConfigured } from '@/lib/mongodb'
 import { OnboardingConflictError, OnboardingValidationError, runSelfServiceOnboarding } from '@/lib/selfServiceOnboarding'
 
@@ -10,11 +11,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const plan = body.plan === 'pro' ? 'pro' : 'starter'
-    const proMonthlyPlan = getBillingPlans().find((item) => item.key === 'pro' && item.interval === 'month')
+    const selectedPlan = getBillingPlanByCheckoutKey(body.planKey)
 
-    if (plan === 'pro' && (!isStripeConfigured() || !proMonthlyPlan?.active)) {
-      return NextResponse.json({ error: 'El plan Pro no esta disponible en este entorno.' }, { status: 503 })
+    if (!selectedPlan || !selectedPlan.active || !selectedPlan.stripePriceId) {
+      return NextResponse.json({ error: 'El plan seleccionado no esta configurado para este entorno.' }, { status: 400 })
+    }
+
+    if (!isStripeConfigured()) {
+      return NextResponse.json({ error: 'Stripe no esta configurado.' }, { status: 503 })
     }
 
     const client = await getMongoClient()
@@ -25,33 +29,31 @@ export async function POST(req: NextRequest) {
       email: body.adminEmail ?? body.email ?? '',
       password: body.password ?? '',
       organizationName: body.orgName ?? body.organizationName ?? '',
-      plan,
+      plan: selectedPlan.productKey,
+      billingInterval: selectedPlan.interval,
+      requiresCheckout: true,
     })
 
-    let checkoutUrl: string | null = null
-    if (plan === 'pro') {
-      try {
-        const checkout = await createOrganizationCheckoutSession({
-          organizationId: onboarding.organizationId,
-          userId: onboarding.userId,
-          userEmail: (body.adminEmail ?? body.email ?? '').trim().toLowerCase(),
-          userName: body.adminName ?? body.fullName ?? '',
-          planKey: 'pro',
-          interval: 'month',
-        })
-        checkoutUrl = checkout.url
-      } catch (checkoutError) {
-        console.error('[POST /api/register] checkout bootstrap failed', checkoutError)
-        return NextResponse.json({
-          success: true,
-          ...onboarding,
-          checkoutUrl: null,
-          warning: 'La organizacion fue creada, pero no se pudo abrir Stripe Checkout. Inicia sesion y reintenta el upgrade desde billing.',
-        })
-      }
-    }
+    try {
+      const checkout = await createOrganizationCheckoutSession({
+        organizationId: onboarding.organizationId,
+        userId: onboarding.userId,
+        userEmail: (body.adminEmail ?? body.email ?? '').trim().toLowerCase(),
+        userName: body.adminName ?? body.fullName ?? '',
+        planKey: selectedPlan.productKey,
+        interval: selectedPlan.interval,
+      })
 
-    return NextResponse.json({ success: true, ...onboarding, checkoutUrl })
+      return NextResponse.json({ success: true, ...onboarding, checkoutUrl: checkout.url })
+    } catch (checkoutError) {
+      console.error('[POST /api/register] checkout bootstrap failed', checkoutError)
+      return NextResponse.json({
+        success: true,
+        ...onboarding,
+        checkoutUrl: null,
+        warning: 'La organizacion fue creada, pero no se pudo abrir Stripe Checkout. Inicia sesion y reintenta el checkout desde billing.',
+      })
+    }
   } catch (error: any) {
     if (error instanceof OnboardingValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 })

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { getAvailableBillingPlans, getBillingPlanByCheckoutKey, getBillingPlanCatalog, getStripeBillingPlanDefinitions } from '../src/lib/billingPlans.ts'
 import {
   buildBillingCheckoutKey,
   canManageOrganizationBilling,
@@ -266,4 +267,52 @@ await run('plan helpers resolve monthly and yearly selections', () => {
   assert.equal(buildBillingCheckoutKey('starter', 'month'), 'starter_monthly')
   assert.equal(buildBillingCheckoutKey('pro', 'year'), 'pro_yearly')
   assert.equal(resolveCheckoutPlan(plans, 'starter', 'year')?.stripePriceId, 'price_starter_yearly')
+})
+
+await run('billing plan catalog exposes pro when env vars exist', () => {
+  const env = {
+    STRIPE_PRICE_ID_STARTER_MONTHLY: 'price_starter_monthly',
+    STRIPE_PRICE_ID_STARTER_YEARLY: 'price_starter_yearly',
+    STRIPE_PRICE_ID_PRO_MONTHLY: 'price_pro_monthly',
+    STRIPE_PRICE_ID_PRO_YEARLY: 'price_pro_yearly',
+  }
+
+  const catalog = getBillingPlanCatalog(env)
+  const available = getAvailableBillingPlans(env)
+
+  assert.equal(catalog.find((plan) => plan.key === 'pro_monthly')?.active, true)
+  assert.equal(catalog.find((plan) => plan.key === 'pro_yearly')?.active, true)
+  assert.equal(available.some((plan) => plan.key === 'pro_monthly'), true)
+  assert.equal(getBillingPlanByCheckoutKey('pro_monthly', env)?.stripePriceId, 'price_pro_monthly')
+})
+
+await run('stripe billing plans are derived from the same checkout catalog', () => {
+  const env = {
+    STRIPE_PRICE_ID_STARTER_MONTHLY: 'price_starter_monthly',
+    STRIPE_PRICE_ID_STARTER_YEARLY: 'price_starter_yearly',
+    STRIPE_PRICE_ID_PRO_MONTHLY: 'price_pro_monthly',
+    STRIPE_PRICE_ID_PRO_YEARLY: 'price_pro_yearly',
+  }
+
+  const catalog = getAvailableBillingPlans(env)
+  const checkoutPlans = getStripeBillingPlanDefinitions(env)
+
+  assert.equal(checkoutPlans.find((plan) => plan.checkoutKey === 'pro_monthly')?.stripePriceId, 'price_pro_monthly')
+  assert.equal(checkoutPlans.find((plan) => plan.checkoutKey === 'pro_yearly')?.stripePriceId, 'price_pro_yearly')
+  assert.deepEqual(
+    checkoutPlans.map((plan) => plan.checkoutKey).sort(),
+    catalog.map((plan) => plan.key).sort(),
+  )
+})
+
+await run('unavailable plans are excluded cleanly from the public catalog', () => {
+  const env = {
+    STRIPE_PRICE_ID_STARTER_MONTHLY: 'price_starter_monthly',
+    STRIPE_PRICE_ID_PRO_MONTHLY: 'price_pro_monthly',
+  }
+
+  const available = getAvailableBillingPlans(env)
+  assert.equal(available.some((plan) => plan.key === 'starter_yearly'), false)
+  assert.equal(available.some((plan) => plan.key === 'pro_yearly'), false)
+  assert.equal(getBillingPlanByCheckoutKey('pro_yearly', env)?.active, false)
 })
