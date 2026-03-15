@@ -1,13 +1,12 @@
-import { NextRequest, NextResponse }      from 'next/server'
-import { Resend }                         from 'resend'
-import { getDb, isDbConfigured }          from '@/lib/mongodb'
-import { upcomingPaymentHtml }            from '@/emails/upcoming-payment'
-import { paymentDueHtml }                 from '@/emails/payment-due'
-import { paymentOverdueHtml }             from '@/emails/payment-overdue'
+import { NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
+import { getDb, isDbConfigured } from '@/lib/mongodb'
+import { upcomingPaymentHtml } from '@/emails/upcoming-payment'
+import { paymentDueHtml } from '@/emails/payment-due'
+import { paymentOverdueHtml } from '@/emails/payment-overdue'
+import { BRAND } from '@/config/branding'
 
 export const dynamic = 'force-dynamic'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dateDiffDays(a: Date, b: Date): number {
   const msPerDay = 24 * 60 * 60 * 1000
@@ -16,20 +15,17 @@ function dateDiffDays(a: Date, b: Date): number {
   return Math.round((da - db) / msPerDay)
 }
 
-function formatDateES(d: Date): string {
-  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+function formatDateES(date: Date): string {
+  return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function paymentDateThisMonth(startDate: Date, now: Date): Date {
-  const payDay     = startDate.getDate()
+  const payDay = startDate.getDate()
   const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   return new Date(now.getFullYear(), now.getMonth(), Math.min(payDay, lastOfMonth))
 }
 
-// ─── GET /api/cron/send-reminders ─────────────────────────────────────────────
-
 export async function GET(req: NextRequest) {
-  // ── Auth: Vercel passes Authorization: Bearer $CRON_SECRET automatically ──
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret) {
     const auth = req.headers.get('authorization')
@@ -38,45 +34,39 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (!isDbConfigured())
+  if (!isDbConfigured()) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
+  }
 
   const resend = new Resend(process.env.RESEND_API_KEY)
-  const FROM   = process.env.RESEND_FROM ?? 'JVF Inversiones <onboarding@resend.dev>'
-
-  const db         = await getDb()
+  const from = process.env.RESEND_FROM ?? BRAND.reminderFrom
+  const db = await getDb()
   const clientsCol = db.collection('clients')
-  const usersCol   = db.collection('users')
-
-  const now      = new Date()
+  const usersCol = db.collection('users')
+  const now = new Date()
   const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-  // Fetch all approved clients with a loan start date
   const clients = await clientsCol.find({
-    loanStatus:         'approved',
-    'loan.startDate':   { $exists: true, $ne: '' },
+    loanStatus: 'approved',
+    'loan.startDate': { $exists: true, $ne: '' },
   }).toArray()
 
   const results = {
-    checked:  clients.length,
-    sent:     0,
-    skipped:  0,
-    errors:   [] as string[],
+    checked: clients.length,
+    sent: 0,
+    skipped: 0,
+    errors: [] as string[],
   }
 
-  // Cache master emails per org to avoid repeated DB lookups
   const masterEmailCache: Record<string, string | null> = {}
 
   for (const client of clients) {
-    const startDate  = new Date(client.loan.startDate + 'T12:00:00')
-    const payDate    = paymentDateThisMonth(startDate, now)
-    const daysUntil  = dateDiffDays(payDate, now)   // positive = future, 0 = today, negative = past
+    const startDate = new Date(client.loan.startDate + 'T12:00:00')
+    const payDate = paymentDateThisMonth(startDate, now)
+    const daysUntil = dateDiffDays(payDate, now)
     const payDateStr = formatDateES(payDate)
-
     const remindersSent: { type: string; month: string }[] = client.remindersSent ?? []
-    const alreadySent = (type: string) =>
-      remindersSent.some(r => r.type === type && r.month === monthStr)
-
+    const alreadySent = (type: string) => remindersSent.some((reminder) => reminder.type === type && reminder.month === monthStr)
     const markSent = (type: string) =>
       clientsCol.updateOne(
         { _id: client._id },
@@ -84,48 +74,44 @@ export async function GET(req: NextRequest) {
       )
 
     const sharedOpts = {
-      clientName:     client.name   as string,
-      currency:       client.loan?.currency as string,
+      clientName: client.name as string,
+      currency: client.loan?.currency as string,
       monthlyPayment: client.loan?.monthlyPayment as number,
       payDateStr,
     }
 
-    // ── 3 days before due → borrower ──────────────────────────────────────
     if (daysUntil === 3 && client.email && !alreadySent('upcoming')) {
       try {
         await resend.emails.send({
-          from:    FROM,
-          to:      client.email as string,
+          from,
+          to: client.email as string,
           subject: 'Recordatorio: tu cuota vence en 3 días',
-          html:    upcomingPaymentHtml({ ...sharedOpts, amount: client.loan?.amount }),
+          html: upcomingPaymentHtml({ ...sharedOpts, amount: client.loan?.amount }),
         })
         await markSent('upcoming')
         results.sent++
-      } catch (e: any) {
-        results.errors.push(`upcoming:${String(client._id)}: ${e.message}`)
+      } catch (error: any) {
+        results.errors.push(`upcoming:${String(client._id)}: ${error.message}`)
       }
     }
 
-    // ── Due today → borrower ───────────────────────────────────────────────
     if (daysUntil === 0 && client.email && !alreadySent('due')) {
       try {
         await resend.emails.send({
-          from:    FROM,
-          to:      client.email as string,
-          subject: 'Tu cuota vence hoy — JVF Inversiones',
-          html:    paymentDueHtml(sharedOpts),
+          from,
+          to: client.email as string,
+          subject: `Tu cuota vence hoy — ${BRAND.company}`,
+          html: paymentDueHtml(sharedOpts),
         })
         await markSent('due')
         results.sent++
-      } catch (e: any) {
-        results.errors.push(`due:${String(client._id)}: ${e.message}`)
+      } catch (error: any) {
+        results.errors.push(`due:${String(client._id)}: ${error.message}`)
       }
     }
 
-    // ── 1 day overdue → lender (master) ───────────────────────────────────
     if (daysUntil === -1 && !alreadySent('overdue')) {
-      const hasPaidThisMonth = ((client.payments ?? []) as { date: string }[])
-        .some(p => p.date?.startsWith(monthStr))
+      const hasPaidThisMonth = ((client.payments ?? []) as { date: string }[]).some((payment) => payment.date?.startsWith(monthStr))
 
       if (hasPaidThisMonth) {
         results.skipped++
@@ -142,23 +128,23 @@ export async function GET(req: NextRequest) {
       if (masterEmail) {
         try {
           await resend.emails.send({
-            from:    FROM,
-            to:      masterEmail,
-            subject: `⚠️ Pago vencido sin registrar: ${client.name}`,
-            html:    paymentOverdueHtml({
-              clientName:     client.name     as string,
-              clientEmail:    client.email    as string ?? '',
-              clientPhone:    client.phone    as string ?? '',
-              currency:       client.loan?.currency as string,
+            from,
+            to: masterEmail,
+            subject: `Pago vencido sin registrar: ${client.name}`,
+            html: paymentOverdueHtml({
+              clientName: client.name as string,
+              clientEmail: (client.email as string) ?? '',
+              clientPhone: (client.phone as string) ?? '',
+              currency: client.loan?.currency as string,
               monthlyPayment: client.loan?.monthlyPayment as number,
               payDateStr,
-              branchName:     client.branchName as string ?? '',
+              branchName: (client.branchName as string) ?? '',
             }),
           })
           await markSent('overdue')
           results.sent++
-        } catch (e: any) {
-          results.errors.push(`overdue:${String(client._id)}: ${e.message}`)
+        } catch (error: any) {
+          results.errors.push(`overdue:${String(client._id)}: ${error.message}`)
         }
       }
     }

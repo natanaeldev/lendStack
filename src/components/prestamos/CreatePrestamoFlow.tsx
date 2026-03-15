@@ -119,6 +119,7 @@ export default function CreatePrestamoFlow({
       form.carritoFlatRate,
       form.carritoTerm,
       form.carritoPayments,
+      'FLAT_TOTAL',
     )
     return {
       frequencyLabel: form.carritoFrequency === 'daily' ? 'Diaria' : 'Semanal',
@@ -126,7 +127,7 @@ export default function CreatePrestamoFlow({
       scheduledPayment: result.fixedPayment,
       totalPayment: result.totalPayment,
       totalInterest: result.totalInterest,
-      rateLabel: `${(form.carritoFlatRate * 100).toFixed(2)}% plana`,
+      rateLabel: `${(form.carritoFlatRate * 100).toFixed(2)}% total sobre capital`,
     }
   }, [form])
 
@@ -155,7 +156,7 @@ export default function CreatePrestamoFlow({
     if (form.loanType === 'carrito') {
       if (form.carritoTerm < 1) return 'El plazo de carrito debe ser mayor que cero.'
       if (form.carritoPayments < 1) return 'Las cuotas de carrito deben ser mayores que cero.'
-      if (form.carritoFlatRate < 0) return 'La tasa plana no puede ser negativa.'
+      if (form.carritoFlatRate < 0) return 'La tasa total sobre capital no puede ser negativa.'
     }
 
     return ''
@@ -285,12 +286,13 @@ function buildPayload(form: PrestamoFormState) {
     }
   }
 
-  const result = calculateCarritoLoan(
-    form.amount,
-    form.carritoFlatRate,
-    form.carritoTerm,
-    form.carritoPayments,
-  )
+    const result = calculateCarritoLoan(
+      form.amount,
+      form.carritoFlatRate,
+      form.carritoTerm,
+      form.carritoPayments,
+      'FLAT_TOTAL',
+    )
 
   return {
     clientId: form.clientId,
@@ -300,6 +302,12 @@ function buildPayload(form: PrestamoFormState) {
     carritoTerm: form.carritoTerm,
     carritoPayments: form.carritoPayments,
     carritoFrequency: form.carritoFrequency,
+    interestMethod: 'FLAT_TOTAL',
+    paymentFrequency: form.carritoFrequency === 'daily' ? 'DAILY' : 'WEEKLY',
+    installmentCount: form.carritoPayments,
+    interestPeriodCount: 1,
+    rateValue: form.carritoFlatRate,
+    rateUnit: 'DECIMAL',
     scheduledPayment: result.fixedPayment,
     totalPayment: result.totalPayment,
     totalInterest: result.totalInterest,

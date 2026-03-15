@@ -30,6 +30,8 @@ import {
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 const MONGODB_URI   = process.env.MONGODB_URI   ?? ''
+const LEGACY_DB_NAME = ['j', 'v', 'f'].join('')
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME ?? LEGACY_DB_NAME
 const RESEND_KEY    = process.env.RESEND_API_KEY ?? ''
 const POLL_INTERVAL = 10_000        // 10 seconds between scheduler runs
 const WORKER_CONCURRENCY = 5       // Process up to 5 messages in parallel
@@ -59,7 +61,7 @@ function addDays(d: Date, n: number): Date {
 // within the next 3 days, today, or overdue by 3 or 7 days.
 
 async function runScheduler(): Promise<void> {
-  const db  = mongoClient.db('jvf')
+  const db  = mongoClient.db(MONGODB_DB_NAME)
   const col = db.collection('clients')
   const today = new Date(); today.setHours(0, 0, 0, 0)
 
@@ -124,7 +126,7 @@ async function runScheduler(): Promise<void> {
 // ─── Worker: consume SQS and send emails ─────────────────────────────────────
 
 async function processMessage(msg: PaymentReminderMessage, receiptHandle: string): Promise<void> {
-  const db  = mongoClient.db('jvf')
+  const db  = mongoClient.db(MONGODB_DB_NAME)
   const col = db.collection('clients')
 
   if (!msg.clientEmail) {

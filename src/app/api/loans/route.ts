@@ -2,6 +2,7 @@ import { NextRequest, NextResponse }          from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { migrateLegacyStatus }               from '@/lib/loanDomain'
+import { inferLegacyInterestMethod, inferLegacyPaymentFrequency, type InterestMethod } from '@/lib/loan'
 import { v4 as uuidv4 }                      from 'uuid'
 
 
@@ -70,6 +71,8 @@ export async function GET(req: NextRequest) {
       loanType:      inferLoanType(l, clientMap[l.clientId]?.loan),
       borrowerName:  clientMap[l.clientId]?.name ?? '—',
       borrowerPhone: clientMap[l.clientId]?.phone ?? '',
+      interestMethod: l.interestMethod ?? inferLegacyInterestMethod(l.loanType, l.interestMethod),
+      paymentFrequency: l.paymentFrequency ?? inferLegacyPaymentFrequency(l.loanType, l.carritoFrequency),
     }))
 
     return NextResponse.json({ loans: enriched })
@@ -102,6 +105,12 @@ export async function POST(req: NextRequest) {
       profile,
       rateMode,
       customMonthlyRate,
+      interestMethod,
+      paymentFrequency,
+      installmentCount,
+      interestPeriodCount,
+      rateValue,
+      rateUnit,
       annualRate,
       monthlyRate,
       weeklyRate,
@@ -142,6 +151,24 @@ export async function POST(req: NextRequest) {
       carritoFrequency,
     }, client.loan)
 
+    const resolvedInterestMethod = interestMethod ?? inferLegacyInterestMethod(normalizedLoanType, interestMethod)
+    const resolvedPaymentFrequency = paymentFrequency ?? inferLegacyPaymentFrequency(normalizedLoanType, carritoFrequency)
+    const resolvedInstallmentCount =
+      installmentCount ??
+      (normalizedLoanType === 'amortized'
+        ? totalMonths
+        : normalizedLoanType === 'weekly'
+          ? totalWeeks ?? termWeeks
+          : carritoPayments)
+    const scheduleGenerationMethod =
+      resolvedInterestMethod === 'DECLINING_BALANCE'
+        ? 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT'
+        : resolvedInterestMethod === 'INTEREST_ONLY'
+          ? 'INTEREST_ONLY_BALLOON'
+          : resolvedInterestMethod === 'ZERO_INTEREST'
+            ? 'ZERO_INTEREST_LAST_ADJUSTMENT'
+            : 'EQUAL_INSTALLMENT_LAST_ADJUSTMENT'
+
     const now    = new Date().toISOString()
     const loanId = uuidv4()
 
@@ -163,6 +190,13 @@ export async function POST(req: NextRequest) {
       profile:           profile           ?? undefined,
       rateMode:          rateMode          ?? 'annual',
       customMonthlyRate: customMonthlyRate ?? undefined,
+      interestMethod:    resolvedInterestMethod as InterestMethod,
+      scheduleGenerationMethod,
+      paymentFrequency:  resolvedPaymentFrequency,
+      installmentCount:  resolvedInstallmentCount ?? undefined,
+      interestPeriodCount: interestPeriodCount ?? undefined,
+      rateValue:         rateValue ?? undefined,
+      rateUnit:          rateUnit ?? 'DECIMAL',
       annualRate:        annualRate        ?? undefined,
       monthlyRate:       monthlyRate       ?? undefined,
       weeklyRate:        weeklyRate        ?? undefined,
@@ -175,7 +209,7 @@ export async function POST(req: NextRequest) {
       paidPrincipal:   0,
       paidInterest:    0,
       paidTotal:       0,
-      remainingBalance: amount,
+      remainingBalance: totalPayment ?? amount,
       notes:           notes ?? undefined,
     }
 

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { BRAND, BRAND_COPY } from '@/config/branding'
 import { formatCurrency } from '@/lib/loan'
 import type { Currency }  from '@/lib/loan'
 
@@ -47,7 +48,7 @@ function fmtDate(iso: string): string {
 export function printPaymentReceipt(data: ReceiptData, recNum?: string) {
   const fmt    = (v: number) => formatCurrency(v, data.currency as Currency)
   const today  = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const ref    = recNum ?? `REC-${Date.now().toString().slice(-8)}`
+  const ref    = recNum ?? `${BRAND.documentPrefix}-REC-${Date.now().toString().slice(-8)}`
 
   const idBlock = data.clientId ? `
     <div class="field">
@@ -123,8 +124,8 @@ export function printPaymentReceipt(data: ReceiptData, recNum?: string) {
 <div class="page">
   <div class="header">
     <div>
-      <div class="brand">LendStack</div>
-      <div class="brand-sub">JVF Inversiones SRL</div>
+      <div class="brand">${BRAND.company}</div>
+      <div class="brand-sub">${BRAND.tagline}</div>
     </div>
     <div class="doc-type">
       <div class="doc-type-label">Documento</div>
@@ -173,7 +174,7 @@ export function printPaymentReceipt(data: ReceiptData, recNum?: string) {
     </div>
   </div>
   <div class="footer">
-    <div class="footer-text">JVF Inversiones SRL · Comprobante de pago oficial<br/>Emitido el ${today} · Ref: ${ref}</div>
+    <div class="footer-text">${BRAND_COPY.receiptFooter}<br/>Emitido el ${today} · Ref: ${ref}</div>
     <div class="valid-badge">✓ Válido</div>
   </div>
 </div>
@@ -194,7 +195,7 @@ export function printPaymentReceipt(data: ReceiptData, recNum?: string) {
 export function PaymentReceiptModal({ data, onClose, zIndex = 50 }: { data: ReceiptData; onClose: () => void; zIndex?: number }) {
   const fmt = (v: number) => formatCurrency(v, data.currency as Currency)
   // Generate receipt number once on mount so it stays stable across re-renders
-  const [recNum] = useState(() => `REC-${Date.now().toString().slice(-8)}`)
+  const [recNum] = useState(() => `${BRAND.documentPrefix}-REC-${Date.now().toString().slice(-8)}`)
   const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   return (
@@ -215,8 +216,8 @@ export function PaymentReceiptModal({ data, onClose, zIndex = 50 }: { data: Rece
           <div className="px-6 py-5 flex justify-between items-start gap-3"
             style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
             <div>
-              <p className="text-xl font-black text-white" style={{ fontFamily: 'DM Serif Display, serif' }}>LendStack</p>
-              <p className="text-[9px] text-blue-200 mt-0.5 tracking-[.14em] uppercase">JVF Inversiones SRL</p>
+              <p className="text-xl font-black text-white" style={{ fontFamily: 'DM Serif Display, serif' }}>{BRAND.company}</p>
+              <p className="text-[9px] text-blue-200 mt-0.5 tracking-[.14em] uppercase">{BRAND.tagline}</p>
             </div>
             <div className="text-right flex-shrink-0">
               <p className="text-[9px] text-blue-300 uppercase tracking-[.15em]">Documento</p>
@@ -316,7 +317,7 @@ export function PaymentReceiptModal({ data, onClose, zIndex = 50 }: { data: Rece
           {/* Footer */}
           <div className="px-5 py-3 flex items-center justify-between gap-3 bg-slate-50 border-t border-slate-100">
             <p className="text-[8px] text-slate-400 leading-relaxed">
-              JVF Inversiones SRL · Comprobante de pago oficial<br/>
+              {BRAND_COPY.receiptFooter}<br/>
               Emitido el {today} · Ref: {recNum}
             </p>
             <span className="text-[8px] font-bold uppercase tracking-wide flex-shrink-0 px-3 py-1 rounded-full"

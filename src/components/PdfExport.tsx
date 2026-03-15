@@ -1,4 +1,6 @@
 'use client'
+
+import { BRAND, BRAND_COPY } from '@/config/branding'
 import { LoanParams, LoanResult, RiskConfig, buildAmortization, formatCurrency, formatPercent } from '@/lib/loan'
 
 interface Props {
@@ -8,29 +10,32 @@ interface Props {
 }
 
 export function downloadPdf({ params, result, config }: Props) {
-  // Generate a complete HTML page and open for printing
-  const fmt  = (v: number) => formatCurrency(v, params.currency)
-  const rows  = buildAmortization(params)
+  const fmt = (value: number) => formatCurrency(value, params.currency)
+  const rows = buildAmortization(params)
   const today = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
-  const ref   = `JVF-${Date.now().toString().slice(-6)}`
+  const ref = `${BRAND.documentPrefix}-${Date.now().toString().slice(-6)}`
 
-  const tableRows = rows.map(r => `
+  const tableRows = rows
+    .map(
+      (row) => `
     <tr>
-      <td style="text-align:center;font-weight:700;color:#0D2B5E">${r.month}</td>
-      <td>${fmt(r.openingBalance)}</td>
-      <td style="font-weight:700;color:#0D2B5E">${fmt(r.payment)}</td>
-      <td style="color:#1565C0">${fmt(r.principal)}</td>
-      <td style="color:${config.colorAccent}">${fmt(r.interest)}</td>
-      <td>${fmt(r.closingBalance)}</td>
-      <td style="color:#64748b">${fmt(r.cumInterest)}</td>
-      <td style="color:#64748b">${fmt(r.cumPrincipal)}</td>
-    </tr>`).join('')
+      <td style="text-align:center;font-weight:700;color:#0D2B5E">${row.month}</td>
+      <td>${fmt(row.openingBalance)}</td>
+      <td style="font-weight:700;color:#0D2B5E">${fmt(row.payment)}</td>
+      <td style="color:#1565C0">${fmt(row.principal)}</td>
+      <td style="color:${config.colorAccent}">${fmt(row.interest)}</td>
+      <td>${fmt(row.closingBalance)}</td>
+      <td style="color:#64748b">${fmt(row.cumInterest)}</td>
+      <td style="color:#64748b">${fmt(row.cumPrincipal)}</td>
+    </tr>`,
+    )
+    .join('')
 
   const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>JVF Inversiones — ${ref}</title>
+<title>${BRAND.company} — ${ref}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
@@ -56,14 +61,14 @@ export function downloadPdf({ params, result, config }: Props) {
 </head>
 <body>
 <div class="header">
-  <div><div class="brand">JVF Inversiones SRL</div><div class="brand-sub">Cotización de Préstamo — Tabla de Amortización</div></div>
-  <div class="ref">📅 ${today}<br/>Ref: ${ref}</div>
+  <div><div class="brand">${BRAND.company}</div><div class="brand-sub">Cotización de préstamo — Tabla de amortización</div></div>
+  <div class="ref">${today}<br/>Ref: ${ref}</div>
 </div>
 <div class="grid">
   <div class="box"><div class="box-label">Monto del préstamo</div><div class="box-val">${fmt(params.amount)}</div></div>
   <div class="box"><div class="box-label">Plazo</div><div class="box-val">${params.termYears} años (${result.totalMonths} meses)</div></div>
   <div class="box" style="background:${config.colorBg}"><div class="box-label" style="color:${config.colorAccent}">Perfil de riesgo</div><div class="box-val" style="color:${config.colorText}">${config.emoji} ${config.label}</div></div>
-  <div class="box" style="background:${config.colorBg}"><div class="box-label" style="color:${config.colorAccent}">${params.rateMode === 'monthly' ? 'Tasa mensual' : 'Tasa anual'}</div><div class="box-val" style="color:${config.colorText}">${params.rateMode === 'monthly' ? formatPercent(result.monthlyRate, 3) + ' / mes' : formatPercent(result.annualRate)}</div></div>
+  <div class="box" style="background:${config.colorBg}"><div class="box-label" style="color:${config.colorAccent}">${params.rateMode === 'monthly' ? 'Tasa mensual' : 'Tasa anual'}</div><div class="box-val" style="color:${config.colorText}">${params.rateMode === 'monthly' ? `${formatPercent(result.monthlyRate, 3)} / mes` : formatPercent(result.annualRate)}</div></div>
   <div class="box" style="background:#f0f4fa;border-color:#1565C044"><div class="box-label" style="color:#1565C0">Cuota mensual</div><div class="box-val" style="color:#0D2B5E">${fmt(result.monthlyPayment)}</div></div>
   <div class="box"><div class="box-label">Total a pagar</div><div class="box-val">${fmt(result.totalPayment)}</div></div>
   <div class="box"><div class="box-label">Total intereses</div><div class="box-val" style="color:${config.colorAccent}">${fmt(result.totalInterest)}</div></div>
@@ -77,7 +82,7 @@ export function downloadPdf({ params, result, config }: Props) {
 </tr></thead>
 <tbody>${tableRows}</tbody>
 </table>
-<div class="footer">JVF Inversiones SRL · Los cálculos son referenciales y no constituyen asesoramiento financiero oficial. · ${today}</div>
+<div class="footer">${BRAND_COPY.quoteFooter} · ${today}</div>
 </body>
 </html>`
 
@@ -95,7 +100,7 @@ export default function PdfExportButton({ params, result, config }: Props) {
       className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
       style={{ background: 'linear-gradient(135deg, #0D2B5E, #1565C0)' }}
     >
-      📄 Exportar PDF
+      Exportar PDF
     </button>
   )
 }

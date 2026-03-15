@@ -13,6 +13,7 @@ interface LoanRow {
   borrowerPhone: string
   status: LoanStatus
   loanType: string
+  interestMethod?: string
   currency: Currency
   amount: number
   scheduledPayment: number
@@ -63,13 +64,20 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
 const LOAN_TYPE_LABELS: Record<string, string> = {
   amortized: 'Amortizado',
   weekly: 'Semanal',
-  carrito: 'Interés plano',
-  flat: 'Interés plano',
-  flat_rate: 'Interés plano',
-  interes_plano: 'Interés plano',
+  carrito: 'Interés total',
+  flat: 'Interés total',
+  flat_rate: 'Interés total',
+  interes_plano: 'Interés total',
 }
 
 function loanTypeLabel(loan: LoanRow) {
+  const normalizedMethod = String(loan.interestMethod ?? '').toUpperCase().trim()
+  if (normalizedMethod === 'FLAT_TOTAL') return 'Interés total'
+  if (normalizedMethod === 'FLAT_PER_PERIOD') return 'Interés por período'
+  if (normalizedMethod === 'INTEREST_ONLY') return 'Solo interés'
+  if (normalizedMethod === 'ZERO_INTEREST') return 'Sin interés'
+  if (normalizedMethod === 'DECLINING_BALANCE') return 'Amortizado'
+
   const rawType = loan.loanType
   if (!rawType) return 'No disponible'
 
@@ -77,7 +85,7 @@ function loanTypeLabel(loan: LoanRow) {
   const hasFlatSignals = [loan.flatRate, loan.carritoTerm, loan.carritoPayments, loan.numPayments, loan.frequency]
     .some((value) => value !== undefined && value !== null && value !== '')
 
-  if (normalized === 'amortized' && hasFlatSignals) return 'Interés plano'
+  if (normalized === 'amortized' && hasFlatSignals) return 'Interés total'
   return LOAN_TYPE_LABELS[normalized] ?? rawType
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse }          from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
-import { applyPayment, computeDelinquency }  from '@/lib/installmentEngine'
+import { applyPayment, computeDelinquency, computeLoanContractBalance }  from '@/lib/installmentEngine'
 import { v4 as uuidv4 }                      from 'uuid'
 import type { InstallmentDoc }               from '@/lib/loanDomain'
 
@@ -39,20 +39,20 @@ export async function POST(
       )
     }
 
-    // Block overpayment: amount > remainingBalance
-    if (amount > loan.remainingBalance + 0.005) {
-      return NextResponse.json(
-        { error: `El monto (${amount}) supera el saldo pendiente (${loan.remainingBalance.toFixed(2)})` },
-        { status: 400 },
-      )
-    }
-
     // Fetch installments
     const rawInstallments = await db.collection('installments')
       .find({ loanId: params.id, organizationId: orgId })
       .sort({ installmentNumber: 1 })
       .toArray()
     const installments = rawInstallments as unknown as InstallmentDoc[]
+    const outstandingBeforePayment = computeLoanContractBalance(loan as any, installments)
+
+    if (amount > outstandingBeforePayment + 0.005) {
+      return NextResponse.json(
+        { error: `El monto (${amount}) supera el saldo pendiente (${outstandingBeforePayment.toFixed(2)})` },
+        { status: 400 },
+      )
+    }
 
     // Apply payment
     const result = applyPayment(installments, amount, targetInstallmentId)
@@ -103,7 +103,11 @@ export async function POST(
     const newPaidTotal   = loan.paidTotal    + amount
     const newPaidPrin    = loan.paidPrincipal + paymentDoc.appliedPrincipal
     const newPaidInt     = loan.paidInterest  + paymentDoc.appliedInterest
-    const newRemaining   = Math.max(loan.remainingBalance - paymentDoc.appliedPrincipal, 0)
+    const newRemaining   = computeLoanContractBalance({
+      totalPayment: loan.totalPayment,
+      paidTotal: newPaidTotal,
+      remainingBalance: loan.remainingBalance,
+    } as any, result.updatedInstallments)
 
     // Determine new loan status
     const delinquency   = computeDelinquency(result.updatedInstallments)
