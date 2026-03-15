@@ -67,6 +67,7 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
   const { data: session } = useSession()
   const isMaster = session?.user?.role === 'master'
+  const [dashboardSearch, setDashboardSearch] = useState('')
   const [orgAccess, setOrgAccess] = useState<{ allowPremiumFeatures: boolean } | null>(null)
 
   const [tab, setTab] = useState<Tab>(initialTab)
@@ -221,18 +222,12 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             <div className="ml-auto flex items-center gap-3">
               <input
                 type="text"
+                value={dashboardSearch}
+                onChange={(event) => setDashboardSearch(event.target.value)}
                 placeholder="Buscar clientes, préstamos o pagos..."
                 className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
               />
               <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">🔔</button>
-              <button
-                onClick={() => setShowPayment(true)}
-                title="Registrar pago de cuota"
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
-                style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}
-              >
-                +
-              </button>
             </div>
           </div>
           <div className="flex items-center overflow-x-auto">
@@ -293,6 +288,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 
         {tab === 'dashboard' && (
           <Dashboard
+            externalSearch={dashboardSearch}
+            onExternalSearchChange={setDashboardSearch}
             onViewProfile={(id) => {
               setSelectedClientId(id)
               changeTab('clients')
