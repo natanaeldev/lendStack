@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
-import { canManageOrganizationBilling, getBillingAccess } from '@/lib/billingCore'
+import { canManageOrganizationBilling, deriveEffectivePlan, getBillingAccess } from '@/lib/billingCore'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { getDb, isDbConfigured } from '@/lib/mongodb'
 import { getBillingPlans, isStripeConfigured, isStripeConnectConfigured } from '@/lib/stripeBilling'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const session = await requireAuth()
@@ -20,9 +22,10 @@ export async function GET() {
 
     const billingStatus = (org?.billingStatus as string | undefined) ?? 'active'
     const access = getBillingAccess(billingStatus as any)
-    const plan = (org?.plan as string | undefined) ?? 'starter'
-    const billingPlan = (org?.billingPlan as string | undefined) ?? plan
+    const storedPlan = (org?.plan as string | undefined) ?? 'starter'
+    const billingPlan = (org?.billingPlan as string | undefined) ?? storedPlan
     const billingInterval = (org?.billingInterval as string | undefined) ?? null
+    const plan = deriveEffectivePlan(billingPlan as any, billingStatus as any)
     const plans = getBillingPlans()
 
     const clientCount = await db.collection('clients').countDocuments({

@@ -248,6 +248,23 @@ export function deriveSubscriptionPatch(
   }
 }
 
+function resolveInvoicePlan(
+  invoice: any,
+  plans: BillingPlanDefinition[],
+  fallbackPlan?: BillingPlanKey | null,
+  fallbackInterval?: BillingInterval,
+) {
+  const linePriceId =
+    invoice?.lines?.data?.find((line: any) => line?.price?.id)?.price?.id ??
+    invoice?.lines?.data?.[0]?.price?.id ??
+    null
+  const matchedPlan = resolvePlanByPriceId(plans, linePriceId)
+  return {
+    billingPlan: matchedPlan?.key ?? fallbackPlan ?? 'starter',
+    billingInterval: matchedPlan?.interval ?? fallbackInterval ?? null,
+  }
+}
+
 export async function createSubscriptionCheckout(
   repository: BillingRepository,
   gateway: StripeCheckoutGateway,
@@ -439,14 +456,24 @@ export async function processStripeWebhookEvent(
     return { duplicate: false }
   }
 
-  if (event.type === 'invoice.paid' || event.type === 'invoice.payment_failed') {
+  if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded' || event.type === 'invoice.payment_failed') {
     const organization = await resolveOrganizationForStripeObject(repository, object, null)
     if (organization) {
-      const status: BillingStatus = event.type === 'invoice.paid' ? 'active' : 'past_due'
+      const status: BillingStatus = event.type === 'invoice.payment_failed' ? 'past_due' : 'active'
+      const invoicePlan = resolveInvoicePlan(
+        object,
+        plans,
+        organization.billingPlan ?? organization.plan ?? 'starter',
+        organization.billingInterval ?? null,
+      )
       await repository.updateOrganization(organization._id, {
         billingStatus: status,
+        billingPlan: invoicePlan.billingPlan,
+        billingInterval: invoicePlan.billingInterval,
         isPaymentPastDue: status === 'past_due',
-        plan: deriveEffectivePlan(organization.billingPlan ?? organization.plan ?? 'starter', status),
+        plan: deriveEffectivePlan(invoicePlan.billingPlan, status),
+        stripeCustomerId: object?.customer ? String(object.customer) : organization.stripeCustomerId ?? null,
+        stripeSubscriptionId: object?.subscription ? String(object.subscription) : organization.stripeSubscriptionId ?? null,
         updatedAt: new Date().toISOString(),
       })
     }

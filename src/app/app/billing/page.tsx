@@ -44,7 +44,7 @@ export default function BillingPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/org')
+    fetch('/api/org', { cache: 'no-store' })
       .then((response) => response.json())
       .then((json) => {
         if (!json.error) setOrgInfo(json)

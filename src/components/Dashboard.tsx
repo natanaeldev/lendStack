@@ -59,7 +59,7 @@ export default function Dashboard({ onViewProfile, externalSearch, onExternalSea
     Promise.all([
       fetch('/api/stats').then((response) => response.json()),
       fetch('/api/clients').then((response) => response.json()),
-      fetch('/api/org').then((response) => response.json()).catch(() => null),
+      fetch('/api/org', { cache: 'no-store' }).then((response) => response.json()).catch(() => null),
     ])
       .then(([statsResponse, clientsResponse, orgResponse]) => {
         if (!statsResponse.configured) {
