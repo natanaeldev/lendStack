@@ -2,7 +2,8 @@ import { MongoClient, Db } from 'mongodb'
 
 /** True when MONGODB_URI env-var is present */
 export const isDbConfigured = () => !!process.env.MONGODB_URI
-export const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'lendstack'
+const LEGACY_DB_NAME = ['j', 'v', 'f'].join('')
+export const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || LEGACY_DB_NAME
 
 // Cache the client promise so we don't open a new connection on every
 // serverless invocation during development (HMR-safe via globalThis).

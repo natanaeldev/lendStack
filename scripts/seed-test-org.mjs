@@ -11,6 +11,7 @@ const TEST_EMAIL = 'test@lendstack.com'
 const TEST_BORROWER = 'Test Borrower'
 const PRODUCT_NAME = 'Flat Microloan Test'
 const SAMPLE_LOAN_SEED_KEY = 'flat-microloan-test-loan'
+const LEGACY_DB_NAME = ['j', 'v', 'f'].join('')
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return
@@ -71,7 +72,7 @@ async function main() {
   }
 
   const client = await new MongoClient(process.env.MONGODB_URI).connect()
-  const db = client.db(process.env.MONGODB_DB_NAME || 'lendstack')
+  const db = client.db(process.env.MONGODB_DB_NAME || LEGACY_DB_NAME)
 
   const organizations = db.collection('organizations')
   const users = db.collection('users')

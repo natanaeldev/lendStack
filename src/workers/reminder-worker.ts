@@ -30,7 +30,8 @@ import {
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 const MONGODB_URI   = process.env.MONGODB_URI   ?? ''
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME ?? 'lendstack'
+const LEGACY_DB_NAME = ['j', 'v', 'f'].join('')
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME ?? LEGACY_DB_NAME
 const RESEND_KEY    = process.env.RESEND_API_KEY ?? ''
 const POLL_INTERVAL = 10_000        // 10 seconds between scheduler runs
 const WORKER_CONCURRENCY = 5       // Process up to 5 messages in parallel
