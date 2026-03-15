@@ -84,6 +84,17 @@ export interface StatsData {
 
 export interface OrgInfo {
   plan: string
+  billingPlan?: string
+  billingStatus?: string
+  billingInterval?: string | null
+  currentPeriodEnd?: string | null
+  trialEndsAt?: string | null
+  isPaymentPastDue?: boolean
+  stripeConnectStatus?: string
+  canManageBilling?: boolean
+  canConnectStripe?: boolean
+  portalAvailable?: boolean
+  checkoutAvailable?: boolean
   clientCount: number
   maxClients: number | null
   isAtLimit: boolean

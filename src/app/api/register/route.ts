@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, getMongoClient, isDbConfigured } from '@/lib/mongodb'
 import { OnboardingConflictError, OnboardingValidationError, runSelfServiceOnboarding } from '@/lib/selfServiceOnboarding'
+import { createOrganizationCheckoutSession, getBillingPlans, isStripeConfigured } from '@/lib/stripeBilling'
 
 export async function POST(req: NextRequest) {
   if (!isDbConfigured()) {
@@ -9,18 +10,47 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const plan = body.plan === 'pro' ? 'pro' : 'starter'
+    const proPlan = getBillingPlans().find((item) => item.key === 'pro')
+
+    if (plan === 'pro' && (!isStripeConfigured() || !proPlan?.active)) {
+      return NextResponse.json({ error: 'El plan Pro no está disponible en este entorno.' }, { status: 503 })
+    }
+
     const client = await getMongoClient()
     const db = await getDb()
 
-    const result = await runSelfServiceOnboarding(client, db, {
+    const onboarding = await runSelfServiceOnboarding(client, db, {
       fullName: body.adminName ?? body.fullName ?? '',
       email: body.adminEmail ?? body.email ?? '',
       password: body.password ?? '',
       organizationName: body.orgName ?? body.organizationName ?? '',
-      plan: body.plan === 'pro' ? 'pro' : 'starter',
+      plan,
     })
 
-    return NextResponse.json({ success: true, ...result })
+    let checkoutUrl: string | null = null
+    if (plan === 'pro') {
+      try {
+        const checkout = await createOrganizationCheckoutSession({
+          organizationId: onboarding.organizationId,
+          userId: onboarding.userId,
+          userEmail: (body.adminEmail ?? body.email ?? '').trim().toLowerCase(),
+          userName: body.adminName ?? body.fullName ?? '',
+          planKey: 'pro',
+        })
+        checkoutUrl = checkout.url
+      } catch (checkoutError) {
+        console.error('[POST /api/register] checkout bootstrap failed', checkoutError)
+        return NextResponse.json({
+          success: true,
+          ...onboarding,
+          checkoutUrl: null,
+          warning: 'La organización fue creada, pero no se pudo abrir Stripe Checkout. Inicia sesión y reintenta el upgrade desde el panel.',
+        })
+      }
+    }
+
+    return NextResponse.json({ success: true, ...onboarding, checkoutUrl })
   } catch (error: any) {
     if (error instanceof OnboardingValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 })

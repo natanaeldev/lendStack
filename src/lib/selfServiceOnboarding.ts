@@ -57,6 +57,14 @@ type OrgDoc = {
   slug: string
   environment: string
   plan: 'starter' | 'pro'
+  billingPlan: 'starter' | 'pro'
+  billingStatus: 'active' | 'pending_checkout'
+  billingInterval: 'month' | null
+  isPaymentPastDue: boolean
+  stripeCustomerId?: string | null
+  stripeSubscriptionId?: string | null
+  stripeConnectedAccountId?: string | null
+  stripeConnectStatus?: 'not_connected'
   createdAt: string
   updatedAt: string
   isTest: boolean
@@ -504,7 +512,15 @@ export async function runSelfServiceOnboardingWithRepository(
       name: input.organizationName.trim(),
       slug: organizationSlug,
       environment,
-      plan: input.plan === 'pro' ? 'pro' : 'starter',
+      plan: 'starter',
+      billingPlan: input.plan === 'pro' ? 'pro' : 'starter',
+      billingStatus: input.plan === 'pro' ? 'pending_checkout' : 'active',
+      billingInterval: input.plan === 'pro' ? 'month' : null,
+      isPaymentPastDue: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      stripeConnectedAccountId: null,
+      stripeConnectStatus: 'not_connected',
       createdAt: now,
       updatedAt: now,
       isTest: isTestWorkspace,
