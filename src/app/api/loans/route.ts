@@ -3,6 +3,7 @@ import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { migrateLegacyStatus }               from '@/lib/loanDomain'
 import { inferLegacyInterestMethod, inferLegacyPaymentFrequency, type InterestMethod } from '@/lib/loan'
+import { emitNotification }                 from '@/lib/notifications'
 import { v4 as uuidv4 }                      from 'uuid'
 
 
@@ -214,6 +215,65 @@ export async function POST(req: NextRequest) {
     }
 
     await db.collection('loans').insertOne(loanDoc as any)
+
+    const amountLabel = new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(Number(amount))
+
+    await emitNotification(db, {
+      tenantId: orgId,
+      actorUserId: session.user.id,
+      type: 'loan.created',
+      entityType: 'loan',
+      entityId: loanId,
+      actionUrl: `/app/prestamos?loanId=${loanId}`,
+      message: `${client.name ?? 'Cliente'} registró una solicitud por ${amountLabel}.`,
+      metadata: {
+        clientId,
+        clientName: client.name ?? 'Cliente',
+        currency,
+        amount,
+      },
+    })
+
+    const clientDocuments = Array.isArray(client.documents) ? client.documents : []
+    if (clientDocuments.length === 0) {
+      await emitNotification(db, {
+        tenantId: orgId,
+        actorUserId: session.user.id,
+        type: 'document.missing',
+        entityType: 'client',
+        entityId: String(client._id),
+        actionUrl: `/app/clientes?clientId=${String(client._id)}`,
+        message: `${client.name ?? 'Cliente'} no tiene documentación cargada para completar el expediente.`,
+        metadata: {
+          clientId: String(client._id),
+          clientName: client.name ?? 'Cliente',
+          loanId,
+        },
+      })
+    }
+
+    if (!client.hasIncomeProof || clientDocuments.length === 0) {
+      await emitNotification(db, {
+        tenantId: orgId,
+        actorUserId: session.user.id,
+        type: 'manual_review.required',
+        entityType: 'loan',
+        entityId: loanId,
+        actionUrl: `/app/prestamos?loanId=${loanId}`,
+        message: `${client.name ?? 'Cliente'} requiere revisión manual antes de avanzar con la evaluación.`,
+        metadata: {
+          clientId: String(client._id),
+          clientName: client.name ?? 'Cliente',
+          loanId,
+          missingIncomeProof: !client.hasIncomeProof,
+          missingDocuments: clientDocuments.length === 0,
+        },
+      })
+    }
 
     return NextResponse.json({ success: true, loanId })
   } catch (err: any) {

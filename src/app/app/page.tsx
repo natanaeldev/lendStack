@@ -133,6 +133,18 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   }, [session?.user?.organizationId])
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const clientId = params.get('clientId')
+    const loanId = params.get('loanId')
+    if (clientId) {
+      setSelectedClientId(clientId)
+      setTab('clients')
+    }
+    if (loanId) {
+      setSelectedLoanId(loanId)
+      setTab('loans')
+    }
+
     const onPopState = () => {
       const path = window.location.pathname
       if (path.startsWith('/app/calculadora')) setTab('calculator')
@@ -227,7 +239,6 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                 placeholder="Buscar clientes, préstamos o pagos..."
                 className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
               />
-              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">🔔</button>
             </div>
           </div>
           <div className="flex items-center overflow-x-auto">
@@ -363,7 +374,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             onGoCalculator={() => changeTab('calculator')}
             onGoBranches={() => (canUsePremiumFeatures ? changeTab('branches') : goToBillingUpgrade())}
             onGoReports={() => (canUsePremiumFeatures ? changeTab('reports') : goToBillingUpgrade())}
-            onGoNotifications={() => showToast('🔔', 'Centro de notificaciones próximamente')}
+            onGoNotifications={() => { window.location.href = '/app/notificaciones' }}
             onGoSettings={() => showToast('⚙️', 'Configuración avanzada próximamente')}
             onGoHelp={() => showToast('🆘', 'Centro de ayuda próximamente')}
             onLogoutEvent={() => window.dispatchEvent(new Event('lendstack:logout'))}

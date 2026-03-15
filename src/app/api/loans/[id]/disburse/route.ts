@@ -3,6 +3,7 @@ import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { generateInstallments }              from '@/lib/installmentEngine'
 import type { LoanDoc }                      from '@/lib/loanDomain'
+import { emitNotification }                  from '@/lib/notifications'
 
 // ─── POST /api/loans/[id]/disburse ───────────────────────────────────────────
 // Disbursement is a manual action. The loan must be in 'approved' state.
@@ -84,6 +85,32 @@ export async function POST(
       { _id: loan.clientId as any, organizationId: orgId },
       { $set: { loanStatus: 'approved', updatedAt: now } },
     )
+
+    const client = await db.collection('clients').findOne(
+      { _id: loan.clientId as any, organizationId: orgId },
+      { projection: { _id: 1, name: 1, email: 1 } },
+    )
+    const amountLabel = new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: String(loan.currency ?? 'USD'),
+      maximumFractionDigits: 2,
+    }).format(Number(disbAmount))
+
+    await emitNotification(db, {
+      tenantId: orgId,
+      actorUserId: session.user.id,
+      type: 'disbursement.sent',
+      entityType: 'loan',
+      entityId: params.id,
+      actionUrl: `/app/prestamos?loanId=${params.id}`,
+      message: `${client?.name ?? 'Cliente'} fue desembolsado por ${amountLabel}.`,
+      metadata: {
+        clientId: loan.clientId,
+        clientName: client?.name ?? 'Cliente',
+        disbursedAmount: disbAmount,
+        currency: String(loan.currency ?? 'USD'),
+      },
+    })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
