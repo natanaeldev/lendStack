@@ -1,10 +1,10 @@
+import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
-import { HomeWithTab } from '../page'
 import { authOptions } from '@/lib/auth'
 import { getOrganizationBillingAccess } from '@/lib/serverBillingAccess'
 
-export default async function ReportesPage() {
+export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.organizationId) {
     redirect('/login')
@@ -15,5 +15,5 @@ export default async function ReportesPage() {
     redirect('/app/billing?required=premium')
   }
 
-  return <HomeWithTab initialTab="reports" />
+  return children
 }
