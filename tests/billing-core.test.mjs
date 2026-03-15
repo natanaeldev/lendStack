@@ -10,6 +10,7 @@ import {
   deriveEffectivePlan,
   deriveSubscriptionPatch,
   getBillingAccess,
+  normalizeBillingStatus,
   processStripeWebhookEvent,
   resolveCheckoutPlan,
 } from '../src/lib/billingCore.ts'
@@ -315,4 +316,11 @@ await run('unavailable plans are excluded cleanly from the public catalog', () =
   assert.equal(available.some((plan) => plan.key === 'starter_yearly'), false)
   assert.equal(available.some((plan) => plan.key === 'pro_yearly'), false)
   assert.equal(getBillingPlanByCheckoutKey('pro_yearly', env)?.active, false)
+})
+
+await run('premium access helpers map billing status to gated surfaces', () => {
+  assert.equal(getBillingAccess(normalizeBillingStatus('active')).allowPremiumFeatures, true)
+  assert.equal(getBillingAccess(normalizeBillingStatus('trialing')).allowPremiumFeatures, true)
+  assert.equal(getBillingAccess(normalizeBillingStatus('pending_checkout')).allowPremiumFeatures, false)
+  assert.equal(getBillingAccess(normalizeBillingStatus('unpaid')).allowPremiumFeatures, false)
 })

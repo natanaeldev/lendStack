@@ -17,6 +17,7 @@ import ToastProvider, { showToast } from '@/components/Toast'
 import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
 import MoreScreen from '@/components/app-shell/MoreScreen'
 import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
+import { isPremiumTab } from '@/lib/premiumAccess'
 import {
   calculateCarritoLoan,
   calculateLoan,
@@ -66,6 +67,7 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
   const { data: session } = useSession()
   const isMaster = session?.user?.role === 'master'
+  const [orgAccess, setOrgAccess] = useState<{ allowPremiumFeatures: boolean } | null>(null)
 
   const [tab, setTab] = useState<Tab>(initialTab)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
@@ -88,8 +90,16 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [carritoTerm, setCarritoTerm] = useState(4)
   const [carritoPayments, setCarritoPayments] = useState(4)
   const [carritoFreq, setCarritoFreq] = useState<CarritoFrequency>('weekly')
+  const canUsePremiumFeatures = orgAccess?.allowPremiumFeatures ?? false
+  const goToBillingUpgrade = useCallback(() => {
+    window.location.href = '/app/billing?required=premium'
+  }, [])
 
   const changeTab = useCallback((newTab: Tab) => {
+    if (isPremiumTab(newTab) && orgAccess && !orgAccess.allowPremiumFeatures) {
+      goToBillingUpgrade()
+      return
+    }
     setTab(newTab)
     if (typeof window !== 'undefined') {
       const paths: Record<Tab, string> = {
@@ -105,7 +115,21 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       }
       window.history.pushState(null, '', paths[newTab])
     }
-  }, [])
+  }, [goToBillingUpgrade, orgAccess])
+
+  useEffect(() => {
+    if (!session?.user?.organizationId) return
+    fetch('/api/org')
+      .then((response) => response.json())
+      .then((json) => {
+        if (!json?.error) {
+          setOrgAccess({
+            allowPremiumFeatures: !!json.allowPremiumFeatures,
+          })
+        }
+      })
+      .catch(() => null)
+  }, [session?.user?.organizationId])
 
   useEffect(() => {
     const onPopState = () => {
@@ -123,6 +147,12 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  useEffect(() => {
+    if (orgAccess && !orgAccess.allowPremiumFeatures && isPremiumTab(tab)) {
+      goToBillingUpgrade()
+    }
+  }, [goToBillingUpgrade, orgAccess, tab])
 
   useEffect(() => {
     const onGotoDashboard = () => changeTab('dashboard')
@@ -206,7 +236,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             </div>
           </div>
           <div className="flex items-center overflow-x-auto">
-            {DESKTOP_TABS.filter((item) => item.id !== 'admin' || isMaster).map((item) => (
+            {DESKTOP_TABS.filter((item) => (!isPremiumTab(item.id) || canUsePremiumFeatures) && (item.id !== 'admin' || isMaster)).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
@@ -334,8 +364,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             userName={session?.user?.name}
             userEmail={session?.user?.email}
             onGoCalculator={() => changeTab('calculator')}
-            onGoBranches={() => changeTab('branches')}
-            onGoReports={() => changeTab('reports')}
+            onGoBranches={() => (canUsePremiumFeatures ? changeTab('branches') : goToBillingUpgrade())}
+            onGoReports={() => (canUsePremiumFeatures ? changeTab('reports') : goToBillingUpgrade())}
             onGoNotifications={() => showToast('🔔', 'Centro de notificaciones próximamente')}
             onGoSettings={() => showToast('⚙️', 'Configuración avanzada próximamente')}
             onGoHelp={() => showToast('🆘', 'Centro de ayuda próximamente')}
