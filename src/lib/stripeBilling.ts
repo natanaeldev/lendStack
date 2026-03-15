@@ -12,6 +12,7 @@ import {
 } from '@/lib/billingCore'
 import { getStripeBillingPlanDefinitions } from '@/lib/billingPlans'
 import { getDb } from '@/lib/mongodb'
+import { assertStripeSecretEnv, getStripeSecretKey } from '@/lib/stripe/config'
 
 export function getAppUrl() {
   const value = process.env.APP_URL || process.env.NEXTAUTH_URL
@@ -22,11 +23,9 @@ export function getAppUrl() {
 let stripeClient: Stripe | null = null
 
 export function getStripeClient() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is required.')
-  }
+  assertStripeSecretEnv()
   if (!stripeClient) {
-    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    stripeClient = new Stripe(getStripeSecretKey(), {
       apiVersion: '2025-02-24.acacia' as any,
     })
   }
@@ -42,11 +41,11 @@ export function getBillingPlans(env: NodeJS.ProcessEnv = process.env): BillingPl
 }
 
 export function isStripeConfigured(env: NodeJS.ProcessEnv = process.env) {
-  return !!env.STRIPE_SECRET_KEY
+  return !!getStripeSecretKey(env)
 }
 
 export function isStripeConnectConfigured(env: NodeJS.ProcessEnv = process.env) {
-  return !!env.STRIPE_SECRET_KEY && !!env.STRIPE_CONNECT_RETURN_URL && !!env.STRIPE_CONNECT_REFRESH_URL
+  return !!getStripeSecretKey(env) && !!env.STRIPE_CONNECT_RETURN_URL && !!env.STRIPE_CONNECT_REFRESH_URL
 }
 
 class MongoBillingRepository implements BillingRepository {
