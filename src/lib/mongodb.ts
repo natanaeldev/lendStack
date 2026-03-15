@@ -29,8 +29,12 @@ function getClientPromise(): Promise<MongoClient> {
   return _clientPromise
 }
 
+export async function getMongoClient(): Promise<MongoClient> {
+  return getClientPromise()
+}
+
 /** Returns the 'jvf' database handle */
 export async function getDb(): Promise<Db> {
-  const client = await getClientPromise()
+  const client = await getMongoClient()
   return client.db('jvf')
 }
