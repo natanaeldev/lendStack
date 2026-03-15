@@ -237,6 +237,18 @@ function allocateRoundedInstallments(total: number, count: number) {
   return installments
 }
 
+export function buildTimestampedUpsertDocument<T extends { createdAt?: string; updatedAt?: string }>(doc: T) {
+  const { createdAt, updatedAt, ...safePayload } = doc
+
+  return {
+    $set: {
+      ...safePayload,
+      updatedAt: updatedAt ?? new Date().toISOString(),
+    },
+    $setOnInsert: createdAt ? { createdAt } : {},
+  }
+}
+
 type TransactionRunner<T> = (session: ClientSession) => Promise<T>
 
 class MongoOnboardingRepository implements SelfServiceOnboardingRepository {
@@ -303,7 +315,7 @@ class MongoOnboardingRepository implements SelfServiceOnboardingRepository {
   async upsertLoanSettings(doc: LoanSettingsDoc) {
     await this.db.collection('loan_settings').updateOne(
       { organizationId: doc.organizationId },
-      { $setOnInsert: doc, $set: { updatedAt: doc.updatedAt } },
+      buildTimestampedUpsertDocument(doc),
       { ...this.options(), upsert: true },
     )
     return doc
@@ -317,7 +329,7 @@ class MongoOnboardingRepository implements SelfServiceOnboardingRepository {
   async upsertLoanProduct(doc: LoanProductDoc) {
     await this.db.collection('loan_products').updateOne(
       { organizationId: doc.organizationId, name: doc.name },
-      { $setOnInsert: doc, $set: { updatedAt: doc.updatedAt } },
+      buildTimestampedUpsertDocument(doc),
       { ...this.options(), upsert: true },
     )
     const created = await this.db.collection('loan_products').findOne(

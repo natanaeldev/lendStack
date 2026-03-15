@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   OnboardingConflictError,
+  buildTimestampedUpsertDocument,
   buildSampleLoanArtifacts,
   buildStarterLoanProduct,
   runSelfServiceOnboardingWithRepository,
@@ -87,7 +88,8 @@ class InMemoryOnboardingRepository {
     this.maybeFail('upsertLoanSettings')
     const existing = this.state.settings.find((item) => item.organizationId === doc.organizationId)
     if (existing) {
-      Object.assign(existing, doc)
+      const createdAt = existing.createdAt
+      Object.assign(existing, doc, { createdAt })
       return existing
     }
     this.state.settings.push(doc)
@@ -104,7 +106,8 @@ class InMemoryOnboardingRepository {
     this.maybeFail('upsertLoanProduct')
     const existing = this.state.loanProducts.find((item) => item.organizationId === doc.organizationId && item.name === doc.name)
     if (existing) {
-      Object.assign(existing, doc)
+      const createdAt = existing.createdAt
+      Object.assign(existing, doc, { createdAt })
       return existing
     }
     this.state.loanProducts.push(doc)
@@ -256,4 +259,55 @@ await run('duplicate submission does not create duplicate organizations', async 
   )
 
   assert.equal(repository.state.organizations.length, 1)
+})
+
+await run('timestamped upsert document keeps createdAt only on insert', () => {
+  const upsert = buildTimestampedUpsertDocument({
+    organizationId: 'org_1',
+    locale: 'es-DO',
+    createdAt: '2026-03-15T00:00:00.000Z',
+    updatedAt: '2026-03-15T00:05:00.000Z',
+  })
+
+  assert.equal(upsert.$set.organizationId, 'org_1')
+  assert.equal(upsert.$set.locale, 'es-DO')
+  assert.equal(upsert.$set.updatedAt, '2026-03-15T00:05:00.000Z')
+  assert.equal('createdAt' in upsert.$set, false)
+  assert.deepEqual(upsert.$setOnInsert, { createdAt: '2026-03-15T00:00:00.000Z' })
+})
+
+await run('loan settings upsert preserves createdAt while updating updatedAt', async () => {
+  const repository = new InMemoryOnboardingRepository({
+    settings: [{
+      _id: 'settings_1',
+      organizationId: 'org_1',
+      currency: 'USD',
+      roundingMode: 'HALF_UP',
+      defaultInterestMethod: 'FLAT_TOTAL',
+      timezone: 'America/Santo_Domingo',
+      locale: 'es-DO',
+      createdAt: '2026-03-15T00:00:00.000Z',
+      updatedAt: '2026-03-15T00:00:00.000Z',
+      isTest: true,
+    }],
+  })
+
+  const createdAt = repository.state.settings[0].createdAt
+  await repository.upsertLoanSettings({
+    _id: 'settings_2',
+    organizationId: 'org_1',
+    currency: 'USD',
+    roundingMode: 'HALF_UP',
+    defaultInterestMethod: 'FLAT_TOTAL',
+    timezone: 'America/Santo_Domingo',
+    locale: 'en-US',
+    createdAt: '2099-01-01T00:00:00.000Z',
+    updatedAt: '2026-03-15T01:00:00.000Z',
+    isTest: true,
+  })
+
+  assert.equal(repository.state.settings.length, 1)
+  assert.equal(repository.state.settings[0].createdAt, createdAt)
+  assert.equal(repository.state.settings[0].updatedAt, '2026-03-15T01:00:00.000Z')
+  assert.equal(repository.state.settings[0].locale, 'en-US')
 })
