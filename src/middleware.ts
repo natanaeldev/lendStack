@@ -2,13 +2,14 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
 // Paths that are publicly accessible without a session
-const PUBLIC_PATHS = new Set(['/', '/register'])
+const PUBLIC_PATHS = new Set(['/', '/register', '/billing/success', '/billing/cancel'])
 
 export default withAuth(
   function middleware() {
     return NextResponse.next()
   },
   {
+    secret: process.env.NEXTAUTH_SECRET ?? 'dev-only-fallback-secret-not-for-production',
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl
@@ -23,8 +24,9 @@ export default withAuth(
 )
 
 export const config = {
-  // Protect everything EXCEPT: auth API, login page, signup page, Next.js internals, and static files
+  // Protect everything EXCEPT: auth API, cron, register API, Stripe webhooks,
+  //   login/signup/register pages, Next.js internals, and static files
   matcher: [
-    '/((?!api/auth|login|signup|_next/static|_next/image|favicon\\.ico|logo\\.png).*)',
+    '/((?!api/auth|api/billing/checkout-session|api/cron|api/register|api/webhooks|login|signup|register|billing/success|billing/cancel|_next/static|_next/image|favicon\\.ico|lendstack-favicon\\.ico|lendstack-logo\\.svg).*)',
   ],
 }

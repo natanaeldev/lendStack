@@ -109,7 +109,9 @@ export default async function LandingPage() {
       <nav className="relative z-50 sticky top-0" style={{ background: 'rgba(7,26,62,.85)', borderBottom: '1px solid rgba(255,255,255,.08)', backdropFilter: 'blur(16px)' }}>
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           {/* Logo */}
-          <LendStackLogo variant="light" size={38} />
+          <Link href={loggedIn ? '/app' : '/'} className="flex items-center">
+            <LendStackLogo variant="light" size={38} />
+          </Link>
 
           {/* Nav links (desktop) */}
           <div className="hidden md:flex items-center gap-6">
@@ -133,7 +135,7 @@ export default async function LandingPage() {
                   style={{ color: '#c5d5ea' }}>
                   Iniciar sesión
                 </Link>
-                <Link href="/signup"
+                <Link href="/register"
                   className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg, #1565C0, #0D2B5E)', border: '1px solid rgba(255,255,255,.2)' }}>
                   Empezar gratis
@@ -170,7 +172,7 @@ export default async function LandingPage() {
 
           {/* CTAs */}
           <div className="flex flex-wrap justify-center gap-4 mb-16">
-            <Link href={loggedIn ? '/app' : '/signup'}
+            <Link href={loggedIn ? '/app' : '/register'}
               className="px-8 py-3.5 rounded-2xl text-base font-bold text-white transition-all hover:opacity-90 hover:scale-105"
               style={{ background: 'linear-gradient(135deg, #1565C0, #1976D2)', boxShadow: '0 4px 24px rgba(21,101,192,.5)' }}>
               {loggedIn ? 'Ir al panel' : 'Empezar gratis — 14 días sin costo'}
@@ -312,7 +314,7 @@ export default async function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/signup"
+                <Link href="/register"
                   className="block text-center py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
                   style={plan.highlight
                     ? { background: '#fff', color: '#0D2B5E' }
@@ -334,7 +336,7 @@ export default async function LandingPage() {
           <p className="text-lg mb-10" style={{ color: '#c5d5ea' }}>
             14 días gratis, sin tarjeta de crédito. Cancelás cuando quieras.
           </p>
-          <Link href="/signup"
+          <Link href="/register"
             className="inline-block px-10 py-4 rounded-2xl text-base font-bold text-white transition-all hover:opacity-90 hover:scale-105"
             style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.35)', boxShadow: '0 4px 24px rgba(0,0,0,.3)' }}>
             Crear cuenta gratis →
@@ -347,7 +349,7 @@ export default async function LandingPage() {
         <div className="flex flex-wrap justify-center gap-6 mb-4">
           <a href="#pricing" className="hover:text-white transition-colors">Precios</a>
           <Link href="/login"  className="hover:text-white transition-colors">Iniciar sesión</Link>
-          <Link href="/signup" className="hover:text-white transition-colors">Registrarse</Link>
+          <Link href="/register" className="hover:text-white transition-colors">Registrarse</Link>
         </div>
         <p>
           <strong style={{ color: '#6d96c8' }}>LendStack</strong> · Plataforma de gestión de préstamos para LATAM · © {new Date().getFullYear()}

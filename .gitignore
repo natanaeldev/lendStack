@@ -1,7 +1,21 @@
 .next/
 node_modules/
+dist/
 .env.local
+.env.*.local
 .DS_Store
 *.tsbuildinfo
 
 .vercel
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.backup
+infra/terraform/**/*.tfplan
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/.terraform.lock.hcl
+
+# Docker
+docker-compose.override.yml

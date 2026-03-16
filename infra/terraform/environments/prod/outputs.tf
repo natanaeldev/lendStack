@@ -1,0 +1,10 @@
+output "cloudfront_domain" { value = module.cloudfront.distribution_domain }
+output "cloudfront_id" { value = module.cloudfront.distribution_id }
+output "alb_dns" { value = module.alb.alb_dns_name }
+output "web_ecr_url" { value = module.ecs.web_ecr_url }
+output "worker_ecr_url" { value = module.ecs.worker_ecr_url }
+output "ecs_cluster" { value = module.ecs.cluster_name }
+output "github_actions_role_arn" { value = module.iam.github_actions_role_arn }
+output "documents_bucket" { value = module.s3.bucket_name }
+output "reminders_queue_url" { value = module.sqs.reminders_queue_url }
+output "monitoring_dashboard" { value = module.monitoring.dashboard_name }

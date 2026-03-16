@@ -1,0 +1,287 @@
+name: Deploy to AWS ECS
+
+# ─── Trigger ──────────────────────────────────────────────────────────────────
+# Deploy only when pushing to main (production) or staging branches.
+# Pull requests run the build/test job without deploying.
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress deployments for the same branch when a new push arrives.
+# Prevents two deploys from racing and leaving infra in a partial state.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Permissions ──────────────────────────────────────────────────────────────
+# Minimal permissions required for OIDC token exchange with AWS.
+permissions:
+  id-token:      write   # Required for OIDC: github.com → AWS AssumeRoleWithWebIdentity
+  contents:      read    # Required to checkout the repository
+  pull-requests: write   # Required to post deployment comments on PRs
+
+# ─── Global env ───────────────────────────────────────────────────────────────
+env:
+  AWS_REGION:          us-east-1
+  ECR_WEB_REPO:        ${{ secrets.ECR_WEB_REPO }}     # e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com/lendstack-prod/web
+  ECR_WORKER_REPO:     ${{ secrets.ECR_WORKER_REPO }}
+  ECS_CLUSTER:         ${{ secrets.ECS_CLUSTER }}       # e.g. lendstack-prod-cluster
+  ECS_WEB_SERVICE:     ${{ secrets.ECS_WEB_SERVICE }}   # e.g. lendstack-prod-web
+  ECS_WORKER_SERVICE:  ${{ secrets.ECS_WORKER_SERVICE }}
+  CLOUDFRONT_ID:       ${{ secrets.CLOUDFRONT_ID }}
+
+jobs:
+
+  # ─── Job 1: Build & Test ─────────────────────────────────────────────────────
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build Next.js
+        env:
+          # Placeholder build-time values — runtime secrets come from Secrets Manager
+          NEXTAUTH_URL:    https://placeholder.example.com
+          NEXTAUTH_SECRET: build-placeholder-not-real
+        run: npm run build
+
+  # ─── Job 2: Push Docker images to ECR ────────────────────────────────────────
+  # Only runs on push to main or staging — not on PRs.
+  push-images:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+
+    outputs:
+      image-tag:        ${{ steps.meta.outputs.tag }}
+      web-image:        ${{ steps.push-web.outputs.image }}
+      worker-image:     ${{ steps.push-worker.outputs.image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # OIDC: exchange GitHub token for short-lived AWS credentials.
+      # No long-lived access keys stored as secrets.
+      - name: Validate AWS role secret
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "Missing secret: AWS_DEPLOY_ROLE_ARN"
+            exit 1
+          fi
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume:    ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region:        ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Image tag strategy: use the short commit SHA for traceability.
+      # Also tag as "latest" and the branch name.
+      - name: Generate image tag
+        id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          BRANCH="${GITHUB_REF_NAME//\//-}"
+          TAG="${BRANCH}-${SHORT_SHA}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Building images with tag: ${TAG}"
+
+      # Build and push web image
+      - name: Build & push web image
+        id: push-web
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          DOCKER_BUILDKIT: 1
+        run: |
+          IMAGE="${ECR_WEB_REPO}:${TAG}"
+          docker build \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t "${IMAGE}" \
+            -f Dockerfile \
+            .
+          docker push "${IMAGE}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+      # Build and push worker image
+      - name: Build & push worker image
+        id: push-worker
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          DOCKER_BUILDKIT: 1
+        run: |
+          IMAGE="${ECR_WORKER_REPO}:${TAG}"
+          docker build \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t "${IMAGE}" \
+            -f Dockerfile.worker \
+            .
+          docker push "${IMAGE}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+  # ─── Job 3: Deploy to ECS ─────────────────────────────────────────────────
+  deploy:
+    name: Deploy to ECS (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    needs: push-images
+    if: github.event_name == 'push'
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
+    steps:
+      - name: Validate AWS role secret
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "Missing secret: AWS_DEPLOY_ROLE_ARN"
+            exit 1
+          fi
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume:    ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region:        ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Deploy-${{ github.run_id }}
+
+      # Download current task definition from ECS, patch the image tag, re-register
+      - name: Update web task definition image
+        id: web-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-arn: ${{ secrets.ECS_WEB_TASK_DEF_ARN }}
+          container-name:      web
+          image:               ${{ needs.push-images.outputs.web-image }}
+
+      - name: Update worker task definition image
+        id: worker-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-arn: ${{ secrets.ECS_WORKER_TASK_DEF_ARN }}
+          container-name:      worker
+          image:               ${{ needs.push-images.outputs.worker-image }}
+
+      # Deploy web service with rolling update + circuit breaker
+      - name: Deploy web service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition:        ${{ steps.web-task-def.outputs.task-definition }}
+          service:                ${{ env.ECS_WEB_SERVICE }}
+          cluster:                ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true  # Block until deployment is healthy
+          deployment-controller-type: ECS
+
+      # Deploy worker service
+      - name: Deploy worker service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition:        ${{ steps.worker-task-def.outputs.task-definition }}
+          service:                ${{ env.ECS_WORKER_SERVICE }}
+          cluster:                ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      # Invalidate CloudFront cache so users get the new _next/static assets immediately
+      - name: Invalidate CloudFront cache
+        if: github.ref_name == 'main'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_ID" \
+            --paths "/_next/static/*" "/favicon.ico"
+
+      # Post deployment summary as a commit status
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | ${{ github.ref_name == 'main' && 'Production' || 'Staging' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image tag | ${{ needs.push-images.outputs.image-tag }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Deployed at | $(date -u) |" >> "$GITHUB_STEP_SUMMARY"
+
+  # ─── Job 4: Infrastructure Plan (PRs) ────────────────────────────────────
+  # Shows the Terraform plan as a PR comment so reviewers can see infra changes.
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate AWS role secret
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "Missing secret: AWS_DEPLOY_ROLE_ARN"
+            exit 1
+          fi
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region:     ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+
+      - name: Terraform Init
+        run: terraform init -reconfigure
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan \
+            -var="mongodb_uri=REDACTED" \
+            -var="nextauth_secret=REDACTED" \
+            -var="resend_api_key=REDACTED" \
+            -var="stripe_secret_key=REDACTED" \
+            -var="stripe_webhook_secret=REDACTED" \
+            -var="domain_name=${{ secrets.PROD_DOMAIN }}" \
+            -var="acm_certificate_arn=${{ secrets.ACM_CERT_ARN }}" \
+            -var="cloudfront_secret_header=REDACTED" \
+            -var="github_repo=${{ github.repository }}" \
+            -var="create_github_oidc=false" 2>&1 | tee plan.txt
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs')
+            const plan = fs.readFileSync('infra/terraform/environments/prod/plan.txt', 'utf8')
+            const truncated = plan.length > 60000 ? plan.slice(-60000) + '\n... (truncated)' : plan
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              body: `## Terraform Plan\n\`\`\`hcl\n${truncated}\n\`\`\``
+            })
+
+

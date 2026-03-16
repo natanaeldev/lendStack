@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars and fill in real values.
+# NEVER commit terraform.tfvars — it contains secrets.
+# In CI/CD, pass secrets via TF_VAR_* environment variables.
+
+aws_region            = "us-east-1"
+environment           = "prod"
+domain_name           = "app.yourdomain.com"
+documents_bucket_name = "lendstack-prod-documents"
+acm_certificate_arn   = "arn:aws:acm:us-east-1:123456789012:certificate/xxx"
+github_repo           = "natanaeldev/lendStack"
+alert_emails          = ["ops@yourdomain.com"]
+web_desired_count     = 2
+web_min_count         = 2
+web_max_count         = 10
+
+# Generate a random secret: openssl rand -hex 32
+cloudfront_secret_header = "REPLACE_WITH_RANDOM_SECRET"
+
+# Secrets — these seed Secrets Manager on first apply.
+# After first apply, update secrets directly in AWS Console or CLI,
+# and the Terraform lifecycle { ignore_changes } will not overwrite them.
+mongodb_uri           = "mongodb+srv://user:pass@cluster.mongodb.net/lendstack"
+nextauth_secret       = "REPLACE_WITH_RANDOM_SECRET"
+resend_api_key        = "re_xxxxxxxxxxxx"
+stripe_secret_key     = "sk_live_xxxxxxxxxxxx"
+stripe_webhook_secret = "whsec_xxxxxxxxxxxx"

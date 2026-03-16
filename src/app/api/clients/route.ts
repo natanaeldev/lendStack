@@ -1,7 +1,72 @@
 import { NextRequest, NextResponse }                    from 'next/server'
 import { getDb, isDbConfigured }                       from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }           from '@/lib/orgAuth'
+import { migrateLegacyStatus }                         from '@/lib/loanDomain'
+import { inferLegacyInterestMethod, inferLegacyPaymentFrequency, type InterestMethod } from '@/lib/loan'
+import { ObjectId }                                    from 'mongodb'
 import { v4 as uuidv4 }                               from 'uuid'
+
+// Starter plan: max 50 clients
+const STARTER_CLIENT_LIMIT = 50
+
+function inferLoanType(loan: any): 'amortized' | 'weekly' | 'carrito' {
+  if (!loan) return 'amortized'
+  const raw = String(loan.loanType ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_')
+  if (raw === 'weekly') return 'weekly'
+  if (['carrito', 'flat', 'flat_rate', 'interes_plano'].includes(raw)) return 'carrito'
+
+  const hasWeeklySignals = loan.termWeeks != null || loan.weeklyRate != null || loan.weeklyPayment != null
+  if (hasWeeklySignals) return 'weekly'
+
+  const hasCarritoSignals =
+    loan.flatRate != null || loan.carritoTerm != null || loan.numPayments != null || loan.frequency != null || loan.fixedPayment != null
+  if (hasCarritoSignals) return 'carrito'
+
+  return 'amortized'
+}
+
+function buildClientLoanParams(loan: any) {
+  return {
+    amount: loan?.amount ?? 0,
+    termYears: loan?.termYears ?? null,
+    profile: loan?.profile ?? 'Medium Risk',
+    currency: loan?.currency ?? 'USD',
+    rateMode: loan?.rateMode ?? 'annual',
+    customMonthlyRate: loan?.customMonthlyRate ?? 0,
+    interestMethod: loan ? (loan.interestMethod ?? inferLegacyInterestMethod(loan.loanType, loan.interestMethod)) : null,
+    paymentFrequency: loan ? (loan.paymentFrequency ?? inferLegacyPaymentFrequency(loan.loanType, loan.frequency)) : null,
+    installmentCount: loan ? (loan.installmentCount ?? loan.numPayments ?? loan.termWeeks ?? loan.totalMonths ?? null) : null,
+    interestPeriodCount: loan ? (loan.interestPeriodCount ?? loan.carritoTerm ?? null) : null,
+    rateValue: loan ? (loan.rateValue ?? loan.flatRate ?? loan.monthlyRate ?? loan.customMonthlyRate ?? 0) : 0,
+    rateUnit: loan?.rateUnit ?? 'DECIMAL',
+    startDate: loan?.startDate ?? '',
+    termWeeks: loan?.termWeeks ?? null,
+    monthlyRate: loan?.monthlyRate ?? null,
+    flatRate: loan?.flatRate ?? null,
+    carritoTerm: loan?.carritoTerm ?? null,
+    numPayments: loan?.numPayments ?? null,
+    frequency: loan?.frequency ?? null,
+  }
+}
+
+function buildClientLoanResult(loan: any) {
+  return {
+    monthlyPayment: loan?.monthlyPayment ?? 0,
+    totalPayment: loan?.totalPayment ?? 0,
+    totalInterest: loan?.totalInterest ?? 0,
+    annualRate: loan?.annualRate ?? 0,
+    monthlyRate: loan?.monthlyRate ?? 0,
+    totalMonths: loan?.totalMonths ?? null,
+    interestRatio: loan?.interestRatio ?? 0,
+    interestMethod: loan ? (loan.interestMethod ?? inferLegacyInterestMethod(loan.loanType, loan.interestMethod)) : null,
+    weeklyPayment: loan?.weeklyPayment ?? null,
+    weeklyRate: loan?.weeklyRate ?? null,
+    totalWeeks: loan?.termWeeks ?? null,
+    fixedPayment: loan?.fixedPayment ?? null,
+    numPayments: loan?.numPayments ?? null,
+  }
+}
+
 
 // ─── GET  /api/clients ────────────────────────────────────────────────────────
 export async function GET() {
@@ -15,8 +80,27 @@ export async function GET() {
     const db  = await getDb()
     const col = db.collection('clients')
 
+    // ── Branch access control ─────────────────────────────────────────────────
+    // master sees all; manager/operator see only their allowedBranchIds (if set)
+    const query: Record<string, any> = { organizationId: session.user.organizationId }
+
+    if (session.user.role !== 'master' && !session.user.isOrganizationOwner) {
+      // Look up user's allowedBranchIds from DB (not cached in JWT)
+      let userDoc: any = null
+      try {
+        let uid: any
+        try { uid = new ObjectId(session.user.id) } catch { uid = session.user.id }
+        userDoc = await db.collection('users').findOne({ _id: uid })
+      } catch { /* ignore */ }
+
+      const allowed: string[] | null = userDoc?.allowedBranchIds ?? null
+      if (Array.isArray(allowed) && allowed.length > 0) {
+        query.branchId = { $in: allowed }
+      }
+    }
+
     const records = await col
-      .find({ organizationId: session.user.organizationId })
+      .find(query)
       .sort({ savedAt: -1 })
       .toArray()
 
@@ -47,27 +131,21 @@ export async function GET() {
       reference1:    c.reference1    ?? '',
       reference2:    c.reference2    ?? '',
       notes:         c.notes         ?? '',
-      // Estado del préstamo
-      loanStatus: c.loanStatus ?? 'pending',
+      // Sucursal
+      branch:     c.branch     ?? null,
+      branchId:   c.branchId   ?? null,
+      branchName: c.branchName ?? null,
+      // Estado del préstamo (legacy 3-value + full lifecycle)
+      loanStatus:      c.loanStatus ?? 'pending',
+      lifecycleStatus: migrateLegacyStatus(c.loanStatus),
+      loanId:          c.loan?.id ?? null,
+      // Tipo de préstamo
+      loanType: inferLoanType(c.loan),
       // Préstamo
-      params: c.loan ? {
-        amount:            c.loan.amount,
-        termYears:         c.loan.termYears,
-        profile:           c.loan.profile,
-        currency:          c.loan.currency,
-        rateMode:          c.loan.rateMode,
-        customMonthlyRate: c.loan.customMonthlyRate,
-      } : null,
-      result: c.loan ? {
-        monthlyPayment: c.loan.monthlyPayment,
-        totalPayment:   c.loan.totalPayment,
-        totalInterest:  c.loan.totalInterest,
-        annualRate:     c.loan.annualRate,
-        monthlyRate:    c.loan.monthlyRate,
-        totalMonths:    c.loan.totalMonths,
-        interestRatio:  c.loan.interestRatio,
-      } : null,
+      params: buildClientLoanParams(c.loan),
+      result: buildClientLoanResult(c.loan),
       documents: c.documents ?? [],
+      payments:  c.payments  ?? [],
     }))
 
     return NextResponse.json({ clients })
@@ -98,18 +176,161 @@ export async function POST(req: NextRequest) {
       collateral, territorialTies,
       // Section 4 – History & References
       creditHistory, reference1, reference2, notes,
+      // Branch
+      branchId,
       // Loan
-      params, result,
+      loanType = 'amortized',
+      params,
+      result,
+      weeklyParams,
+      carritoParams,
     } = body
 
     if (!name?.trim())
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
+    if (!branchId)
+      return NextResponse.json({ error: 'Branch is required' }, { status: 400 })
+
+    // ── Plan limit check ──────────────────────────────────────────────────────
+    const db = await getDb()
+
+    const org = await db.collection('organizations').findOne({
+      _id: session.user.organizationId as any,
+    })
+    const orgPlan = (org?.plan as string | undefined) ?? 'starter'
+
+    if (orgPlan === 'starter') {
+      const clientCount = await db.collection('clients').countDocuments({
+        organizationId: session.user.organizationId,
+      })
+      if (clientCount >= STARTER_CLIENT_LIMIT) {
+        return NextResponse.json(
+          {
+            error:       `Límite del plan Starter alcanzado (${STARTER_CLIENT_LIMIT} clientes).`,
+            planLimited: true,
+          },
+          { status: 403 }
+        )
+      }
+    }
+
     const clientId = uuidv4()
     const loanId   = uuidv4()
     const savedAt  = new Date().toISOString()
 
-    const db  = await getDb()
+    // Resolve named branch → derive type and display name
+    const branchDoc = await db.collection('branches').findOne({
+      _id:            branchId as any,
+      organizationId: session.user.organizationId,
+    })
+    if (!branchDoc)
+      return NextResponse.json({ error: 'Sucursal no encontrada.' }, { status: 404 })
+
+    const branch     = branchDoc.type as string   // 'sede' | 'rutas'
+    const branchName = branchDoc.name as string
+
+    // ── Build loan object based on loanType ───────────────────────────────────
+    const AVG_WEEKS_PER_MONTH = 4.33
+    const AVG_DAYS_PER_MONTH  = 30.44
+
+    let loanDoc: Record<string, any>
+
+    if (loanType === 'weekly' && weeklyParams && result) {
+      const { termWeeks, monthlyRate } = weeklyParams
+      const effectiveMonthly = result.weeklyPayment * AVG_WEEKS_PER_MONTH
+      loanDoc = {
+        id:             loanId,
+        loanType:       'weekly',
+        interestMethod: 'DECLINING_BALANCE',
+        scheduleGenerationMethod: 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT',
+        paymentFrequency: 'WEEKLY',
+        installmentCount: termWeeks,
+        interestPeriodCount: termWeeks,
+        amount:         params.amount,
+        profile:        params.profile         ?? 'Medium Risk',
+        currency:       params.currency        ?? 'USD',
+        startDate:      params.startDate       ?? '',
+        // Weekly-specific
+        termWeeks,
+        weeklyRate:     result.weeklyRate,
+        rateValue:      result.weeklyRate,
+        rateUnit:       'DECIMAL',
+        weeklyPayment:  result.weeklyPayment,
+        monthlyRate,
+        annualRate:     result.annualRate,
+        // Normalised monthly (for reminders / stats)
+        monthlyPayment: effectiveMonthly,
+        totalMonths:    Math.round(termWeeks / AVG_WEEKS_PER_MONTH),
+        totalPayment:   result.totalPayment,
+        totalInterest:  result.totalInterest,
+        interestRatio:  result.interestRatio,
+      }
+    } else if (loanType === 'carrito' && carritoParams && result) {
+      const { flatRate, term, numPayments, frequency, interestMethod = 'FLAT_TOTAL' } = carritoParams as typeof carritoParams & { interestMethod?: InterestMethod }
+      const effectiveMonthly = frequency === 'daily'
+        ? result.fixedPayment * AVG_DAYS_PER_MONTH
+        : result.fixedPayment * AVG_WEEKS_PER_MONTH
+      loanDoc = {
+        id:             loanId,
+        loanType:       'carrito',
+        interestMethod,
+        scheduleGenerationMethod: interestMethod === 'ZERO_INTEREST' ? 'ZERO_INTEREST_LAST_ADJUSTMENT' : 'EQUAL_INSTALLMENT_LAST_ADJUSTMENT',
+        paymentFrequency: frequency === 'daily' ? 'DAILY' : 'WEEKLY',
+        installmentCount: numPayments,
+        interestPeriodCount: interestMethod === 'FLAT_PER_PERIOD' ? term : 1,
+        amount:         params.amount,
+        profile:        params.profile   ?? 'Medium Risk',
+        currency:       params.currency  ?? 'USD',
+        startDate:      params.startDate ?? '',
+        // Carrito-specific
+        flatRate,
+        rateValue:      flatRate,
+        rateUnit:       'DECIMAL',
+        carritoTerm:    term,
+        numPayments,
+        frequency,
+        fixedPayment:   result.fixedPayment,
+        // Normalised monthly (for reminders / stats)
+        monthlyPayment: effectiveMonthly,
+        totalMonths:    frequency === 'daily'
+          ? Math.round(numPayments / AVG_DAYS_PER_MONTH)
+          : Math.round(numPayments / AVG_WEEKS_PER_MONTH),
+        totalPayment:   result.totalPayment,
+        totalInterest:  result.totalInterest,
+        interestRatio:  result.interestRatio,
+        annualRate:     0,
+        monthlyRate:    0,
+      }
+    } else {
+      // Default: amortized
+      loanDoc = {
+        id:                loanId,
+        loanType:          'amortized',
+        interestMethod:    'DECLINING_BALANCE',
+        scheduleGenerationMethod: 'DECLINING_BALANCE_LAST_PAYMENT_ADJUSTMENT',
+        paymentFrequency:  'MONTHLY',
+        installmentCount:  result.totalMonths,
+        interestPeriodCount: result.totalMonths,
+        amount:            params.amount,
+        termYears:         params.termYears,
+        profile:           params.profile,
+        currency:          params.currency,
+        rateMode:          params.rateMode          ?? 'annual',
+        customMonthlyRate: params.customMonthlyRate ?? 0,
+        rateValue:         result.monthlyRate,
+        rateUnit:          'DECIMAL',
+        startDate:         params.startDate         ?? '',
+        monthlyPayment:    result.monthlyPayment,
+        totalPayment:      result.totalPayment,
+        totalInterest:     result.totalInterest,
+        annualRate:        result.annualRate,
+        monthlyRate:       result.monthlyRate,
+        totalMonths:       result.totalMonths,
+        interestRatio:     result.interestRatio,
+      }
+    }
+
     const col = db.collection('clients')
 
     await col.insertOne({
@@ -140,29 +361,59 @@ export async function POST(req: NextRequest) {
       reference1:    reference1?.trim()    ?? '',
       reference2:    reference2?.trim()    ?? '',
       notes:         notes?.trim()         ?? '',
+      // Branch (type for filtering + named branch)
+      branch,
+      branchId,
+      branchName,
       // Loan status
       loanStatus: 'pending',
       // Loan
-      loan: {
-        id:                loanId,
-        amount:            params.amount,
-        termYears:         params.termYears,
-        profile:           params.profile,
-        currency:          params.currency,
-        rateMode:          params.rateMode          ?? 'annual',
-        customMonthlyRate: params.customMonthlyRate ?? 0,
-        monthlyPayment:    result.monthlyPayment,
-        totalPayment:      result.totalPayment,
-        totalInterest:     result.totalInterest,
-        annualRate:        result.annualRate,
-        monthlyRate:       result.monthlyRate,
-        totalMonths:       result.totalMonths,
-        interestRatio:     result.interestRatio,
-      },
+      loan: loanDoc,
       documents: [],
     })
 
-    return NextResponse.json({ success: true, id: clientId, savedAt })
+    // ── Also create a loans collection record for the new lifecycle layer ──────
+    if (params && result) {
+      await db.collection('loans').insertOne({
+        _id:            loanId as any,
+        organizationId: session.user.organizationId,
+        clientId,
+        status:         'application_submitted',
+        createdAt:      savedAt,
+        updatedAt:      savedAt,
+        loanType:       params.loanType ?? 'amortized',
+        interestMethod: loanDoc.interestMethod,
+        scheduleGenerationMethod: loanDoc.scheduleGenerationMethod,
+        paymentFrequency: loanDoc.paymentFrequency,
+        installmentCount: loanDoc.installmentCount,
+        interestPeriodCount: loanDoc.interestPeriodCount,
+        currency:       params.currency,
+        amount:         params.amount,
+        termYears:      params.termYears       ?? undefined,
+        termWeeks:      params.termWeeks       ?? undefined,
+        carritoTerm:    params.carritoTerm     ?? undefined,
+        carritoPayments: params.carritoPayments ?? undefined,
+        carritoFrequency: params.carritoFrequency ?? undefined,
+        profile:        params.profile         ?? undefined,
+        rateMode:       params.rateMode        ?? 'annual',
+        customMonthlyRate: params.customMonthlyRate ?? undefined,
+        rateValue:      loanDoc.rateValue ?? undefined,
+        rateUnit:       loanDoc.rateUnit ?? 'DECIMAL',
+        annualRate:     result.annualRate      ?? undefined,
+        monthlyRate:    result.monthlyRate     ?? undefined,
+        totalMonths:    result.totalMonths     ?? undefined,
+        scheduledPayment: result.monthlyPayment ?? result.weeklyPayment ?? result.fixedPayment ?? 0,
+        totalPayment:   result.totalPayment,
+        totalInterest:  result.totalInterest,
+        startDate:      params.startDate       ?? undefined,
+        paidPrincipal:  0,
+        paidInterest:   0,
+        paidTotal:      0,
+        remainingBalance: result.totalPayment,
+      } as any)
+    }
+
+    return NextResponse.json({ success: true, id: clientId, loanId, savedAt })
   } catch (err: any) {
     console.error('[POST /api/clients]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

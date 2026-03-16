@@ -1,4 +1,4 @@
-# JVF Inversiones SRL — Calculadora de Préstamos Pro
+# lendStack — Esta es una app para manejar prestamos
 
 Aplicación Next.js para análisis de préstamos con perfiles de riesgo.
 
@@ -73,3 +73,20 @@ src/
 RESEND_API_KEY=re_xxxxxxx        # Para email real
 NEXT_PUBLIC_CURRENCY_API_KEY=    # Opcional: API de tipo de cambio en vivo
 ```
+
+## 🚀 Deploy en Vercel (checklist rápido)
+
+Si Vercel no está desplegando cambios nuevos:
+
+1. Verifica que la rama de producción del proyecto en Vercel sea `main`.
+2. Asegúrate de que el commit esté realmente en el remoto (`origin/main`), no solo en local:
+   ```bash
+   git push -u origin main
+   ```
+3. Si tu repo local no tiene remoto configurado, agrégalo primero:
+   ```bash
+   git remote add origin <URL_DEL_REPO>
+   git push -u origin main
+   ```
+4. En Vercel, revisa **Project Settings → Git** y confirma que el repositorio esté conectado.
+5. Si ya está todo correcto, fuerza un redeploy desde Vercel Dashboard.

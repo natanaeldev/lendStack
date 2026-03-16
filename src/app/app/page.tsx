@@ -1,429 +1,478 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Header from '@/components/Header'
-import CurrencyToggle from '@/components/CurrencyToggle'
-import RateModeToggle from '@/components/RateModeToggle'
-import RiskSelector from '@/components/RiskSelector'
-import ResultsPanel from '@/components/ResultsPanel'
-import AmortizationChart from '@/components/AmortizationChart'
-import AmortizationTable from '@/components/AmortizationTable'
-import ComparisonPanel from '@/components/ComparisonPanel'
-import MultiLoanPanel from '@/components/MultiLoanPanel'
+import Dashboard from '@/components/Dashboard'
 import ClientsPanel from '@/components/ClientsPanel'
 import ClientProfilePanel from '@/components/ClientProfilePanel'
-import Dashboard from '@/components/Dashboard'
-import PdfExportButton from '@/components/PdfExport'
+import LoansPanel from '@/components/LoansPanel'
+import LoanDetailPanel from '@/components/LoanDetailPanel'
+import BranchesPanel from '@/components/BranchesPanel'
+import OrganizationReport from '@/components/OrganizationReport'
+import PaymentsHub from '@/components/PaymentsHub'
+import QuickPaymentModal from '@/components/QuickPaymentModal'
 import EmailModal from '@/components/EmailModal'
 import ToastProvider, { showToast } from '@/components/Toast'
+import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
+import MoreScreen from '@/components/app-shell/MoreScreen'
+import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
+import { canAccessTab } from '@/lib/appAccess'
+import { isAdminTab } from '@/lib/premiumAccess'
 import {
-  calculateLoan, buildAmortization, getRiskConfig,
-  RiskProfile, Currency, RateMode, LoanParams,
-  formatCurrency, CURRENCIES,
+  calculateCarritoLoan,
+  calculateLoan,
+  calculateWeeklyLoan,
+  getRiskConfig,
+  type CarritoFrequency,
+  type Currency,
+  type LoanParams,
+  type LoanType,
+  type RateMode,
+  type RiskProfile,
 } from '@/lib/loan'
 
-type Tab = 'calculator' | 'dashboard' | 'clients'
-type CalcSubTab = 'single' | 'multiloan' | 'comparison'
+export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports' | 'payments' | 'more' | 'admin'
 
-const TABS: { id: Tab; label: string; emoji: string; mobileLabel: string }[] = [
-  { id: 'dashboard',  label: '🏠 Dashboard',   emoji: '🏠', mobileLabel: 'Inicio'   },
-  { id: 'calculator', label: '🧮 Calculadora',  emoji: '🧮', mobileLabel: 'Calcular' },
-  { id: 'clients',    label: '👥 Clientes',     emoji: '👥', mobileLabel: 'Clientes' },
+const DESKTOP_TABS: { id: Tab; label: string; icon: string; mobileLabel: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: '\u{1F3E0}', mobileLabel: 'Inicio' },
+  { id: 'loans', label: 'Préstamos', icon: '\u{1F4CB}', mobileLabel: 'Préstamos' },
+  { id: 'clients', label: 'Clientes', icon: '\u{1F465}', mobileLabel: 'Clientes' },
+  { id: 'payments', label: 'Pagos', icon: '\u{1F4B5}', mobileLabel: 'Pagos' },
+  { id: 'branches', label: 'Sucursales', icon: '\u{1F3E2}', mobileLabel: 'Sucursales' },
+  { id: 'reports', label: 'Reportes', icon: '\u{1F4D1}', mobileLabel: 'Reportes' },
+  { id: 'admin', label: 'Admin', icon: '\u2699\uFE0F', mobileLabel: 'Admin' },
+  { id: 'calculator', label: 'Calculadora', icon: '\u{1F9EE}', mobileLabel: 'Calcular' },
 ]
 
-const CALC_SUBTABS: { id: CalcSubTab; label: string }[] = [
-  { id: 'single',     label: 'Simulación'     },
-  { id: 'multiloan',  label: 'Multi-préstamo' },
-  { id: 'comparison', label: 'Comparación'    },
+const MOBILE_TABS: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: '\u{1F3E0}' },
+  { id: 'loans', label: 'Préstamos', mobileLabel: 'Préstamos', icon: '\u{1F4CB}' },
+  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: '\u{1F465}' },
+  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: '\u{1F4B5}' },
+  { id: 'more', label: 'Más', mobileLabel: 'Más', icon: '\u2630' },
 ]
 
-export default function Home() {
-  const [tab,               setTab]               = useState<Tab>('dashboard')
-  const [calcSubTab,        setCalcSubTab]        = useState<CalcSubTab>('single')
-  const [selectedClientId,  setSelectedClientId]  = useState<string | null>(null)
-  const [amount,            setAmount]            = useState(100000)
-  const [termUnit,          setTermUnit]          = useState<'years' | 'months'>('years')
-  const [termValue,         setTermValue]         = useState(5)          // in the selected unit
-  const [profile,           setProfile]           = useState<RiskProfile>('Medium Risk')
-  const [currency,          setCurrency]          = useState<Currency>('USD')
-  const [rateMode,          setRateMode]          = useState<RateMode>('annual')
+const TAB_META: Record<Tab, { title: string; description: string }> = {
+  dashboard: { title: 'Dashboard', description: 'Visión general de cartera y rendimiento diario.' },
+  loans: { title: 'Préstamos', description: 'Gestioná originación, estado y cobranza de préstamos.' },
+  clients: { title: 'Clientes', description: 'Perfiles, documentos y seguimiento de prestatarios.' },
+  payments: { title: 'Pagos', description: 'Registro rápido de cobros y seguimiento de cobranza.' },
+  branches: { title: 'Sucursales', description: 'Control operativo por oficina y equipos.' },
+  reports: { title: 'Reportes', description: 'KPIs exportables y análisis financiero ejecutivo.' },
+  calculator: { title: 'Calculadora', description: 'Simulación y comparación avanzada de escenarios.' },
+  more: { title: 'Más', description: 'Acciones secundarias, configuración y soporte.' },
+  admin: { title: 'Administración', description: 'Configuración de usuarios, sucursales y permisos.' },
+}
+
+export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
+  const { data: session } = useSession()
+  const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
+  const [dashboardSearch, setDashboardSearch] = useState('')
+  const [orgAccess, setOrgAccess] = useState<{
+    allowPremiumFeatures: boolean
+    canAccessReports: boolean
+    canAccessBranches: boolean
+    canAccessAdmin: boolean
+  } | null>(null)
+
+  const [tab, setTab] = useState<Tab>(initialTab)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null)
+  const [loanCreateRequestKey, setLoanCreateRequestKey] = useState(0)
+  const [showPayment, setShowPayment] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+
+  const [amount, setAmount] = useState(100000)
+  const [termUnit, setTermUnit] = useState<'years' | 'months'>('years')
+  const [termValue, setTermValue] = useState(5)
+  const [profile, setProfile] = useState<RiskProfile>('Medium Risk')
+  const [currency, setCurrency] = useState<Currency>('USD')
+  const [rateMode, setRateMode] = useState<RateMode>('annual')
   const [customMonthlyRate, setCustomMonthlyRate] = useState(0.015)
-  const [showTable,         setShowTable]         = useState(false)
-  const [emailOpen,         setEmailOpen]         = useState(false)
+  const [loanType, setLoanType] = useState<LoanType>('amortized')
+  const [weeklyTermWeeks, setWeeklyTermWeeks] = useState(52)
+  const [weeklyMonthlyRate, setWeeklyMonthlyRate] = useState(0.05)
+  const [carritoFlatRate, setCarritoFlatRate] = useState(0.2)
+  const [carritoTerm, setCarritoTerm] = useState(4)
+  const [carritoPayments, setCarritoPayments] = useState(4)
+  const [carritoFreq, setCarritoFreq] = useState<CarritoFrequency>('weekly')
+  const canUsePremiumFeatures = orgAccess?.allowPremiumFeatures ?? false
+  const canUseReports = orgAccess?.canAccessReports ?? false
+  const canUseBranches = orgAccess?.canAccessBranches ?? false
+  const canUseAdminFeatures = orgAccess?.canAccessAdmin ?? false
 
-  // Always pass termYears to the calculation layer (convert months → fractional years)
+  const goToBillingUpgrade = useCallback(() => {
+    window.location.href = '/app/billing?required=premium'
+  }, [])
+
+  const changeTab = useCallback((newTab: Tab) => {
+    if (isAdminTab(newTab) && orgAccess && !orgAccess.canAccessAdmin) {
+      window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
+      return
+    }
+    if (newTab === 'reports' && orgAccess && !orgAccess.canAccessReports) {
+      goToBillingUpgrade()
+      return
+    }
+    if (newTab === 'branches' && orgAccess && !orgAccess.canAccessBranches) {
+      goToBillingUpgrade()
+      return
+    }
+    setTab(newTab)
+    if (typeof window !== 'undefined') {
+      const paths: Record<Tab, string> = {
+        dashboard: '/app',
+        calculator: '/app/calculadora',
+        clients: '/app/clientes',
+        loans: '/app/prestamos',
+        payments: '/app/pagos',
+        branches: '/app/sucursales',
+        reports: '/app/reportes',
+        more: '/app/mas',
+        admin: '/app/admin',
+      }
+      window.history.pushState(null, '', paths[newTab])
+    }
+  }, [goToBillingUpgrade, orgAccess])
+
+  useEffect(() => {
+    if (!session?.user?.organizationId) return
+    fetch('/api/org', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (!json?.error) {
+          setOrgAccess({
+            allowPremiumFeatures: !!json.allowPremiumFeatures,
+            canAccessReports: !!json.canAccessReports,
+            canAccessBranches: !!json.canAccessBranches,
+            canAccessAdmin: !!json.canAccessAdmin,
+          })
+        }
+      })
+      .catch(() => null)
+  }, [session?.user?.organizationId])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const clientId = params.get('clientId')
+    const loanId = params.get('loanId')
+    if (clientId) {
+      setSelectedClientId(clientId)
+      setTab('clients')
+    }
+    if (loanId) {
+      setSelectedLoanId(loanId)
+      setTab('loans')
+    }
+
+    const onPopState = () => {
+      const path = window.location.pathname
+      if (path.startsWith('/app/calculadora')) setTab('calculator')
+      else if (path.startsWith('/app/clientes')) setTab('clients')
+      else if (path.startsWith('/app/prestamos')) setTab('loans')
+      else if (path.startsWith('/app/pagos')) setTab('payments')
+      else if (path.startsWith('/app/sucursales')) setTab('branches')
+      else if (path.startsWith('/app/reportes')) setTab('reports')
+      else if (path.startsWith('/app/mas')) setTab('more')
+      else if (path.startsWith('/app/admin')) setTab('admin')
+      else setTab('dashboard')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  useEffect(() => {
+    if (!orgAccess) return
+    if (isAdminTab(tab) && !orgAccess.canAccessAdmin) {
+      window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
+      return
+    }
+    if (tab === 'reports' && !orgAccess.canAccessReports) {
+      goToBillingUpgrade()
+      return
+    }
+    if (tab === 'branches' && !orgAccess.canAccessBranches) {
+      goToBillingUpgrade()
+    }
+  }, [goToBillingUpgrade, orgAccess, tab])
+
+  useEffect(() => {
+    const onGotoDashboard = () => changeTab('dashboard')
+    window.addEventListener('lendstack:goto-dashboard', onGotoDashboard)
+    return () => window.removeEventListener('lendstack:goto-dashboard', onGotoDashboard)
+  }, [changeTab])
+
+  useEffect(() => {
+    const onNewLoan = () => {
+      setSelectedLoanId(null)
+      changeTab('loans')
+      setLoanCreateRequestKey((value) => value + 1)
+    }
+    window.addEventListener('lendstack:new-loan', onNewLoan)
+    return () => window.removeEventListener('lendstack:new-loan', onNewLoan)
+  }, [changeTab])
+
   const termYears = termUnit === 'months' ? termValue / 12 : termValue
+  const params: LoanParams = { amount, termYears, profile, currency, rateMode, customMonthlyRate }
+  const config = getRiskConfig(profile)
+  const result = calculateLoan(params)
+  const weeklyResult = calculateWeeklyLoan(amount, weeklyTermWeeks, weeklyMonthlyRate)
+  const carritoResult = calculateCarritoLoan(amount, carritoFlatRate, carritoTerm, carritoPayments)
 
   const handleTermUnitChange = (unit: 'years' | 'months') => {
     if (unit === termUnit) return
-    // Convert current value when switching units
     if (unit === 'months') {
-      setTermValue(Math.round(termValue * 12))   // years → months
+      setTermValue(Math.round(termValue * 12))
     } else {
-      setTermValue(Math.max(1, Math.round(termValue / 12)))  // months → years
+      setTermValue(Math.max(1, Math.round(termValue / 12)))
     }
     setTermUnit(unit)
   }
 
-  const params: LoanParams = { amount, termYears, profile, currency, rateMode, customMonthlyRate }
-  const config = getRiskConfig(profile)
-  const result = calculateLoan(params)
-  const rows   = buildAmortization(params)
-  const fmt    = (v: number) => formatCurrency(v, currency)
+  const handleLoadClient = useCallback((nextParams: LoanParams) => {
+    setAmount(nextParams.amount)
+    setTermUnit('years')
+    setTermValue(nextParams.termYears)
+    setProfile(nextParams.profile)
+    setCurrency(nextParams.currency)
+    changeTab('calculator')
+    showToast('\u{1F4C2}', 'Simulación de cliente cargada')
+  }, [changeTab])
 
-  const handleLoadClient = useCallback((p: LoanParams) => {
-    setAmount(p.amount)
-    setTermUnit('years')           // clients always saved with termYears in years
-    setTermValue(p.termYears)
-    setProfile(p.profile)
-    setCurrency(p.currency)
-    setTab('calculator')
-    showToast('📂', 'Simulación de cliente cargada')
-  }, [])
-
-  const handleCurrencyChange = (c: Currency) => {
-    setCurrency(c)
-    showToast('💱', `Moneda cambiada a ${c}`)
+  const handleCurrencyChange = (nextCurrency: Currency) => {
+    setCurrency(nextCurrency)
+    showToast('\u{1F4B1}', `Moneda cambiada a ${nextCurrency}`)
   }
 
-  const handleRateModeChange = (m: RateMode) => {
-    setRateMode(m)
-    showToast(m === 'monthly' ? '🗓️' : '📅', m === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
+  const handleRateModeChange = (nextMode: RateMode) => {
+    setRateMode(nextMode)
+    showToast(nextMode === 'monthly' ? '\u{1F5D3}\uFE0F' : '\u{1F4C6}', nextMode === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
   }
-
-  const card = 'rounded-2xl p-4 sm:p-6 bg-white border border-slate-200 mb-5'
-  const cardShadow = { boxShadow: '0 2px 18px rgba(0,0,0,.06)' }
-  const sectionTitle = (text: string) => (
-    <div className="flex items-center gap-2.5 mb-5">
-      <div className="w-1 h-6 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(180deg, #1565C0, #0D2B5E)' }} />
-      <h2 className="font-display text-base" style={{ color: '#0D2B5E' }}>{text}</h2>
-    </div>
-  )
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
 
-      {/* ── Desktop tab bar (sm+) ── */}
-      <div className="hidden sm:block sticky top-0 z-40 bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
-        <div className="max-w-6xl mx-auto px-6 flex overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
-              className="px-5 py-3.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
-              style={{ borderBottomColor: tab === t.id ? '#1565C0' : 'transparent', color: tab === t.id ? '#1565C0' : '#64748b', background: 'transparent', fontFamily: "'DM Sans', sans-serif" }}>
-              {t.label}
-            </button>
-          ))}
+      <div className="hidden sm:block bg-white border-b border-slate-200" style={{ boxShadow: '0 1px 8px rgba(0,0,0,.06)' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-4 py-3">
+            <div>
+              <p className="text-xs text-slate-400 font-semibold">LendStack Workspace</p>
+              <h1 className="text-base font-display" style={{ color: '#0D2B5E' }}>{TAB_META[tab].title}</h1>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <input
+                type="text"
+                value={dashboardSearch}
+                onChange={(event) => setDashboardSearch(event.target.value)}
+                placeholder="Buscar clientes, préstamos o pagos..."
+                className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <div className="flex items-center overflow-x-auto">
+            {DESKTOP_TABS.filter((item) => canAccessTab(item.id, { canAccessReports: canUseReports, canAccessBranches: canUseBranches, canAccessAdmin: canUseAdminFeatures })).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  changeTab(item.id)
+                  if (item.id !== 'clients') setSelectedClientId(null)
+                  if (item.id !== 'loans') setSelectedLoanId(null)
+                }}
+                className="px-5 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
+                style={{
+                  borderBottomColor: tab === item.id ? '#1565C0' : 'transparent',
+                  color: tab === item.id ? '#1565C0' : '#64748b',
+                  background: 'transparent',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                {item.icon} {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
-
-        {/* ═══ CALCULATOR ═══ */}
+      <main className="relative max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex-1 pb-24 sm:pb-6">
         {tab === 'calculator' && (
-          <>
-            {/* Sub-nav */}
-            <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-slate-100 border border-slate-200 w-fit">
-              {CALC_SUBTABS.map(s => (
-                <button key={s.id} onClick={() => setCalcSubTab(s.id)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                  style={{
-                    background: calcSubTab === s.id ? '#fff' : 'transparent',
-                    color:      calcSubTab === s.id ? '#0D2B5E' : '#64748b',
-                    boxShadow:  calcSubTab === s.id ? '0 1px 6px rgba(0,0,0,.1)' : 'none',
-                    fontFamily: "'DM Sans', sans-serif",
-                  }}>
-                  {s.id === 'single' ? '🧮' : s.id === 'multiloan' ? '📋' : '📊'} {s.label}
-                </button>
-              ))}
-            </div>
-
-            {/* ── Single loan (Simulación) ── */}
-            {calcSubTab === 'single' && <>
-            {/* Inputs */}
-            <div className={card} style={cardShadow}>
-              <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-                {sectionTitle('Parámetros del préstamo')}
-                <CurrencyToggle value={currency} onChange={handleCurrencyChange} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                {/* Amount */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    Monto del préstamo ({currency})
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
-                      {CURRENCIES[currency].symbol}
-                    </span>
-                    <input type="number" value={amount} min={1000} step={1000}
-                      onChange={e => setAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full pl-8 pr-4 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#0D2B5E' }} />
-                  </div>
-                  <input type="range" min={1000} max={1000000} step={1000} value={Math.min(amount, 1000000)}
-                    onChange={e => setAmount(Number(e.target.value))}
-                    className="w-full mt-3 accent-blue-600" style={{ height: 4 }} />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                    <span>{fmt(1000)}</span><span>{fmt(1000000)}</span>
-                  </div>
-                </div>
-
-                {/* Term */}
-                <div>
-                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Plazo
-                    </label>
-                    {/* Years / Months unit toggle */}
-                    <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 text-xs font-bold">
-                      {(['years', 'months'] as const).map(unit => (
-                        <button key={unit} onClick={() => handleTermUnitChange(unit)}
-                          className="px-2.5 py-1 transition-all"
-                          style={{
-                            background: termUnit === unit ? '#1565C0' : 'transparent',
-                            color:      termUnit === unit ? '#fff' : '#64748b',
-                          }}>
-                          {unit === 'years' ? 'Años' : 'Meses'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <input type="number" value={termValue}
-                      min={1} max={termUnit === 'months' ? 360 : 30}
-                      onChange={e => {
-                        const v = parseInt(e.target.value)
-                        const max = termUnit === 'months' ? 360 : 30
-                        if (!isNaN(v) && v >= 1 && v <= max) setTermValue(v)
-                      }}
-                      className="w-full pl-4 pr-16 py-3 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                      style={{ color: '#0D2B5E' }} />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 pointer-events-none">
-                      {termUnit === 'months' ? 'meses' : 'años'}
-                    </span>
-                  </div>
-                  <input type="range" min={1} max={termUnit === 'months' ? 360 : 30} step={1}
-                    value={termValue}
-                    onChange={e => setTermValue(Number(e.target.value))}
-                    className="w-full mt-3 accent-blue-600" style={{ height: 4 }} />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                    {termUnit === 'months'
-                      ? <><span>1 mes</span><span>180 meses</span><span>360 meses</span></>
-                      : <><span>1 año</span><span>30 años</span></>
-                    }
-                  </div>
-                  {/* Show equivalent in the other unit */}
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    {termUnit === 'months'
-                      ? <>≈ <strong style={{ color: '#0D2B5E' }}>{(termValue / 12).toFixed(1)}</strong> años · <strong style={{ color: '#0D2B5E' }}>{termValue}</strong> cuotas</>
-                      : <><strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> meses · <strong style={{ color: '#0D2B5E' }}>{termValue * 12}</strong> cuotas</>
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {/* ── Rate mode toggle ── */}
-              <div>
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Base de tasa de interés
-                  </label>
-                  <RateModeToggle value={rateMode} onChange={handleRateModeChange} />
-                </div>
-
-                {rateMode === 'monthly' && (
-                  <div className="rounded-xl p-4 border-2 mb-4"
-                    style={{ borderColor: '#1565C044', background: '#f0f4fa' }}>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                      Tasa mensual (%)
-                    </label>
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={(customMonthlyRate * 100).toFixed(2)}
-                          min={0.01} max={20} step={0.01}
-                          onChange={e => {
-                            const v = parseFloat(e.target.value)
-                            if (!isNaN(v) && v >= 0) setCustomMonthlyRate(v / 100)
-                          }}
-                          className="w-28 pl-3 pr-8 py-2.5 rounded-xl border-2 border-slate-200 text-lg font-display font-bold focus:outline-none focus:border-blue-500 transition-colors"
-                          style={{ color: '#0D2B5E' }}
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
-                      </div>
-                      <span className="text-xs font-semibold" style={{ color: '#1565C0' }}>
-                        / mes
-                      </span>
-                      <span className="text-xs text-slate-400 ml-auto">
-                        ≈ <strong style={{ color: '#0D2B5E' }}>{(customMonthlyRate * 12 * 100).toFixed(2)}%</strong> anual equivalente
-                      </span>
-                    </div>
-                    <input
-                      type="range" min={0.01} max={20} step={0.01}
-                      value={+(customMonthlyRate * 100).toFixed(2)}
-                      onChange={e => setCustomMonthlyRate(parseFloat(e.target.value) / 100)}
-                      className="w-full mt-3 accent-blue-600" style={{ height: 4 }}
-                    />
-                    <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-                      <span>0.01%</span><span>10%</span><span>20%</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-                  Perfil de riesgo
-                  {rateMode === 'monthly' && (
-                    <span className="ml-2 font-normal normal-case tracking-normal text-blue-400">
-                      (solo categorización — la tasa es manual)
-                    </span>
-                  )}
-                </label>
-                <RiskSelector value={profile} onChange={setProfile} rateMode={rateMode} />
-              </div>
-            </div>
-
-            {/* Results */}
-            <div className="mb-5 fade-up-1">
-              <ResultsPanel result={result} config={config} currency={currency} rateMode={rateMode} />
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex gap-3 flex-wrap mb-5 fade-up-2">
-              <PdfExportButton params={params} result={result} config={config} />
-              <button onClick={() => setEmailOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-95 border-2"
-                style={{ color: '#1565C0', borderColor: '#1565C0' }}>
-                ✉️ Enviar por email
-              </button>
-              <button onClick={() => { setTab('clients'); showToast('👤', 'Completa los datos del cliente') }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-slate-200 bg-slate-100 text-slate-700">
-                👤 Guardar como cliente
-              </button>
-            </div>
-
-            {/* Charts */}
-            <div className={card + ' fade-up-2'} style={cardShadow}>
-              {sectionTitle('Evolución del préstamo')}
-              <AmortizationChart rows={rows} accentColor={config.colorAccent} currency={currency} />
-            </div>
-
-            {/* Amortization table (collapsible) */}
-            <div className="fade-up-3">
-              <button onClick={() => setShowTable(s => !s)}
-                className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all mb-4"
-                style={{ background: showTable ? '#0D2B5E' : '#e8eef7', color: showTable ? '#fff' : '#0D2B5E', border: `1px solid ${showTable ? '#0D2B5E' : '#c5d5ea'}` }}>
-                {showTable ? '▲ Ocultar tabla' : '▼ Ver tabla de amortización'}
-              </button>
-              {showTable && (
-                <div className={card} style={cardShadow}>
-                  <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                    {sectionTitle(`Tabla de amortización — ${result.totalMonths} cuotas`)}
-                    <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: config.colorBg, color: config.colorText }}>
-                      {config.emoji} {profile}
-                    </span>
-                  </div>
-                  <AmortizationTable rows={rows} accentColor={config.colorAccent} currency={currency} />
-                </div>
-              )}
-            </div>
-            </>}
-
-            {/* ── Multi-préstamo sub-tab ── */}
-            {calcSubTab === 'multiloan' && (
-              <div className={card} style={cardShadow}>
-                {sectionTitle('Comparación de hasta 4 préstamos')}
-                <MultiLoanPanel currency={currency} />
-              </div>
-            )}
-
-            {/* ── Comparación sub-tab ── */}
-            {calcSubTab === 'comparison' && (
-              <>
-                <div className="rounded-2xl p-5 bg-white border border-slate-200 mb-5 flex items-center gap-5 flex-wrap" style={cardShadow}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-5 rounded-full" style={{ background: '#1565C0' }} />
-                    <span className="text-sm font-semibold" style={{ color: '#0D2B5E' }}>Préstamo base:</span>
-                  </div>
-                  <div className="flex gap-6">
-                    <div><p className="text-xs text-slate-400">Monto</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{fmt(amount)}</p></div>
-                    <div><p className="text-xs text-slate-400">Plazo</p><p className="font-display text-xl" style={{ color: '#0D2B5E' }}>{termUnit === 'months' ? `${termValue} meses` : `${termValue} años`}</p></div>
-                  </div>
-                  <p className="text-xs text-slate-400 ml-auto">Ajustá los parámetros en Simulación</p>
-                </div>
-                <div className={card} style={cardShadow}>
-                  {sectionTitle('Comparación de perfiles de riesgo')}
-                  <ComparisonPanel amount={amount} termYears={termYears} currency={currency} />
-                </div>
-              </>
-            )}
-          </>
+          <LoanCalculatorPage
+            amount={amount}
+            onAmountChange={setAmount}
+            currency={currency}
+            onCurrencyChange={handleCurrencyChange}
+            loanType={loanType}
+            onLoanTypeChange={setLoanType}
+            termUnit={termUnit}
+            termValue={termValue}
+            onTermUnitChange={handleTermUnitChange}
+            onTermValueChange={setTermValue}
+            rateMode={rateMode}
+            onRateModeChange={handleRateModeChange}
+            customMonthlyRate={customMonthlyRate}
+            onCustomMonthlyRateChange={setCustomMonthlyRate}
+            weeklyTermWeeks={weeklyTermWeeks}
+            onWeeklyTermWeeksChange={setWeeklyTermWeeks}
+            weeklyMonthlyRate={weeklyMonthlyRate}
+            onWeeklyMonthlyRateChange={setWeeklyMonthlyRate}
+            carritoFlatRate={carritoFlatRate}
+            onCarritoFlatRateChange={setCarritoFlatRate}
+            carritoTerm={carritoTerm}
+            onCarritoTermChange={setCarritoTerm}
+            carritoPayments={carritoPayments}
+            onCarritoPaymentsChange={setCarritoPayments}
+            carritoFreq={carritoFreq}
+            onCarritoFreqChange={setCarritoFreq}
+          />
         )}
 
-        {/* ═══ DASHBOARD ═══ */}
         {tab === 'dashboard' && (
           <Dashboard
+            externalSearch={dashboardSearch}
+            onExternalSearchChange={setDashboardSearch}
             onViewProfile={(id) => {
               setSelectedClientId(id)
-              setTab('clients')
+              changeTab('clients')
             }}
           />
         )}
 
-        {/* ═══ CLIENTS ═══ */}
+        {tab === 'loans' && (
+          selectedLoanId ? (
+            <LoanDetailPanel
+              loanId={selectedLoanId}
+              onBack={() => setSelectedLoanId(null)}
+              onViewBorrower={(clientId) => {
+                setSelectedClientId(clientId)
+                setTab('clients')
+              }}
+            />
+          ) : (
+            <LoansPanel
+              onViewLoan={(id) => setSelectedLoanId(id)}
+              createRequestKey={loanCreateRequestKey}
+            />
+          )
+        )}
+
         {tab === 'clients' && (
           selectedClientId ? (
             <ClientProfilePanel
               clientId={selectedClientId}
               onBack={() => setSelectedClientId(null)}
+              onViewLoan={(loanId) => {
+                setSelectedLoanId(loanId)
+                setTab('loans')
+              }}
             />
           ) : (
             <ClientsPanel
               currentParams={params}
               currentResult={result}
+              currentLoanType={loanType}
+              weeklyResult={weeklyResult}
+              weeklyTermWeeks={weeklyTermWeeks}
+              weeklyMonthlyRate={weeklyMonthlyRate}
+              carritoResult={carritoResult}
+              carritoFlatRate={carritoFlatRate}
+              carritoTerm={carritoTerm}
+              carritoPayments={carritoPayments}
+              carritoFreq={carritoFreq}
               onLoadClient={handleLoadClient}
               onViewProfile={(id) => setSelectedClientId(id)}
             />
           )
         )}
 
+        {tab === 'payments' && (
+          <PaymentsHub
+            onQuickPay={() => setShowPayment(true)}
+            onViewClient={(clientId) => {
+              setSelectedClientId(clientId)
+              changeTab('clients')
+            }}
+            onViewLoans={() => changeTab('loans')}
+          />
+        )}
+
+        {tab === 'more' && (
+          <MoreScreen
+            isMaster={isMaster}
+            userName={session?.user?.name}
+            userEmail={session?.user?.email}
+            onGoCalculator={() => changeTab('calculator')}
+            onGoBranches={() => (canUseBranches ? changeTab('branches') : goToBillingUpgrade())}
+            onGoReports={() => (canUseReports ? changeTab('reports') : goToBillingUpgrade())}
+            onGoAdmin={() => (canUseAdminFeatures ? changeTab('admin') : window.location.assign('/app'))}
+            onGoNotifications={() => { window.location.href = '/app/notificaciones' }}
+            onGoSettings={() => showToast('\u2699\uFE0F', 'Configuración avanzada próximamente')}
+            onGoHelp={() => showToast('\u{1F198}', 'Centro de ayuda próximamente')}
+            onLogoutEvent={() => window.dispatchEvent(new Event('lendstack:logout'))}
+          />
+        )}
+
+        {tab === 'admin' && !canUseAdminFeatures && (
+          <Dashboard
+            onViewProfile={(id) => {
+              setSelectedClientId(id)
+              changeTab('clients')
+            }}
+          />
+        )}
+
+        {tab === 'admin' && canUseAdminFeatures && (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
+              <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Administración</p>
+              <h2 className="text-lg font-display" style={{ color: '#0D2B5E' }}>Centro administrativo</h2>
+              <p className="text-sm text-slate-500 mt-2">Gestioná usuarios, sucursales y políticas operativas desde una sola vista.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <a href="/admin/users" className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#92400E' }}>
+                  {'\u{1F465}'} Configurar usuarios
+                </a>
+                <a href="/admin/branches" className="min-h-12 rounded-xl border border-sky-200 bg-sky-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#0369A1' }}>
+                  {'\u{1F3E2}'} Configurar sucursales
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'branches' && (
+          <BranchesPanel
+            onViewProfile={(id) => {
+              setSelectedClientId(id)
+              changeTab('clients')
+            }}
+          />
+        )}
+
+        {tab === 'reports' && <OrganizationReport />}
       </main>
 
-      {/* Footer — hidden on mobile (bottom nav takes the space) */}
       <footer className="hidden sm:block bg-white border-t border-slate-200 text-center py-5 text-xs text-slate-400 mt-4">
-        <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero ·
-        Los cálculos son referenciales y no constituyen asesoramiento financiero.
+        <strong style={{ color: '#0D2B5E' }}>LendStack</strong> · Herramienta de análisis financiero · Los cálculos son referenciales y no constituyen asesoramiento financiero.
       </footer>
 
-      {/* ── Mobile bottom tab bar (below sm) ── */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe"
-        style={{ boxShadow: '0 -2px 16px rgba(0,0,0,.1)' }}>
-        <div className="flex">
-          {TABS.map(t => {
-            const active = tab === t.id
-            return (
-              <button key={t.id}
-                onClick={() => { setTab(t.id); if (t.id !== 'clients') setSelectedClientId(null) }}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all"
-                style={{ color: active ? '#1565C0' : '#94a3b8' }}>
-                <span className="text-2xl leading-none">{t.emoji}</span>
-                <span className="text-[10px] font-bold tracking-wide">{t.mobileLabel}</span>
-                {active && (
-                  <span className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ background: '#1565C0' }} />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </nav>
+      <MobileBottomNav
+        items={MOBILE_TABS}
+        activeId={tab}
+        onSelect={(id) => {
+          const next = id as Tab
+          changeTab(next)
+          if (next !== 'clients') setSelectedClientId(null)
+          if (next !== 'loans') setSelectedLoanId(null)
+        }}
+      />
 
-      {/* Modals & notifications */}
       <EmailModal isOpen={emailOpen} onClose={() => setEmailOpen(false)} params={params} result={result} config={config} />
+      <QuickPaymentModal isOpen={showPayment} onClose={() => setShowPayment(false)} />
       <ToastProvider />
     </div>
   )
+}
+
+export default function Home() {
+  return <HomeWithTab initialTab="dashboard" />
 }
