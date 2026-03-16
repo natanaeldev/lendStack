@@ -181,7 +181,7 @@ function RegisterPageContent() {
           setError('La sesion ya esta iniciada. Reintenta crear la organizacion desde tu cuenta actual.')
           return
         }
-        if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding') {
+        if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding' || data.errorCode === 'conflict') {
           writePendingDraft(pendingDraft)
           router.push(`/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create`)
           return
