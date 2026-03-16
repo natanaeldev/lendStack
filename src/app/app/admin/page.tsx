@@ -10,10 +10,10 @@ export default async function AdminPage() {
     redirect('/login')
   }
 
-  const access = await getOrganizationBillingAccess(session.user.organizationId, session.user.role)
-  if (!access.allowPremiumFeatures) {
-    redirect('/app/billing?required=premium')
-  }
+  const access = await getOrganizationBillingAccess(session.user.organizationId, session.user.role, {
+    organizationRole: session.user.organizationRole,
+    isOrganizationOwner: session.user.isOrganizationOwner,
+  })
   if (!access.canAccessAdmin) {
     redirect('/app')
   }

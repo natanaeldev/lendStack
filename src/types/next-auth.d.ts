@@ -5,13 +5,17 @@ declare module 'next-auth' {
   interface Session {
     user: {
       id:             string
-      role:           string   // 'master' | 'user'
-      organizationId: string   // e.g. 'org_001'
+      role:           string
+      organizationId: string
+      organizationRole?: string | null
+      isOrganizationOwner?: boolean
     } & DefaultSession['user']
   }
   interface User extends DefaultUser {
     role?:           string
     organizationId?: string
+    organizationRole?: string | null
+    isOrganizationOwner?: boolean
   }
 }
 
@@ -20,5 +24,7 @@ declare module 'next-auth/jwt' {
     id?:             string
     role?:           string
     organizationId?: string
+    organizationRole?: string | null
+    isOrganizationOwner?: boolean
   }
 }

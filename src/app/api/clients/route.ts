@@ -84,7 +84,7 @@ export async function GET() {
     // master sees all; manager/operator see only their allowedBranchIds (if set)
     const query: Record<string, any> = { organizationId: session.user.organizationId }
 
-    if (session.user.role !== 'master') {
+    if (session.user.role !== 'master' && !session.user.isOrganizationOwner) {
       // Look up user's allowedBranchIds from DB (not cached in JWT)
       let userDoc: any = null
       try {

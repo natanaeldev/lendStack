@@ -167,6 +167,7 @@ function UserCard({
 export default function AdminUsersPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const canAccessAdmin = session?.user?.role === 'master' || session?.user?.isOrganizationOwner
 
   const [users, setUsers] = useState<AppUser[]>([])
   const [branches, setBranches] = useState<BranchDoc[]>([])
@@ -192,11 +193,11 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (status === 'loading') return
-    if (!session || session.user.role !== 'master') router.replace('/')
-  }, [session, status, router])
+    if (!session || !canAccessAdmin) router.replace('/')
+  }, [canAccessAdmin, session, status, router])
 
   useEffect(() => {
-    if (session?.user.role !== 'master') return
+    if (!canAccessAdmin) return
     Promise.all([
       fetch('/api/admin/users').then((response) => response.json()),
       fetch('/api/admin/branches').then((response) => response.json()).catch(() => ({ branches: [] })),
@@ -210,7 +211,7 @@ export default function AdminUsersPage() {
         setError('No se pudo cargar la lista de usuarios.')
         setLoading(false)
       })
-  }, [session])
+  }, [canAccessAdmin, session])
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -356,7 +357,7 @@ export default function AdminUsersPage() {
     })
   }
 
-  if (status === 'loading' || session?.user.role !== 'master') return null
+  if (status === 'loading' || !canAccessAdmin) return null
 
   return (
     <div className="min-h-screen bg-slate-50">

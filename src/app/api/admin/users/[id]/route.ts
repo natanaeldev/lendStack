@@ -15,6 +15,10 @@ export async function DELETE(
   try {
     const db = await getDb()
     const col = db.collection('users')
+    const organization = await db.collection('organizations').findOne(
+      { _id: session.user.organizationId as any },
+      { projection: { ownerUserId: 1 } },
+    )
 
     let targetId: any
     try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
@@ -25,7 +29,7 @@ export async function DELETE(
     })
     if (!target)
       return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 })
-    if (target.role === 'master')
+    if (target.role === 'master' || (organization?.ownerUserId != null && String(organization.ownerUserId) === String(target._id)))
       return NextResponse.json({ error: 'No se puede eliminar la cuenta maestra.' }, { status: 403 })
 
     await col.deleteOne({ _id: targetId })
@@ -74,6 +78,14 @@ export async function PATCH(
     try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
 
     const db = await getDb()
+    const organization = await db.collection('organizations').findOne(
+      { _id: session.user.organizationId as any },
+      { projection: { ownerUserId: 1 } },
+    )
+    const ownerId = organization?.ownerUserId != null ? String(organization.ownerUserId) : null
+    if (ownerId && ownerId === String(targetId)) {
+      return NextResponse.json({ error: 'No se puede modificar la cuenta maestra.' }, { status: 403 })
+    }
     const res = await db.collection('users').updateOne(
       { _id: targetId, organizationId: session.user.organizationId, role: { $ne: 'master' } },
       { $set },

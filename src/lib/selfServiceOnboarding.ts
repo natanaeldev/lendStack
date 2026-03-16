@@ -29,6 +29,7 @@ export interface SelfServiceOnboardingRepository {
   findUserByEmail(email: string): Promise<any | null>
   slugExists(slug: string): Promise<boolean>
   insertOrganization(doc: OrgDoc): Promise<OrgDoc>
+  updateOrganization(organizationId: string, patch: Record<string, unknown>): Promise<void>
   insertUser(doc: UserDoc): Promise<UserDoc & { _id: any }>
   insertMembership(doc: MembershipDoc): Promise<MembershipDoc>
   upsertLoanSettings(doc: LoanSettingsDoc): Promise<LoanSettingsDoc>
@@ -57,6 +58,8 @@ type OrgDoc = {
   _id: string
   name: string
   slug: string
+  ownerUserId?: string | null
+  ownerEmail: string
   environment: string
   plan: 'starter' | 'pro'
   billingPlan: 'starter' | 'pro'
@@ -302,6 +305,14 @@ class MongoOnboardingRepository implements SelfServiceOnboardingRepository {
     return doc
   }
 
+  async updateOrganization(organizationId: string, patch: Record<string, unknown>) {
+    await this.db.collection('organizations').updateOne(
+      { _id: organizationId as any },
+      { $set: patch },
+      this.options(),
+    )
+  }
+
   async insertUser(doc: UserDoc) {
     const result = await this.db.collection('users').insertOne(doc as any, this.options())
     return { ...doc, _id: result.insertedId }
@@ -525,6 +536,8 @@ export async function runSelfServiceOnboardingWithRepository(
       _id: organizationId,
       name: input.organizationName.trim(),
       slug: organizationSlug,
+      ownerUserId: null,
+      ownerEmail: email,
       environment,
       plan: 'starter',
       billingPlan: input.plan === 'pro' ? 'pro' : 'starter',
@@ -551,6 +564,11 @@ export async function runSelfServiceOnboardingWithRepository(
       createdAt: now,
       updatedAt: now,
       isTest: isTestWorkspace,
+    })
+
+    await repository.updateOrganization(organization._id, {
+      ownerUserId: String(user._id),
+      updatedAt: now,
     })
 
     await repository.insertMembership({

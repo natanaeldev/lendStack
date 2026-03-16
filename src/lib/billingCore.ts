@@ -1,3 +1,6 @@
+// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
+import { canManageOrganizationBillingAccess, type OrganizationPermissionIdentity } from './organizationAccess.ts'
+
 export type BillingPlanKey = 'starter' | 'pro' | 'enterprise'
 export type BillingInterval = 'month' | 'year' | null
 export type BillingCheckoutInterval = Exclude<BillingInterval, null>
@@ -181,8 +184,13 @@ export function getBillingAccess(status: BillingStatus): BillingAccess {
   }
 }
 
-export function canManageOrganizationBilling(role: string | null | undefined) {
-  return role === 'master' || role === 'admin'
+export function canManageOrganizationBilling(
+  input: string | OrganizationPermissionIdentity | null | undefined,
+) {
+  if (typeof input === 'string' || input == null) {
+    return canManageOrganizationBillingAccess({ role: input ?? undefined })
+  }
+  return canManageOrganizationBillingAccess(input)
 }
 
 export function deriveEffectivePlan(planKey: BillingPlanKey | null | undefined, billingStatus: BillingStatus): BillingPlanKey {

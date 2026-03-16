@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
   const db = await getDb()
   const clientsCol = db.collection('clients')
   const usersCol = db.collection('users')
+  const orgsCol = db.collection('organizations')
   const now = new Date()
   const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
@@ -137,8 +138,20 @@ export async function GET(req: NextRequest) {
 
       const orgId = client.organizationId as string
       if (!(orgId in masterEmailCache)) {
-        const master = await usersCol.findOne({ organizationId: orgId, role: 'master' })
-        masterEmailCache[orgId] = (master?.email as string | undefined) ?? null
+        const organization = await orgsCol.findOne(
+          { _id: orgId as any },
+          { projection: { ownerEmail: 1, ownerUserId: 1 } },
+        )
+        const ownerEmail = (organization?.ownerEmail as string | undefined) ?? null
+        if (ownerEmail) {
+          masterEmailCache[orgId] = ownerEmail
+        } else if (organization?.ownerUserId) {
+          const owner = await usersCol.findOne({ _id: organization.ownerUserId as any }, { projection: { email: 1 } })
+          masterEmailCache[orgId] = (owner?.email as string | undefined) ?? null
+        } else {
+          const master = await usersCol.findOne({ organizationId: orgId, role: 'master' }, { projection: { email: 1 } })
+          masterEmailCache[orgId] = (master?.email as string | undefined) ?? null
+        }
       }
 
       const masterEmail = masterEmailCache[orgId]

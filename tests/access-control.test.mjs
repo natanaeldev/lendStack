@@ -25,6 +25,7 @@ await run('starter cannot access reports', () => {
 await run('pro can access reports', () => {
   const entitlements = deriveAppEntitlements({
     role: 'user',
+    organizationRole: 'MEMBER',
     billingStatus: 'active',
     billingPlan: 'pro',
   })
@@ -32,11 +33,19 @@ await run('pro can access reports', () => {
   assert.equal(canAccessTab('reports', entitlements), true)
 })
 
-await run('admin visibility is master only and requires premium', () => {
+await run('owner sees Admin even without premium and non-owner does not', () => {
   assert.equal(canAccessAdminRole('master'), true)
+  assert.equal(canAccessAdminRole({ role: 'user', organizationRole: 'OWNER' }), true)
   assert.equal(canAccessAdminRole('admin'), false)
 
-  const masterPro = deriveAppEntitlements({
+  const ownerStarter = deriveAppEntitlements({
+    role: 'user',
+    organizationRole: 'OWNER',
+    isOrganizationOwner: true,
+    billingStatus: 'not_started',
+    billingPlan: 'starter',
+  })
+  const ownerPro = deriveAppEntitlements({
     role: 'master',
     billingStatus: 'active',
     billingPlan: 'pro',
@@ -47,8 +56,10 @@ await run('admin visibility is master only and requires premium', () => {
     billingPlan: 'pro',
   })
 
-  assert.equal(masterPro.canAccessAdmin, true)
+  assert.equal(ownerStarter.canAccessAdmin, true)
+  assert.equal(ownerStarter.canAccessReports, false)
+  assert.equal(ownerPro.canAccessAdmin, true)
   assert.equal(managerPro.canAccessAdmin, false)
-  assert.equal(canAccessTab('admin', masterPro), true)
+  assert.equal(canAccessTab('admin', ownerStarter), true)
   assert.equal(canAccessTab('admin', managerPro), false)
 })

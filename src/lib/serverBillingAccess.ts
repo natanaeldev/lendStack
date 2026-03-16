@@ -1,7 +1,11 @@
 import { getDb } from '@/lib/mongodb'
 import { deriveAppEntitlements } from '@/lib/appAccess'
 
-export async function getOrganizationBillingAccess(organizationId: string, role?: string | null) {
+export async function getOrganizationBillingAccess(
+  organizationId: string,
+  role?: string | null,
+  options: { organizationRole?: string | null; isOrganizationOwner?: boolean | null } = {},
+) {
   const db = await getDb()
   const organization = await db.collection('organizations').findOne({
     _id: organizationId as any,
@@ -11,6 +15,8 @@ export async function getOrganizationBillingAccess(organizationId: string, role?
   const billingPlan = (organization?.billingPlan as string | undefined) ?? (organization?.plan as string | undefined) ?? 'starter'
   const entitlements = deriveAppEntitlements({
     role,
+    organizationRole: options.organizationRole,
+    isOrganizationOwner: options.isOrganizationOwner,
     billingStatus,
     billingPlan,
     storedPlan: (organization?.plan as string | undefined) ?? 'starter',

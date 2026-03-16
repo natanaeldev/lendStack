@@ -71,6 +71,13 @@ class InMemoryOnboardingRepository {
     return doc
   }
 
+  async updateOrganization(organizationId, patch) {
+    this.maybeFail('updateOrganization')
+    const organization = this.state.organizations.find((item) => item._id === organizationId)
+    if (!organization) throw new Error('Organization not found')
+    Object.assign(organization, patch)
+  }
+
   async insertUser(doc) {
     this.maybeFail('insertUser')
     const created = { ...doc, _id: `user_${this.state.users.length + 1}` }
@@ -176,6 +183,8 @@ await run('successful onboarding creates tenant, owner, settings, product, and s
   assert.equal(repository.state.installments.length, 12)
   assert.equal(repository.state.users[0].organizationId, result.organizationId)
   assert.equal(repository.state.memberships[0].role, 'OWNER')
+  assert.equal(repository.state.organizations[0].ownerUserId, repository.state.users[0]._id)
+  assert.equal(repository.state.organizations[0].ownerEmail, 'test@lendstack.com')
   assert.equal(repository.state.loanProducts[0].interestMethod, 'FLAT_TOTAL')
   assert.equal(repository.state.loans[0].totalPayment, 11000)
   assert.equal(result.sampleLoanId, repository.state.loans[0]._id)

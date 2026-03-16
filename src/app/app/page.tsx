@@ -67,7 +67,7 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
 
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
   const { data: session } = useSession()
-  const isMaster = session?.user?.role === 'master'
+  const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
   const [dashboardSearch, setDashboardSearch] = useState('')
   const [orgAccess, setOrgAccess] = useState<{ allowPremiumFeatures: boolean; canAccessAdmin: boolean } | null>(null)
 

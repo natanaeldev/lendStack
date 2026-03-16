@@ -291,7 +291,8 @@ await run('access gating downgrades unpaid subscriptions to starter entitlements
   assert.equal(getBillingAccess('unpaid').allowPremiumFeatures, false)
   assert.equal(deriveConnectStatus({ accountId: 'acct_1', chargesEnabled: true, payoutsEnabled: true }), 'active')
   assert.equal(canManageOrganizationBilling('master'), true)
-  assert.equal(canManageOrganizationBilling('admin'), true)
+  assert.equal(canManageOrganizationBilling('admin'), false)
+  assert.equal(canManageOrganizationBilling({ role: 'user', organizationRole: 'OWNER', isOrganizationOwner: true }), true)
   assert.equal(canManageOrganizationBilling('user'), false)
 })
 
