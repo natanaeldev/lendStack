@@ -1,16 +1,34 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
-import { formatCurrency, Currency, Branch } from '@/lib/loan'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { useEffect, useMemo, useState } from 'react'
+import { formatCurrency, type Branch, type Currency } from '@/lib/loan'
+import ResponsiveDetailSection from '@/components/branches/ResponsiveDetailSection'
+import StatusBadge from '@/components/branches/StatusBadge'
+
+type BranchTone = {
+  label: string
+  icon: string
+  accent: string
+  accentSoft: string
+  accentText: string
+  border: string
+  surface: string
+}
 
 interface BranchDoc {
-  id: string; name: string; type: Branch
+  id: string
+  name: string
+  type: Branch
 }
 
 interface BranchClient {
-  id: string; name: string; email: string; savedAt: string
-  branch: Branch | null; branchId: string | null; branchName: string | null
+  id: string
+  name: string
+  email: string
+  savedAt: string
+  branch: Branch | null
+  branchId: string | null
+  branchName: string | null
   loanStatus?: string
   params: { amount: number; termYears: number; currency: Currency; profile: string; startDate?: string }
   result: { monthlyPayment: number; totalInterest: number; totalMonths?: number }
@@ -18,572 +36,595 @@ interface BranchClient {
 }
 
 interface BranchStats {
-  totalClients:      number
-  totalAmount:       number
-  totalInterest:     number
-  approvedCount:     number
-  pendingCount:      number
+  totalClients: number
+  totalAmount: number
+  totalInterest: number
+  approvedCount: number
+  pendingCount: number
+  deniedCount: number
   avgMonthlyPayment: number
-  byCurrency:        { currency: string; avgMonthlyPayment: number }[]
-  recoveryByCurrency:{ currency: string; totalAmount: number; totalRecovered: number; percentage: number }[]
+  byCurrency: { currency: string; avgMonthlyPayment: number }[]
+  recoveryByCurrency: { currency: string; totalAmount: number; totalRecovered: number; percentage: number }[]
+  lastActivityAt: string | null
 }
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const TYPE_CFG: Record<Branch, { label: string; emoji: string; bg: string; color: string; border: string; accent: string }> = {
-  sede:  { label: 'Sede',  emoji: '🏢', bg: '#EFF6FF', color: '#1565C0', border: '#BFDBFE', accent: '#1565C0' },
-  rutas: { label: 'Rutas', emoji: '🚗', bg: '#F0FDF4', color: '#15803D', border: '#86EFAC', accent: '#15803D' },
+const TYPE_CFG: Record<Branch, BranchTone> = {
+  sede: {
+    label: 'Sucursal',
+    icon: '🏢',
+    accent: '#1565C0',
+    accentSoft: '#DBEAFE',
+    accentText: '#0D2B5E',
+    border: '#BFDBFE',
+    surface: 'linear-gradient(180deg,#F8FBFF 0%,#FFFFFF 100%)',
+  },
+  rutas: {
+    label: 'Ruta',
+    icon: '🛣️',
+    accent: '#15803D',
+    accentSoft: '#DCFCE7',
+    accentText: '#14532D',
+    border: '#86EFAC',
+    surface: 'linear-gradient(180deg,#F7FFF8 0%,#FFFFFF 100%)',
+  },
 }
 
-const STATUS_CFG: Record<string, { label: string; emoji: string; bg: string; color: string; border: string }> = {
-  pending:  { label: 'Pendiente', emoji: '⏳', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
-  approved: { label: 'Aprobado',  emoji: '✅', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC' },
-  denied:   { label: 'Denegado',  emoji: '❌', bg: '#FFF1F2', color: '#881337', border: '#FECDD3' },
+const STATUS_CFG: Record<string, { label: string; tone: 'warning' | 'success' | 'danger' | 'neutral' }> = {
+  pending: { label: 'Pendiente', tone: 'warning' },
+  approved: { label: 'Aprobado', tone: 'success' },
+  denied: { label: 'Denegado', tone: 'danger' },
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+function emptyValue(value?: string | null) {
+  if (!value) return '—'
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : '—'
+}
+
+function formatCompactMoney(value: number) {
+  if (!value) return '—'
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`
+  return `$${Math.round(value).toLocaleString('es-DO')}`
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return 'No disponible'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'No disponible'
+  return new Intl.DateTimeFormat('es-DO', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+}
+
+function formatRelativeDate(value?: string | null) {
+  if (!value) return 'No disponible'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'No disponible'
+  const diffMs = Date.now() - date.getTime()
+  const diffDays = Math.max(0, Math.floor(diffMs / 86400000))
+  if (diffDays === 0) return 'Hoy'
+  if (diffDays === 1) return 'Ayer'
+  if (diffDays < 7) return `Hace ${diffDays} días`
+  return formatDate(value)
+}
 
 function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+  const parts = name.split(' ').filter(Boolean)
+  if (parts.length === 0) return 'CL'
+  return parts.map((part) => part[0]).join('').toUpperCase().slice(0, 2)
 }
 
-function fmtK(n: number) {
-  return n >= 1_000_000
-    ? `$${(n / 1_000_000).toFixed(2)}M`
-    : n >= 1_000
-    ? `$${(n / 1_000).toFixed(0)}K`
-    : `$${Math.round(n).toLocaleString('es-AR')}`
+function getLastActivity(client: BranchClient) {
+  const paymentDates = (client.payments ?? []).map((payment) => payment.date).filter(Boolean)
+  const latestPayment = paymentDates.sort().at(-1)
+  return latestPayment ?? client.savedAt ?? null
 }
 
 function computeStats(clients: BranchClient[]): BranchStats {
-  const totalClients  = clients.length
-  const totalAmount   = clients.reduce((s, c) => s + (c.params?.amount ?? 0), 0)
-  const totalInterest = clients.reduce((s, c) => s + (c.result?.totalInterest ?? 0), 0)
-  const approvedCount = clients.filter(c => c.loanStatus === 'approved').length
-  const pendingCount  = clients.filter(c => !c.loanStatus || c.loanStatus === 'pending').length
+  const totalClients = clients.length
+  const totalAmount = clients.reduce((sum, client) => sum + (client.params?.amount ?? 0), 0)
+  const totalInterest = clients.reduce((sum, client) => sum + (client.result?.totalInterest ?? 0), 0)
+  const approvedCount = clients.filter((client) => client.loanStatus === 'approved').length
+  const pendingCount = clients.filter((client) => !client.loanStatus || client.loanStatus === 'pending').length
+  const deniedCount = clients.filter((client) => client.loanStatus === 'denied').length
 
-  const currencySet = new Set(clients.map(c => c.params?.currency).filter(Boolean))
-  const currencies = Array.from(currencySet) as Currency[]
-  const byCurrency = currencies.map(cur => {
-    const cc = clients.filter(c => c.params?.currency === cur && (c.result?.monthlyPayment ?? 0) > 0)
-    const avg = cc.length > 0 ? cc.reduce((s, c) => s + c.result.monthlyPayment, 0) / cc.length : 0
-    return { currency: cur, avgMonthlyPayment: avg }
-  }).sort((a, b) => a.currency.localeCompare(b.currency))
+  const currencies = Array.from(new Set(clients.map((client) => client.params?.currency).filter(Boolean))) as Currency[]
+  const byCurrency = currencies.map((currency) => {
+    const matches = clients.filter((client) => client.params?.currency === currency && (client.result?.monthlyPayment ?? 0) > 0)
+    const avgMonthlyPayment = matches.length > 0
+      ? matches.reduce((sum, client) => sum + (client.result?.monthlyPayment ?? 0), 0) / matches.length
+      : 0
+    return { currency, avgMonthlyPayment }
+  })
 
-  const allPayments = clients.map(c => c.result?.monthlyPayment ?? 0).filter(v => v > 0)
-  const avgMonthlyPayment = allPayments.length > 0
-    ? allPayments.reduce((s, v) => s + v, 0) / allPayments.length
+  const monthlyPayments = clients.map((client) => client.result?.monthlyPayment ?? 0).filter((value) => value > 0)
+  const avgMonthlyPayment = monthlyPayments.length > 0
+    ? monthlyPayments.reduce((sum, value) => sum + value, 0) / monthlyPayments.length
     : 0
 
-  // Recovery per currency: sum of all recorded payments vs total capital lent
-  const recoveryByCurrency = currencies.map(cur => {
-    const cc             = clients.filter(c => c.params?.currency === cur)
-    const totalAmt       = cc.reduce((s, c) => s + (c.params?.amount ?? 0), 0)
-    const totalRecovered = cc.reduce((s, c) =>
-      s + (c.payments ?? []).reduce((ps, p) => ps + (p.amount ?? 0), 0), 0)
-    const percentage = totalAmt > 0 ? Math.round((totalRecovered / totalAmt) * 100) : 0
-    return { currency: cur, totalAmount: totalAmt, totalRecovered, percentage }
-  }).sort((a, b) => a.currency.localeCompare(b.currency))
+  const recoveryByCurrency = currencies.map((currency) => {
+    const matches = clients.filter((client) => client.params?.currency === currency)
+    const totalAmountByCurrency = matches.reduce((sum, client) => sum + (client.params?.amount ?? 0), 0)
+    const totalRecovered = matches.reduce(
+      (sum, client) => sum + (client.payments ?? []).reduce((paymentSum, payment) => paymentSum + (payment.amount ?? 0), 0),
+      0,
+    )
+    const percentage = totalAmountByCurrency > 0 ? Math.round((totalRecovered / totalAmountByCurrency) * 100) : 0
+    return { currency, totalAmount: totalAmountByCurrency, totalRecovered, percentage }
+  })
 
-  return { totalClients, totalAmount, totalInterest, approvedCount, pendingCount, avgMonthlyPayment, byCurrency, recoveryByCurrency }
+  const lastActivityAt = clients
+    .map((client) => getLastActivity(client))
+    .filter(Boolean)
+    .sort()
+    .at(-1) ?? null
+
+  return {
+    totalClients,
+    totalAmount,
+    totalInterest,
+    approvedCount,
+    pendingCount,
+    deniedCount,
+    avgMonthlyPayment,
+    byCurrency,
+    recoveryByCurrency,
+    lastActivityAt,
+  }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function approvalRate(stats: BranchStats) {
+  if (stats.totalClients === 0) return 0
+  return Math.round((stats.approvedCount / stats.totalClients) * 100)
+}
 
-function KpiMini({ label, value, icon }: { label: string; value: string; icon: string }) {
+function topCurrency(stats: BranchStats) {
+  return stats.recoveryByCurrency.slice().sort((a, b) => b.totalAmount - a.totalAmount)[0]?.currency ?? '—'
+}
+
+function detailSummary(branch: BranchDoc, stats: BranchStats) {
+  if (branch.type === 'sede') {
+    if (stats.totalClients === 0) return 'Sucursal sin cartera asignada por el momento.'
+    return `${stats.totalClients} clientes en cartera, ${approvalRate(stats)}% de aprobación y actividad más reciente ${formatRelativeDate(stats.lastActivityAt).toLowerCase()}.`
+  }
+  if (stats.totalClients === 0) return 'Ruta sin clientes asignados todavía.'
+  return `${stats.totalClients} clientes asignados, cuota promedio ${formatCompactMoney(stats.avgMonthlyPayment)} y actividad más reciente ${formatRelativeDate(stats.lastActivityAt).toLowerCase()}.`
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-col gap-1"
-      style={{ boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-        <span className="text-base">{icon}</span>
-      </div>
-      <p className="text-xl font-black" style={{ color: '#0D2B5E' }}>{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold leading-6 text-slate-900">{value}</p>
     </div>
   )
 }
 
-// ─── Branch Detail View ───────────────────────────────────────────────────────
-
-function BranchDetail({
-  branch, clients, onBack, onViewProfile,
-}: {
-  branch: BranchDoc
-  clients: BranchClient[]
-  onBack: () => void
-  onViewProfile?: (id: string) => void
-}) {
-  const [search, setSearch] = useState('')
-  const cfg   = TYPE_CFG[branch.type]
-  const stats = useMemo(() => computeStats(clients), [clients])
-
-  const filtered = useMemo(() =>
-    clients.filter(c =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email?.toLowerCase().includes(search.toLowerCase())
-    ), [clients, search])
-
-  const approvalRate = stats.totalClients > 0
-    ? Math.round((stats.approvedCount / stats.totalClients) * 100)
-    : 0
-
+function MetricCard({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_14px_30px_rgba(15,23,42,.05)]">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black leading-tight text-slate-950">{value}</p>
+      {helper ? <p className="mt-1 break-words text-xs leading-5 text-slate-500">{helper}</p> : null}
+    </div>
+  )
+}
 
-      {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <button onClick={onBack}
-          className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-slate-100"
-          style={{ color: '#64748b' }}>
-          ← Volver
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">{cfg.emoji}</span>
-          <h2 className="text-xl font-black" style={{ color: '#0D2B5E' }}>{branch.name}</h2>
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-            {cfg.label}
-          </span>
+function RecoveryMeter({ currency, recovered, total, percentage }: { currency: string; recovered: number; total: number; percentage: number }) {
+  const barColor = percentage >= 70 ? 'linear-gradient(90deg,#16A34A,#22C55E)' : percentage >= 40 ? 'linear-gradient(90deg,#D97706,#F59E0B)' : 'linear-gradient(90deg,#1565C0,#3B82F6)'
+  return (
+    <div className="space-y-2 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-slate-950">{currency}</p>
+          <p className="break-words text-xs text-slate-500">{formatCompactMoney(recovered)} recuperado de {formatCompactMoney(total)}</p>
         </div>
+        <span className="text-sm font-black text-slate-900">{percentage}%</span>
       </div>
-
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiMini label="Clientes"      value={String(stats.totalClients)}  icon="👥" />
-        {/* Cartera total — per currency */}
-        <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-col gap-1"
-          style={{ boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cartera total</p>
-            <span className="text-base">💼</span>
-          </div>
-          {stats.recoveryByCurrency.length === 0 ? (
-            <p className="text-xl font-black" style={{ color: '#0D2B5E' }}>—</p>
-          ) : (
-            <div className="space-y-1 mt-0.5">
-              {stats.recoveryByCurrency.map(r => (
-                <div key={r.currency} className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                    style={{ background: '#EEF4FF', color: '#1565C0' }}>
-                    {r.currency}
-                  </span>
-                  <span className="text-lg font-black tabular-nums leading-none" style={{ color: '#0D2B5E' }}>
-                    {fmtK(r.totalAmount)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <KpiMini label="Aprobación"    value={`${approvalRate}%`}          icon="✅" />
-        <KpiMini label="Interés total" value={fmtK(stats.totalInterest)}   icon="💰" />
-      </div>
-
-      {/* Cuota promedio por moneda */}
-      {stats.byCurrency.length > 0 && (
-        <div className="rounded-xl bg-white border border-slate-200 p-4"
-          style={{ boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-            💳 Cuota promedio mensual por moneda
-          </p>
-          <div className="flex flex-wrap gap-4">
-            {stats.byCurrency.map(c => (
-              <div key={c.currency} className="flex items-center gap-2">
-                <span className="text-xs font-bold px-2 py-0.5 rounded"
-                  style={{ background: '#EEF4FF', color: '#1565C0' }}>
-                  {c.currency}
-                </span>
-                <span className="text-base font-black" style={{ color: '#0D2B5E' }}>
-                  ${Math.round(c.avgMonthlyPayment).toLocaleString('es-AR')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Capital recovery by currency */}
-      {stats.recoveryByCurrency.length > 0 && (
-        <div className="rounded-xl bg-white border border-slate-200 p-4"
-          style={{ boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              💰 Recuperación de cartera
-            </p>
-            <p className="text-[10px] text-slate-400">capital cobrado vs. capital prestado</p>
-          </div>
-          <div className="space-y-3">
-            {stats.recoveryByCurrency.map(r => (
-              <div key={r.currency}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded"
-                      style={{ background: '#EEF4FF', color: '#1565C0' }}>
-                      {r.currency}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      {fmtK(r.totalRecovered)} de {fmtK(r.totalAmount)}
-                    </span>
-                  </div>
-                  <span className="text-sm font-black tabular-nums"
-                    style={{ color: r.percentage >= 70 ? '#15803D' : r.percentage >= 40 ? '#92400E' : '#0D2B5E' }}>
-                    {r.percentage}%
-                  </span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
-                  <div className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(r.percentage, 100)}%`,
-                      background: r.percentage >= 70
-                        ? 'linear-gradient(90deg,#16A34A,#22C55E)'
-                        : r.percentage >= 40
-                        ? 'linear-gradient(90deg,#D97706,#F59E0B)'
-                        : 'linear-gradient(90deg,#1565C0,#3B82F6)',
-                    }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Client list */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-5 rounded-full" style={{ background: cfg.accent }} />
-            <h3 className="font-bold text-sm" style={{ color: '#0D2B5E' }}>
-              Clientes · {filtered.length}
-            </h3>
-          </div>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar cliente..."
-            className="text-sm border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:border-blue-400 w-48"
-            style={{ background: '#f8fafc' }}
-          />
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <p className="text-3xl mb-2">👥</p>
-            <p className="text-sm">
-              {search ? 'No hay clientes que coincidan con la búsqueda.' : 'Esta sucursal no tiene clientes aún.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map(c => {
-              const sCfg   = STATUS_CFG[c.loanStatus ?? 'pending']
-              const cur    = c.params?.currency ?? 'USD'
-              const fmt    = (v: number) => formatCurrency(v, cur)
-              return (
-                <div key={c.id} className="rounded-xl bg-white border border-slate-200 p-4 flex items-center gap-3"
-                  style={{ boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
-                  {/* Avatar */}
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)' }}>
-                    {initials(c.name)}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="break-words text-sm font-bold" style={{ color: '#0D2B5E' }}>{c.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      <strong className="text-slate-600">{fmt(c.params?.amount ?? 0)}</strong>
-                      {" \u00B7 "}{c.params?.termYears ?? "\u2014"} a\u00F1os
-                      {" \u00B7 "}<strong className="text-slate-600">{fmt(c.result?.monthlyPayment ?? 0)}/mes</strong>
-                    </p>
-                  </div>
-
-                  {/* Status badge */}
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
-                    style={{ background: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}` }}>
-                    {sCfg.emoji} {sCfg.label}
-                  </span>
-
-                  {/* View button */}
-                  {onViewProfile && (
-                    <button onClick={() => onViewProfile(c.id)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100 flex-shrink-0"
-                      style={{ color: '#1565C0' }}>
-                      Ver →
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+        <div className="h-full rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, background: barColor }} />
       </div>
     </div>
   )
 }
 
-// ─── Branch List Card ─────────────────────────────────────────────────────────
-
-function BranchCard({
-  branch, clients, onClick,
-}: {
-  branch: BranchDoc
-  clients: BranchClient[]
-  onClick: () => void
-}) {
-  const cfg   = TYPE_CFG[branch.type]
+function BranchCard({ branch, clients, onClick }: { branch: BranchDoc; clients: BranchClient[]; onClick: () => void }) {
+  const tone = TYPE_CFG[branch.type]
   const stats = useMemo(() => computeStats(clients), [clients])
-  const approvalRate = stats.totalClients > 0
-    ? Math.round((stats.approvedCount / stats.totalClients) * 100)
-    : 0
+  const statusValue = stats.totalClients === 0 ? 'Sin asignación' : branch.type === 'sede' ? 'Operativa' : 'En ruta'
+  const primaryMetric = branch.type === 'sede' ? `${stats.totalClients} clientes` : `${stats.totalClients} clientes asignados`
+  const secondaryMetric = branch.type === 'sede' ? `${approvalRate(stats)}% aprobación` : `${formatCompactMoney(stats.avgMonthlyPayment)} cuota prom.`
 
   return (
-    <button onClick={onClick}
-      className="text-left rounded-2xl bg-white border border-slate-200 overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-[.99] w-full"
-      style={{ boxShadow: '0 2px 12px rgba(0,0,0,.06)', borderTop: `3px solid ${cfg.accent}` }}>
-
-      <div className="p-5">
-        {/* Branch name + badge */}
-        <div className="flex items-start justify-between gap-2 mb-4">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">{cfg.emoji}</span>
-            <h3 className="font-black text-base leading-tight" style={{ color: '#0D2B5E' }}>
-              {branch.name}
-            </h3>
-          </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5"
-            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-            {cfg.label}
-          </span>
-        </div>
-
-        {/* Stats */}
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">👥 Clientes</span>
-            <span className="font-bold" style={{ color: '#0D2B5E' }}>{stats.totalClients}</span>
-          </div>
-          <div className="text-xs space-y-1">
-            <span className="text-slate-500">💼 Cartera</span>
-            {stats.recoveryByCurrency.length === 0 ? (
-              <div className="flex items-center justify-between">
-                <span /><span className="font-bold" style={{ color: '#0D2B5E' }}>—</span>
-              </div>
-            ) : stats.recoveryByCurrency.map(r => (
-              <div key={r.currency} className="flex items-center justify-between gap-2">
-                <span className="px-1.5 py-0.5 rounded font-semibold text-[10px]"
-                  style={{ background: '#EEF4FF', color: '#1565C0' }}>
-                  {r.currency}
-                </span>
-                <span className="font-bold" style={{ color: '#0D2B5E' }}>{fmtK(r.totalAmount)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">✅ Aprobación</span>
-            <span className="font-bold" style={{ color: approvalRate >= 60 ? '#15803D' : '#92400E' }}>
-              {approvalRate}%
-            </span>
-          </div>
-          {stats.byCurrency.length > 0 && (
-            <div className="flex items-start justify-between text-xs gap-2">
-              <span className="text-slate-500 flex-shrink-0">💳 Cuota prom.</span>
-              <div className="flex flex-col items-end gap-0.5">
-                {stats.byCurrency.map(c => (
-                  <span key={c.currency} className="font-bold" style={{ color: '#0D2B5E' }}>
-                    {c.currency} ${Math.round(c.avgMonthlyPayment).toLocaleString('es-AR')}
-                  </span>
-                ))}
-              </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full min-w-0 overflow-hidden rounded-[28px] border border-slate-200 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_45px_rgba(15,23,42,.1)] active:scale-[0.99]"
+      style={{ background: tone.surface }}
+    >
+      <div className="border-b border-slate-200/80 px-4 py-4 sm:px-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl" style={{ background: tone.accentSoft }}>{tone.icon}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="min-w-0 flex-1 break-words text-base font-black leading-tight text-slate-950">{branch.name}</p>
+              <StatusBadge label={tone.label} tone="info" />
             </div>
-          )}
-          {stats.recoveryByCurrency.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <span className="text-xs text-slate-500">💰 Recuperación</span>
-              {stats.recoveryByCurrency.map(r => (
-                <div key={r.currency}>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[11px] text-slate-400">{r.currency}</span>
-                    <span className="text-[11px] font-bold"
-                      style={{ color: r.percentage >= 70 ? '#15803D' : r.percentage >= 40 ? '#92400E' : '#0D2B5E' }}>
-                      {r.percentage}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
-                    <div className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(r.percentage, 100)}%`,
-                        background: r.percentage >= 70
-                          ? 'linear-gradient(90deg,#16A34A,#22C55E)'
-                          : r.percentage >= 40
-                          ? 'linear-gradient(90deg,#D97706,#F59E0B)'
-                          : 'linear-gradient(90deg,#1565C0,#3B82F6)',
-                      }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+            <p className="mt-2 break-words text-sm leading-6 text-slate-600">{detailSummary(branch, stats)}</p>
+          </div>
         </div>
+      </div>
 
-        {/* CTA */}
-        <div className="flex items-center justify-end">
-          <span className="text-xs font-bold" style={{ color: cfg.color }}>
-            Ver detalle →
-          </span>
+      <div className="grid gap-3 px-4 py-4 sm:px-5">
+        <div className="grid grid-cols-2 gap-3">
+          <InfoRow label={branch.type === 'sede' ? 'Estado' : 'Operación'} value={statusValue} />
+          <InfoRow label={branch.type === 'sede' ? 'Actividad' : 'Última gestión'} value={formatRelativeDate(stats.lastActivityAt)} />
         </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <InfoRow label={branch.type === 'sede' ? 'Cartera' : 'Principal moneda'} value={branch.type === 'sede' ? formatCompactMoney(stats.totalAmount) : topCurrency(stats)} />
+          <InfoRow label={branch.type === 'sede' ? 'Resumen operativo' : 'Cobranza promedio'} value={branch.type === 'sede' ? secondaryMetric : secondaryMetric} />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-slate-200/80 px-4 py-3 sm:px-5">
+        <p className="break-words text-xs font-semibold text-slate-500">{primaryMetric}</p>
+        <span className="text-sm font-bold" style={{ color: tone.accentText }}>Ver detalles ›</span>
       </div>
     </button>
   )
 }
 
-// ─── Main BranchesPanel ───────────────────────────────────────────────────────
+function ClientRow({ client, onViewProfile }: { client: BranchClient; onViewProfile?: (id: string) => void }) {
+  const status = STATUS_CFG[client.loanStatus ?? 'pending'] ?? STATUS_CFG.pending
+  const currency = client.params?.currency ?? 'USD'
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_14px_30px_rgba(15,23,42,.04)] sm:flex-row sm:items-center">
+      <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#1565C0,#0D2B5E)] text-xs font-black text-white">
+          {initials(client.name)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-bold text-slate-950">{emptyValue(client.name)}</p>
+          <p className="mt-1 break-words text-xs leading-5 text-slate-500">{emptyValue(client.email)}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{formatCurrency(client.params?.amount ?? 0, currency)}</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{client.params?.termYears ?? '—'} años</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{formatCurrency(client.result?.monthlyPayment ?? 0, currency)}/mes</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <StatusBadge label={status.label} tone={status.tone} />
+        {onViewProfile ? (
+          <button
+            type="button"
+            onClick={() => onViewProfile(client.id)}
+            className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Ver
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function BranchDetail({
+  branch,
+  clients,
+  allRoutes,
+  onBack,
+  onViewProfile,
+}: {
+  branch: BranchDoc
+  clients: BranchClient[]
+  allRoutes: BranchDoc[]
+  onBack: () => void
+  onViewProfile?: (id: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const tone = TYPE_CFG[branch.type]
+  const stats = useMemo(() => computeStats(clients), [clients])
+
+  const filteredClients = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return clients
+    return clients.filter((client) => client.name.toLowerCase().includes(query) || client.email?.toLowerCase().includes(query))
+  }, [clients, search])
+
+  const generalRows = branch.type === 'sede'
+    ? [
+        { label: 'Sucursal', value: branch.name },
+        { label: 'Estado', value: stats.totalClients > 0 ? 'Operativa' : 'Sin asignación' },
+        { label: 'Dirección', value: 'No disponible' },
+        { label: 'Teléfono', value: 'No disponible' },
+        { label: 'Encargado', value: 'No disponible' },
+        { label: 'Última actividad', value: formatRelativeDate(stats.lastActivityAt) },
+      ]
+    : [
+        { label: 'Ruta', value: branch.name },
+        { label: 'Estado', value: stats.totalClients > 0 ? 'En ruta' : 'Sin asignación' },
+        { label: 'Sucursal asociada', value: 'No disponible' },
+        { label: 'Responsable', value: 'No disponible' },
+        { label: 'Próxima visita', value: 'No disponible' },
+        { label: 'Última gestión', value: formatRelativeDate(stats.lastActivityAt) },
+      ]
+
+  return (
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-[linear-gradient(135deg,#071A3E_0%,#0D2B5E_58%,#1565C0_100%)] text-white shadow-[0_24px_60px_rgba(7,26,62,.24)]">
+        <div className="flex flex-col gap-4 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={onBack} className="min-h-11 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white/90 transition hover:bg-white/15">
+              ← Volver
+            </button>
+            <StatusBadge label={tone.label} tone="inverse" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 max-w-3xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">{branch.type === 'sede' ? 'Sucursal' : 'Ruta'}</p>
+              <h1 className="mt-2 break-words text-2xl font-black leading-tight sm:text-3xl">{branch.name}</h1>
+              <p className="mt-3 break-words text-sm leading-6 text-blue-100 sm:text-base">{detailSummary(branch, stats)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[360px]">
+              <MetricCard label="Clientes" value={String(stats.totalClients)} helper={branch.type === 'sede' ? 'Cartera asignada' : 'Asignados a la ruta'} />
+              <MetricCard label="Cartera" value={formatCompactMoney(stats.totalAmount)} helper={topCurrency(stats)} />
+              <MetricCard label="Aprobación" value={`${approvalRate(stats)}%`} helper={`${stats.approvedCount} aprobados`} />
+              <MetricCard label={branch.type === 'sede' ? 'Cuota prom.' : 'Cobranza prom.'} value={formatCompactMoney(stats.avgMonthlyPayment)} helper={formatRelativeDate(stats.lastActivityAt)} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)]">
+        <div className="min-w-0 space-y-5">
+          <ResponsiveDetailSection
+            eyebrow="Información general"
+            title={branch.type === 'sede' ? 'Datos operativos de la sucursal' : 'Datos operativos de la ruta'}
+            description="La información disponible se organiza primero para consulta rápida en campo y luego para revisión de cartera."
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {generalRows.map((row) => (
+                <InfoRow key={row.label} label={row.label} value={row.value} />
+              ))}
+            </div>
+          </ResponsiveDetailSection>
+
+          <ResponsiveDetailSection
+            eyebrow={branch.type === 'sede' ? 'Resumen operativo' : 'KPIs de ruta'}
+            title={branch.type === 'sede' ? 'Métricas clave de cartera' : 'Métricas clave de gestión'}
+            description={branch.type === 'sede' ? 'Lectura rápida de cartera, aprobación y recuperación para supervisión.' : 'Lectura rápida de productividad, cartera y recuperación para operación en calle.'}
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard label="Clientes" value={String(stats.totalClients)} helper={`${stats.pendingCount} pendientes`} />
+              <MetricCard label="Monto total" value={formatCompactMoney(stats.totalAmount)} helper={stats.deniedCount > 0 ? `${stats.deniedCount} denegados` : 'Sin denegados'} />
+              <MetricCard label="Interés total" value={formatCompactMoney(stats.totalInterest)} helper={stats.approvedCount > 0 ? `${stats.approvedCount} aprobados` : 'Sin aprobados'} />
+              <MetricCard label="Actividad" value={formatRelativeDate(stats.lastActivityAt)} helper={formatDate(stats.lastActivityAt)} />
+            </div>
+          </ResponsiveDetailSection>
+
+          {branch.type === 'sede' ? (
+            <ResponsiveDetailSection
+              eyebrow="Rutas"
+              title="Cobertura operativa disponible"
+              description="No existe una relación explícita sucursal-ruta en los datos actuales, por lo que se listan las rutas registradas para referencia operativa."
+            >
+              {allRoutes.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {allRoutes.map((route) => (
+                    <div key={route.id} className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_14px_30px_rgba(15,23,42,.04)]">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-bold text-slate-950">{route.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">Ruta disponible en la red</p>
+                        </div>
+                        <StatusBadge label="Ruta" tone="success" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">No hay rutas registradas.</div>
+              )}
+            </ResponsiveDetailSection>
+          ) : null}
+
+          <ResponsiveDetailSection
+            eyebrow={branch.type === 'sede' ? 'Clientes y préstamos' : 'Clientes asociados'}
+            title={branch.type === 'sede' ? 'Cartera atendida por esta sucursal' : 'Cartera asignada a esta ruta'}
+            description="Los resultados se pueden filtrar rápidamente para identificar al cliente correcto sin ruido visual."
+            actions={
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar cliente"
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 sm:w-64"
+              />
+            }
+          >
+            {filteredClients.length > 0 ? (
+              <div className="space-y-3">
+                {filteredClients.map((client) => (
+                  <ClientRow key={client.id} client={client} onViewProfile={onViewProfile} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+                <p className="text-sm font-semibold text-slate-700">{search ? 'No hay clientes que coincidan con la búsqueda.' : branch.type === 'sede' ? 'Esta sucursal no tiene clientes aún.' : 'Esta ruta no tiene clientes asignados aún.'}</p>
+                <p className="mt-2 text-sm text-slate-500">Ajusta el filtro o vuelve más tarde cuando la cartera esté disponible.</p>
+              </div>
+            )}
+          </ResponsiveDetailSection>
+        </div>
+
+        <div className="min-w-0 space-y-5">
+          <ResponsiveDetailSection
+            eyebrow={branch.type === 'sede' ? 'Actividad reciente' : 'Próximas acciones'}
+            title={branch.type === 'sede' ? 'Señales operativas rápidas' : 'Seguimiento operativo rápido'}
+            description={branch.type === 'sede' ? 'Vista compacta para revisión de supervisión y coordinación diaria.' : 'Vista compacta para priorizar gestión, visitas y cobranza.'}
+          >
+            <div className="grid grid-cols-1 gap-3">
+              <InfoRow label="Última actualización" value={formatDate(stats.lastActivityAt)} />
+              <InfoRow label={branch.type === 'sede' ? 'Clientes pendientes' : 'Gestiones pendientes'} value={String(stats.pendingCount)} />
+              <InfoRow label={branch.type === 'sede' ? 'Clientes aprobados' : 'Cartera recuperada'} value={branch.type === 'sede' ? String(stats.approvedCount) : `${stats.recoveryByCurrency.reduce((sum, item) => sum + item.percentage, 0) / (stats.recoveryByCurrency.length || 1) || 0}%`} />
+            </div>
+          </ResponsiveDetailSection>
+
+          <ResponsiveDetailSection
+            eyebrow="Recuperación"
+            title={branch.type === 'sede' ? 'Estado de recuperación por moneda' : 'Cobranza por moneda'}
+            description="Seguimiento simple y visible del capital recuperado frente a la cartera otorgada."
+          >
+            {stats.recoveryByCurrency.length > 0 ? (
+              <div className="space-y-3">
+                {stats.recoveryByCurrency.map((item) => (
+                  <RecoveryMeter key={item.currency} currency={item.currency} recovered={item.totalRecovered} total={item.totalAmount} percentage={item.percentage} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">No disponible</div>
+            )}
+          </ResponsiveDetailSection>
+
+          <ResponsiveDetailSection
+            eyebrow="Resumen"
+            title={branch.type === 'sede' ? 'Lectura ejecutiva' : 'Lectura operativa'}
+            description="Texto de apoyo para contexto rápido en la revisión diaria."
+          >
+            <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-sm leading-6 text-slate-600">
+              {detailSummary(branch, stats)}
+            </div>
+          </ResponsiveDetailSection>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 interface BranchesPanelProps {
   onViewProfile?: (id: string) => void
 }
 
 export default function BranchesPanel({ onViewProfile }: BranchesPanelProps) {
-  const [branches,         setBranches]         = useState<BranchDoc[]>([])
-  const [clients,          setClients]          = useState<BranchClient[]>([])
-  const [loading,          setLoading]          = useState(true)
+  const [branches, setBranches] = useState<BranchDoc[]>([])
+  const [clients, setClients] = useState<BranchClient[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/admin/branches').then(r => r.ok ? r.json() : { branches: [] }),
-      fetch('/api/clients').then(r => r.json()),
-    ]).then(([b, c]) => {
-      setBranches(b.branches ?? [])
-      setClients(c.clients ?? [])
-    }).finally(() => setLoading(false))
+      fetch('/api/admin/branches').then((response) => (response.ok ? response.json() : { branches: [] })),
+      fetch('/api/clients').then((response) => response.json()),
+    ])
+      .then(([branchResponse, clientResponse]) => {
+        setBranches(branchResponse.branches ?? [])
+        setClients(clientResponse.clients ?? [])
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  const sedeGroup  = useMemo(() => branches.filter(b => b.type === 'sede'),  [branches])
-  const rutasGroup = useMemo(() => branches.filter(b => b.type === 'rutas'), [branches])
+  const sucursales = useMemo(() => branches.filter((branch) => branch.type === 'sede'), [branches])
+  const rutas = useMemo(() => branches.filter((branch) => branch.type === 'rutas'), [branches])
+  const unassigned = useMemo(() => clients.filter((client) => !client.branchId), [clients])
 
-  // Clients with no branch
-  const unassigned = useMemo(() =>
-    clients.filter(c => !c.branchId), [clients])
+  const clientsForBranch = (branchId: string) => clients.filter((client) => client.branchId === branchId)
+  const selectedBranch = branches.find((branch) => branch.id === selectedBranchId)
 
-  function clientsForBranch(branchId: string) {
-    return clients.filter(c => c.branchId === branchId)
-  }
-
-  // ── Detail view ─────────────────────────────────────────────────────────────
-  const selectedBranch = branches.find(b => b.id === selectedBranchId)
   if (selectedBranch) {
     return (
       <BranchDetail
         branch={selectedBranch}
         clients={clientsForBranch(selectedBranch.id)}
+        allRoutes={rutas}
         onBack={() => setSelectedBranchId(null)}
         onViewProfile={onViewProfile}
       />
     )
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="text-center text-slate-400">
-          <p className="text-5xl mb-3 animate-pulse">🏢</p>
-          <p className="text-sm">Cargando sucursales...</p>
+          <p className="text-5xl">🏢</p>
+          <p className="mt-3 text-sm">Cargando sucursales y rutas...</p>
         </div>
       </div>
     )
   }
 
-  // ── Empty state ──────────────────────────────────────────────────────────────
   if (branches.length === 0) {
     return (
-      <div className="rounded-2xl bg-white border border-slate-200 p-12 text-center"
-        style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
-        <p className="text-5xl mb-4">🏢</p>
-        <h2 className="text-xl font-black mb-2" style={{ color: '#0D2B5E' }}>No hay sucursales aún</h2>
-        <p className="text-slate-500 text-sm mb-6">
-          Creá tu primera sucursal desde el panel de administración.
-        </p>
-        <a href="/admin/branches"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-          style={{ background: 'linear-gradient(135deg,#0D2B5E,#1565C0)' }}>
-          🏢 Gestionar sucursales →
+      <div className="rounded-[32px] border border-slate-200 bg-white p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,.06)] sm:p-12">
+        <p className="text-5xl">🏢</p>
+        <h2 className="mt-4 text-2xl font-black text-slate-950">No hay sucursales aún</h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">Crea la primera sucursal o ruta desde el panel de administración para comenzar a organizar la operación.</p>
+        <a
+          href="/admin/branches"
+          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0D2B5E,#1565C0)] px-5 text-sm font-bold text-white shadow-[0_18px_34px_rgba(21,101,192,.24)]"
+        >
+          Gestionar sucursales
         </a>
       </div>
     )
   }
 
-  // ── List view ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-7">
-
-      {/* ── Section header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg,#1565C0,#0D2B5E)' }} />
-          <h2 className="font-black text-base" style={{ color: '#0D2B5E' }}>Sucursales</h2>
-          <span className="text-xs text-slate-400">{branches.length} sucursal{branches.length !== 1 ? 'es' : ''}</span>
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-[linear-gradient(135deg,#071A3E_0%,#0D2B5E_54%,#1565C0_100%)] p-4 text-white shadow-[0_24px_60px_rgba(7,26,62,.22)] sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-100">Operación territorial</p>
+            <h1 className="mt-2 text-balance break-words text-2xl font-black leading-tight sm:text-3xl">Sucursales y rutas con lectura operativa clara</h1>
+            <p className="mt-3 break-words text-sm leading-6 text-blue-100 sm:text-base">Identifica cobertura, abre detalles rápido y valida la cartera sin ruido ni texto roto.</p>
+          </div>
+          <a href="/admin/branches" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15">Gestionar</a>
         </div>
-        <a href="/admin/branches"
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-slate-100"
-          style={{ color: '#1565C0' }}>
-          ⚙️ Gestionar
-        </a>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <MetricCard label="Sucursales" value={String(sucursales.length)} helper="Oficinas y sedes activas" />
+        <MetricCard label="Rutas" value={String(rutas.length)} helper="Cobertura territorial registrada" />
+        <MetricCard label="Sin asignación" value={String(unassigned.length)} helper={unassigned.length > 0 ? 'Clientes por organizar' : 'Sin pendientes'} />
       </div>
 
-      {/* ── Sede group ── */}
-      {sedeGroup.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold" style={{ color: '#1565C0' }}>🏢 Sede</span>
-            <span className="text-xs text-slate-400">({sedeGroup.length})</span>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sedeGroup.map(b => (
-              <BranchCard
-                key={b.id}
-                branch={b}
-                clients={clientsForBranch(b.id)}
-                onClick={() => setSelectedBranchId(b.id)}
-              />
-            ))}
+      <ResponsiveDetailSection
+        eyebrow="Sucursales"
+        title="Visión por sucursal"
+        description="Las tarjetas priorizan lectura rápida para supervisión: estado, actividad, cartera y acceso inmediato al detalle."
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {sucursales.map((branch) => (
+            <BranchCard key={branch.id} branch={branch} clients={clientsForBranch(branch.id)} onClick={() => setSelectedBranchId(branch.id)} />
+          ))}
+        </div>
+      </ResponsiveDetailSection>
+
+      <ResponsiveDetailSection
+        eyebrow="Rutas"
+        title="Visión por ruta"
+        description="Las tarjetas de ruta resaltan cartera, gestión y acceso rápido para uso intensivo en campo."
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {rutas.map((branch) => (
+            <BranchCard key={branch.id} branch={branch} clients={clientsForBranch(branch.id)} onClick={() => setSelectedBranchId(branch.id)} />
+          ))}
+        </div>
+      </ResponsiveDetailSection>
+
+      {unassigned.length > 0 ? (
+        <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Pendiente</p>
+              <p className="mt-1 break-words text-sm font-semibold text-slate-900">{unassigned.length} cliente{unassigned.length !== 1 ? 's' : ''} sin sucursal asignada</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Puedes actualizarlos desde la sección de clientes para completar la cobertura operativa.</p>
+            </div>
+            <a href="/app/clientes" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Ir a clientes</a>
           </div>
         </div>
-      )}
-
-      {/* ── Rutas group ── */}
-      {rutasGroup.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold" style={{ color: '#15803D' }}>🚗 Rutas</span>
-            <span className="text-xs text-slate-400">({rutasGroup.length})</span>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rutasGroup.map(b => (
-              <BranchCard
-                key={b.id}
-                branch={b}
-                clients={clientsForBranch(b.id)}
-                onClick={() => setSelectedBranchId(b.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Unassigned clients notice ── */}
-      {unassigned.length > 0 && (
-        <div className="rounded-xl border border-dashed border-slate-300 p-4 flex items-center gap-3"
-          style={{ background: '#f8fafc' }}>
-          <span className="text-xl">⚠️</span>
-          <p className="text-xs text-slate-500">
-            <strong className="text-slate-700">{unassigned.length} cliente{unassigned.length !== 1 ? 's' : ''}</strong>
-            {' '}sin sucursal asignada. Podés actualizarlos desde la pestaña{' '}
-            <strong>Clientes</strong>.
-          </p>
-        </div>
-      )}
-
+      ) : null}
     </div>
   )
 }

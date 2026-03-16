@@ -3,10 +3,11 @@ import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useEffect } from 'react'
 import LendStackLogo from './LendStackLogo'
+import NotificationCenterBell from './notifications/NotificationCenterBell'
 
 export default function Header() {
   const { data: session } = useSession()
-  const isMaster = session?.user?.role === 'master'
+  const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
 
   useEffect(() => {
     const onLogout = () => signOut({ callbackUrl: '/login' })
@@ -33,6 +34,7 @@ export default function Header() {
                 style={{ background: '#fff', color: '#0D2B5E', boxShadow: '0 2px 12px rgba(255,255,255,.25)' }}>
                 + <span>Préstamo</span>
               </button>
+              <NotificationCenterBell />
               <span className="hidden sm:inline-flex text-xs px-2.5 py-2 rounded-xl font-medium"
                 style={{ background: 'rgba(255,255,255,.12)', color: '#c5d5ea', border: '1px solid rgba(255,255,255,.2)' }}>
                 {isMaster ? '👑' : '👤'} {session.user.name || session.user.email}

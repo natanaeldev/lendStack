@@ -4,26 +4,18 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import {
-  buildAmortization,
-  buildWeeklySchedule,
-  buildCarritoSchedule,
-  type LoanParams,
-  type RiskProfile,
+  calculateLoanQuote,
+  inferLegacyInterestMethod,
+  inferLegacyPaymentFrequency,
 } from './loan'
 import type { InstallmentDoc, LoanDoc } from './loanDomain'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date)
-  d.setDate(d.getDate() + days)
-  return d
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100
 }
 
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date)
-  d.setMonth(d.getMonth() + months)
-  return d
+function sumMoney(values: number[]) {
+  return roundMoney(values.reduce((sum, value) => sum + value, 0))
 }
 
 // ─── Main Generator ───────────────────────────────────────────────────────────
@@ -44,109 +36,80 @@ export function generateInstallments(
 
   const installments: InstallmentDoc[] = []
 
-  // ── Amortized ───────────────────────────────────────────────────────────────
-  if (loan.loanType === 'amortized') {
-    const params: LoanParams = {
-      amount:            loan.amount,
-      termYears:         loan.termYears ?? 1,
-      profile:           (loan.profile ?? 'Medium Risk') as RiskProfile,
-      currency:          loan.currency,
-      rateMode:          (loan.rateMode ?? 'annual') as any,
-      customMonthlyRate: loan.customMonthlyRate ?? 0,
-      startDate:         startDate.toISOString().slice(0, 10),
-    }
-    const rows = buildAmortization(params)
-    for (const row of rows) {
-      const dueDate = addMonths(startDate, row.month)
-      const scheduled = row.payment
-      installments.push({
-        _id:            uuidv4(),
-        organizationId,
-        loanId:         loan._id,
-        clientId:       loan.clientId,
-        installmentNumber: row.month,
-        dueDate:        dueDate.toISOString().slice(0, 10),
-        periodLabel:    `Cuota ${row.month}`,
-        scheduledPrincipal: row.principal,
-        scheduledInterest:  row.interest,
-        scheduledAmount:    scheduled,
-        paidPrincipal:  0,
-        paidInterest:   0,
-        paidAmount:     0,
-        remainingAmount: scheduled,
-        status:         'pending',
-      })
-    }
-    return installments
-  }
+  const paymentFrequency = inferLegacyPaymentFrequency(loan.loanType, loan.paymentFrequency ?? loan.carritoFrequency)
+  const interestMethod = inferLegacyInterestMethod(loan.loanType, loan.interestMethod)
+  const installmentCount =
+    loan.installmentCount ??
+    (loan.loanType === 'amortized'
+      ? Math.max(1, loan.totalMonths ?? Math.round((loan.termYears ?? 1) * 12))
+      : loan.loanType === 'weekly'
+        ? Math.max(1, loan.totalWeeks ?? loan.termWeeks ?? 1)
+        : Math.max(1, loan.carritoPayments ?? 1))
 
-  // ── Weekly ──────────────────────────────────────────────────────────────────
-  if (loan.loanType === 'weekly') {
-    const rows = buildWeeklySchedule(
-      loan.amount,
-      loan.termWeeks ?? 52,
-      loan.customMonthlyRate ?? (loan.monthlyRate ?? 0.05),
-      startDate,
-    )
-    for (const row of rows) {
-      const scheduled = row.payment
-      installments.push({
-        _id:            uuidv4(),
-        organizationId,
-        loanId:         loan._id,
-        clientId:       loan.clientId,
-        installmentNumber: row.period,
-        dueDate:        row.dueDate,
-        periodLabel:    `Semana ${row.period}`,
-        scheduledPrincipal: row.principal,
-        scheduledInterest:  row.interest,
-        scheduledAmount:    scheduled,
-        paidPrincipal:  0,
-        paidInterest:   0,
-        paidAmount:     0,
-        remainingAmount: scheduled,
-        status:         'pending',
-      })
-    }
-    return installments
-  }
+  const rateValue =
+    loan.rateValue ??
+    (interestMethod === 'DECLINING_BALANCE'
+      ? paymentFrequency === 'WEEKLY'
+        ? loan.weeklyRate ?? ((loan.customMonthlyRate ?? loan.monthlyRate ?? 0) / 4.33)
+        : loan.monthlyRate ?? loan.customMonthlyRate ?? 0
+      : loan.customMonthlyRate ?? 0)
 
-  // ── Carrito ─────────────────────────────────────────────────────────────────
-  if (loan.loanType === 'carrito') {
-    const freq = loan.carritoFrequency ?? 'weekly'
-    const rows = buildCarritoSchedule(
-      loan.amount,
-      loan.customMonthlyRate ?? 0.20,   // carritoFlatRate stored in customMonthlyRate
-      loan.carritoTerm ?? 4,
-      loan.carritoPayments ?? 4,
-      freq,
-      startDate,
-    )
-    for (const row of rows) {
-      const scheduled = row.payment
-      const label = freq === 'daily' ? `Día ${row.period}` : `Semana ${row.period}`
-      installments.push({
-        _id:            uuidv4(),
-        organizationId,
-        loanId:         loan._id,
-        clientId:       loan.clientId,
-        installmentNumber: row.period,
-        dueDate:        row.dueDate,
-        periodLabel:    label,
-        scheduledPrincipal: row.principal,
-        scheduledInterest:  row.interest,
-        scheduledAmount:    scheduled,
-        paidPrincipal:  0,
-        paidInterest:   0,
-        paidAmount:     0,
-        remainingAmount: scheduled,
-        status:         'pending',
-      })
-    }
-    return installments
+  const quote = calculateLoanQuote({
+    principal: loan.amount,
+    interestMethod,
+    installmentCount,
+    paymentFrequency,
+    rateValue,
+    rateUnit: loan.rateUnit ?? 'DECIMAL',
+    interestPeriodCount: loan.interestPeriodCount ?? (interestMethod === 'FLAT_PER_PERIOD' ? loan.carritoTerm ?? installmentCount : 1),
+    startDate: startDate.toISOString().slice(0, 10),
+  })
+
+  for (const row of quote.schedule) {
+    const label =
+      paymentFrequency === 'DAILY'
+        ? `Día ${row.installmentNumber}`
+        : paymentFrequency === 'WEEKLY'
+          ? `Semana ${row.installmentNumber}`
+          : paymentFrequency === 'BIWEEKLY'
+            ? `Quincena ${row.installmentNumber}`
+            : `Cuota ${row.installmentNumber}`
+
+    installments.push({
+      _id: uuidv4(),
+      organizationId,
+      loanId: loan._id,
+      clientId: loan.clientId,
+      installmentNumber: row.installmentNumber,
+      dueDate: row.dueDate,
+      periodLabel: label,
+      scheduledPrincipal: row.principalAmount,
+      scheduledInterest: row.interestAmount,
+      scheduledAmount: row.paymentAmount,
+      paidPrincipal: 0,
+      paidInterest: 0,
+      paidAmount: 0,
+      remainingAmount: row.paymentAmount,
+      status: 'pending',
+    })
   }
 
   return installments
+}
+
+export function computeOutstandingAmount(installments: Pick<InstallmentDoc, 'remainingAmount'>[]) {
+  return roundMoney(sumMoney(installments.map((installment) => installment.remainingAmount)))
+}
+
+export function computeLoanContractBalance(
+  loan: Pick<LoanDoc, 'totalPayment' | 'paidTotal' | 'remainingBalance'>,
+  installments: Pick<InstallmentDoc, 'remainingAmount'>[] = [],
+) {
+  if (installments.length > 0) {
+    return computeOutstandingAmount(installments)
+  }
+
+  return roundMoney(Math.max((loan.totalPayment ?? loan.remainingBalance ?? 0) - (loan.paidTotal ?? 0), 0))
 }
 
 // ─── Delinquency Snapshot ─────────────────────────────────────────────────────

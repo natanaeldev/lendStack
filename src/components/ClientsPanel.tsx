@@ -51,7 +51,7 @@ interface Props {
   onViewProfile?: (id: string) => void
 }
 
-const LOCAL_KEY = 'jvf_clients'
+const LOCAL_KEY = 'lendstack_clients'
 
 const EMPTY_FORM = {
   name: '',

@@ -11,6 +11,7 @@ import QuickActionsPanel, { type QuickActionItem } from './dashboard/QuickAction
 import RecentActivityCard from './dashboard/RecentActivityCard'
 import ResponsiveDashboardSection from './dashboard/ResponsiveDashboardSection'
 import UrgentItemsPanel from './dashboard/UrgentItemsPanel'
+import QuickPaymentModal from './QuickPaymentModal'
 import { AlertIcon, CalendarIcon, CollectionIcon, LoanIcon, PaymentIcon, PortfolioIcon, SearchIcon, TrendIcon, UserPlusIcon } from './dashboard/DashboardIcons'
 import { buildRecentActivity, buildUrgentItems, formatDashboardDate } from './dashboard/helpers'
 import type { ClientRow, OrgInfo, StatsData } from './dashboard/types'
@@ -32,9 +33,15 @@ function statusTone(value: number, warningAt: number, dangerAt: number): 'brand'
 
 interface DashboardProps {
   onViewProfile?: (id: string) => void
+  externalSearch?: string
+  onExternalSearchChange?: (value: string) => void
 }
 
-export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
+function normalizeSearchValue(value: string) {
+  return value.trim().toLowerCase()
+}
+
+export default function Dashboard({ onViewProfile, externalSearch, onExternalSearchChange }: DashboardProps = {}) {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,6 +49,8 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   const [orgInfo, setOrgInfo] = useState<OrgInfo | null>(null)
   const [dashboardCurrency, setDashboardCurrency] = useState<Currency>('USD')
   const [search, setSearch] = useState('')
+  const [quickPayClientId, setQuickPayClientId] = useState<string | null>(null)
+  const [billingLoading, setBillingLoading] = useState<'checkout' | 'portal' | 'connect' | null>(null)
 
   const urgentRef = useRef<HTMLDivElement | null>(null)
   const clientRef = useRef<HTMLDivElement | null>(null)
@@ -50,7 +59,7 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     Promise.all([
       fetch('/api/stats').then((response) => response.json()),
       fetch('/api/clients').then((response) => response.json()),
-      fetch('/api/org').then((response) => response.json()).catch(() => null),
+      fetch('/api/org', { cache: 'no-store' }).then((response) => response.json()).catch(() => null),
     ])
       .then(([statsResponse, clientsResponse, orgResponse]) => {
         if (!statsResponse.configured) {
@@ -74,6 +83,10 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     window.dispatchEvent(new Event('lendstack:new-loan'))
   }, [])
 
+  const goToBilling = useCallback(() => {
+    window.location.href = '/app/billing'
+  }, [])
+
   const usdToSelected = useCallback((amountUsd: number) => {
     if (dashboardCurrency === 'USD') return amountUsd
     const rate = stats?.exchangeRatesPerUsd?.[dashboardCurrency] ?? 1
@@ -90,17 +103,41 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
 
   const fmtMoney = useCallback((amount: number, currency: Currency = 'USD') => formatCurrency(amount, currency), [])
 
+  const searchValue = externalSearch ?? search
+  const setSearchValue = onExternalSearchChange ?? setSearch
+  const normalizedSearch = normalizeSearchValue(searchValue)
+
   const urgentItems = useMemo(() => buildUrgentItems(clients), [clients])
   const urgentCriticalCount = urgentItems.filter((item) => item.status === 'overdue' || item.status === 'due_today').length
   const recentActivity = useMemo(() => buildRecentActivity(clients, stats?.recentClients ?? [], fmtMoney), [clients, fmtMoney, stats?.recentClients])
+  const filteredUrgentItems = useMemo(() => {
+    if (!normalizedSearch) return urgentItems
+    return urgentItems.filter((item) =>
+      [item.clientName, item.phone, item.branchName, item.status, item.dueDate]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+    )
+  }, [normalizedSearch, urgentItems])
+
+  const filteredRecentActivity = useMemo(() => {
+    if (!normalizedSearch) return recentActivity
+    return recentActivity.filter((item) =>
+      [item.title, item.subtitle, item.meta, item.amountLabel, item.date]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+    )
+  }, [normalizedSearch, recentActivity])
 
   const filteredClients = useMemo(() => {
-    const normalized = search.trim().toLowerCase()
-    if (!normalized) return clients.slice(0, 6)
+    if (!normalizedSearch) return clients.slice(0, 6)
     return clients
-      .filter((client) => [client.name, client.email, client.phone].filter(Boolean).some((value) => String(value).toLowerCase().includes(normalized)))
+      .filter((client) =>
+        [client.name, client.email, client.phone, client.loanStatus, client.notes]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedSearch)),
+      )
       .slice(0, 8)
-  }, [clients, search])
+  }, [clients, normalizedSearch])
 
   const kpis = useMemo<DashboardKpiItem[]>(() => {
     if (!stats) return []
@@ -165,6 +202,27 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
     ? `La vista prioriza cartera activa, mora, cobranza diaria y pagos que requieren seguimiento inmediato. ${stats.portfolio?.dueTodayCount ?? 0} pagos vencen hoy y ${stats.portfolio?.delinquentCount ?? 0} préstamos están en mora.`
     : ''
 
+  const openBillingUrl = useCallback(async (kind: 'checkout' | 'portal' | 'connect', endpoint: string, payload?: Record<string, unknown>) => {
+    try {
+      setBillingLoading(kind)
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify(payload) : undefined,
+      })
+      const data = await response.json()
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'No se pudo abrir la experiencia de facturación.')
+      }
+      window.location.href = data.url
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo abrir la experiencia de facturación.'
+      window.alert(message)
+    } finally {
+      setBillingLoading(null)
+    }
+  }, [])
+
   if (loading) return <DashboardSkeleton />
   if (notConfigured) return <SetupScreen />
   if (!stats) {
@@ -177,106 +235,154 @@ export default function Dashboard({ onViewProfile }: DashboardProps = {}) {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <DashboardHeader
-        title={dashboardTitle}
-        description="Centro de operaciones para cartera, cobranza y seguimiento diario."
-        context={context}
-        summary={summary}
-        onPrimaryAction={goToNewLoan}
-      />
+    <>
+      <div className="space-y-4 sm:space-y-5">
+        <DashboardHeader
+          title={dashboardTitle}
+          description="Centro de operaciones para cartera, cobranza y seguimiento diario."
+          context={context}
+          summary={summary}
+          onPrimaryAction={goToNewLoan}
+        />
 
-      {orgInfo ? (
-        <div className={`rounded-[26px] border px-4 py-4 shadow-[0_18px_36px_rgba(15,23,42,.05)] ${orgInfo.isAtLimit ? 'border-rose-200 bg-rose-50' : orgInfo.isNearLimit ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Plan y capacidad</p>
-              <p className="mt-1 break-words text-sm font-black text-slate-950">
-                {orgInfo.plan === 'starter' && orgInfo.maxClients !== null
-                  ? `${orgInfo.clientCount} de ${orgInfo.maxClients} clientes utilizados en Starter`
-                  : `Plan ${orgInfo.plan.charAt(0).toUpperCase() + orgInfo.plan.slice(1)} activo`}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                {orgInfo.isAtLimit
-                  ? 'El plan alcanzó su límite y requiere actualización para seguir creciendo.'
-                  : orgInfo.isNearLimit
-                    ? 'La operación está cerca del límite del plan actual.'
-                    : 'La capacidad del plan está saludable para la operación actual.'}
-              </p>
-            </div>
-            <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
-              {orgInfo.plan}
+        {orgInfo ? (
+          <div className={`rounded-[26px] border px-4 py-4 shadow-[0_18px_36px_rgba(15,23,42,.05)] ${orgInfo.isAtLimit ? 'border-rose-200 bg-rose-50' : orgInfo.isNearLimit ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Plan y capacidad</p>
+                <p className="mt-1 break-words text-sm font-black text-slate-950">
+                  {orgInfo.plan === 'starter' && orgInfo.maxClients !== null
+                    ? `${orgInfo.clientCount} de ${orgInfo.maxClients} clientes utilizados en Starter`
+                    : `Plan ${orgInfo.plan.charAt(0).toUpperCase() + orgInfo.plan.slice(1)} activo`}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {orgInfo.isAtLimit
+                    ? 'El plan alcanzó su límite y requiere actualización para seguir creciendo.'
+                    : orgInfo.isNearLimit
+                      ? 'La operación está cerca del límite del plan actual.'
+                      : 'La capacidad del plan está saludable para la operación actual.'}
+                </p>
+                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Billing {orgInfo.billingStatus ?? 'active'}{orgInfo.isPaymentPastDue ? ' · revisar pago' : ''}
+                </p>
+              </div>
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                  {orgInfo.plan}
+                </div>
+                {orgInfo.canManageBilling ? (
+                  <div className="flex flex-wrap gap-2">
+                    {orgInfo.checkoutAvailable ? (
+                      <button
+                        onClick={goToBilling}
+                        disabled={billingLoading !== null}
+                        className="min-h-10 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        Ver planes
+                      </button>
+                    ) : null}
+                    {orgInfo.portalAvailable ? (
+                      <button
+                        onClick={() => openBillingUrl('portal', '/api/billing/portal')}
+                        disabled={billingLoading !== null}
+                        className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
+                      >
+                        {billingLoading === 'portal' ? 'Abriendo portal...' : 'Gestionar billing'}
+                      </button>
+                    ) : null}
+                    {orgInfo.canConnectStripe ? (
+                      <button
+                        onClick={() => openBillingUrl('connect', '/api/billing/connect')}
+                        disabled={billingLoading !== null}
+                        className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
+                      >
+                        {billingLoading === 'connect'
+                          ? 'Conectando Stripe...'
+                          : orgInfo.stripeConnectStatus === 'active'
+                            ? 'Stripe conectado'
+                            : 'Conectar Stripe'}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <ResponsiveDashboardSection
-        eyebrow="Portafolio"
-        title="Visión inmediata de cartera y cobranza"
-        description="Los indicadores principales están ordenados por urgencia y utilidad operativa para que un agente móvil entienda el estado del día en segundos."
-        action={
-          <select value={dashboardCurrency} onChange={(event) => setDashboardCurrency(event.target.value as Currency)} className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none">
-            <option value="USD">USD ($)</option>
-            <option value="DOP">DOP (RD$)</option>
-          </select>
-        }
-      >
-        <DashboardKpiGrid items={kpis} />
-      </ResponsiveDashboardSection>
-
-      <ResponsiveDashboardSection eyebrow="Acciones" title="Accesos rápidos de operación" description="Atajos pensados para trabajo de campo: originar, cobrar, abrir clientes y saltar a los casos con más riesgo.">
-        <QuickActionsPanel actions={quickActions} />
-      </ResponsiveDashboardSection>
-
-      <div ref={urgentRef}>
-        <ResponsiveDashboardSection eyebrow="Urgente" title="Qué requiere atención ahora" description="Lista priorizada con mora, pagos del día y próximos vencimientos para reducir retrasos y acelerar el seguimiento.">
-          <UrgentItemsPanel items={urgentItems} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
-        </ResponsiveDashboardSection>
-      </div>
-
-      <ResponsiveDashboardSection eyebrow="Rendimiento" title="Snapshot de desempeño del portafolio" description="Lectura rápida de recaudación y composición operativa. En desktop ofrece contexto analítico; en móvil conserva legibilidad y foco.">
-        <PerformanceSnapshotCard stats={stats} fmtK={fmtK} />
-      </ResponsiveDashboardSection>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisión rápida.">
-          <RecentActivityCard items={recentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
+        <ResponsiveDashboardSection
+          eyebrow="Portafolio"
+          title="Visión inmediata de cartera y cobranza"
+          description="Los indicadores principales están ordenados por urgencia y utilidad operativa para que un agente móvil entienda el estado del día en segundos."
+          action={
+            <select value={dashboardCurrency} onChange={(event) => setDashboardCurrency(event.target.value as Currency)} className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none">
+              <option value="USD">USD ($)</option>
+              <option value="DOP">DOP (RD$)</option>
+            </select>
+          }
+        >
+          <DashboardKpiGrid items={kpis} />
         </ResponsiveDashboardSection>
 
-        <div ref={clientRef}>
-          <ResponsiveDashboardSection eyebrow="Búsqueda" title="Clientes recientes y búsqueda rápida" description="Módulo liviano para abrir expedientes desde Inicio sin cargar una tabla pesada en móvil.">
-            <div className="space-y-4">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por nombre, teléfono o email"
-                  className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-3">
-                {filteredClients.length === 0 ? (
-                  <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                    No hay clientes que coincidan con la búsqueda.
-                  </div>
-                ) : (
-                  filteredClients.map((client) => (
-                    <button key={client.id} type="button" onClick={() => onViewProfile?.(client.id)} className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
-                      <div className="min-w-0">
-                        <p className="break-words text-sm font-black text-slate-950">{client.name}</p>
-                        <p className="mt-1 break-words text-xs text-slate-500">{client.phone || client.email || 'Sin contacto disponible'}</p>
-                      </div>
-                      <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">Abrir</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
+        <ResponsiveDashboardSection eyebrow="Acciones" title="Accesos rápidos de operación" description="Atajos pensados para trabajo de campo: originar, cobrar, abrir clientes y saltar a los casos con más riesgo.">
+          <QuickActionsPanel actions={quickActions} />
+        </ResponsiveDashboardSection>
+
+        <div ref={urgentRef}>
+          <ResponsiveDashboardSection eyebrow="Urgente" title="Qué requiere atención ahora" description="Lista priorizada con mora, pagos del día y próximos vencimientos para reducir retrasos y acelerar el seguimiento.">
+            <UrgentItemsPanel
+              items={filteredUrgentItems}
+              onOpenClient={(clientId) => onViewProfile?.(clientId)}
+              onQuickPay={(clientId) => setQuickPayClientId(clientId)}
+            />
           </ResponsiveDashboardSection>
         </div>
+
+        <ResponsiveDashboardSection eyebrow="Rendimiento" title="Snapshot de desempeño del portafolio" description="Lectura rápida de recaudación y composición operativa. En desktop ofrece contexto analítico; en móvil conserva legibilidad y foco.">
+          <PerformanceSnapshotCard stats={stats} fmtK={fmtK} />
+        </ResponsiveDashboardSection>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_.9fr]">
+          <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisión rápida.">
+            <RecentActivityCard items={filteredRecentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
+          </ResponsiveDashboardSection>
+
+          <div ref={clientRef}>
+            <ResponsiveDashboardSection eyebrow="Búsqueda" title="Clientes recientes y búsqueda rápida" description="Módulo liviano para abrir expedientes desde Inicio sin cargar una tabla pesada en móvil.">
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
+                  <input
+                    type="text"
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    placeholder="Buscar por nombre, teléfono o email"
+                    className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="space-y-3">
+                  {filteredClients.length === 0 ? (
+                    <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                      No hay clientes que coincidan con la búsqueda.
+                    </div>
+                  ) : (
+                    filteredClients.map((client) => (
+                      <button key={client.id} type="button" onClick={() => onViewProfile?.(client.id)} className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-black text-slate-950">{client.name}</p>
+                          <p className="mt-1 break-words text-xs text-slate-500">{client.phone || client.email || 'Sin contacto disponible'}</p>
+                        </div>
+                        <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">Abrir</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </ResponsiveDashboardSection>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <QuickPaymentModal isOpen={quickPayClientId !== null} initialClientId={quickPayClientId} onClose={() => setQuickPayClientId(null)} />
+    </>
   )
 }

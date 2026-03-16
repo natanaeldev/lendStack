@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse }                  from 'next/server'
 import { getDb, isDbConfigured }                     from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse }         from '@/lib/orgAuth'
+import { inferLegacyInterestMethod, inferLegacyPaymentFrequency } from '@/lib/loan'
 
 
 function inferLoanType(loan: any): 'amortized' | 'weekly' | 'carrito' {
@@ -17,6 +18,45 @@ function inferLoanType(loan: any): 'amortized' | 'weekly' | 'carrito' {
   if (hasCarritoSignals) return 'carrito'
 
   return 'amortized'
+}
+
+function buildClientLoanParams(loan: any) {
+  return {
+    amount: loan?.amount ?? 0,
+    termYears: loan?.termYears ?? null,
+    profile: loan?.profile ?? 'Medium Risk',
+    currency: loan?.currency ?? 'USD',
+    rateMode: loan?.rateMode ?? 'annual',
+    customMonthlyRate: loan?.customMonthlyRate ?? 0,
+    interestMethod: loan ? (loan.interestMethod ?? inferLegacyInterestMethod(loan.loanType, loan.interestMethod)) : null,
+    paymentFrequency: loan ? (loan.paymentFrequency ?? inferLegacyPaymentFrequency(loan.loanType, loan.frequency)) : null,
+    installmentCount: loan ? (loan.installmentCount ?? loan.numPayments ?? loan.termWeeks ?? loan.totalMonths ?? null) : null,
+    interestPeriodCount: loan ? (loan.interestPeriodCount ?? loan.carritoTerm ?? null) : null,
+    rateValue: loan ? (loan.rateValue ?? loan.flatRate ?? loan.monthlyRate ?? loan.customMonthlyRate ?? 0) : 0,
+    rateUnit: loan?.rateUnit ?? 'DECIMAL',
+    startDate: loan?.startDate ?? '',
+    termWeeks: loan?.termWeeks ?? null,
+    carritoTerm: loan?.carritoTerm ?? null,
+    numPayments: loan?.numPayments ?? null,
+    frequency: loan?.frequency ?? null,
+  }
+}
+
+function buildClientLoanResult(loan: any) {
+  return {
+    monthlyPayment: loan?.monthlyPayment ?? 0,
+    totalPayment: loan?.totalPayment ?? 0,
+    totalInterest: loan?.totalInterest ?? 0,
+    annualRate: loan?.annualRate ?? 0,
+    monthlyRate: loan?.monthlyRate ?? 0,
+    totalMonths: loan?.totalMonths ?? null,
+    interestRatio: loan?.interestRatio ?? 0,
+    interestMethod: loan ? (loan.interestMethod ?? inferLegacyInterestMethod(loan.loanType, loan.interestMethod)) : null,
+    weeklyPayment: loan?.weeklyPayment ?? null,
+    totalWeeks: loan?.termWeeks ?? null,
+    fixedPayment: loan?.fixedPayment ?? null,
+    numPayments: loan?.numPayments ?? null,
+  }
 }
 
 export async function GET(
@@ -67,32 +107,8 @@ export async function GET(
         branchName:      c.branchName      ?? null,
         loanStatus:      c.loanStatus      ?? 'pending',
         loanType:        inferLoanType(c.loan),
-        params: c.loan ? {
-          amount:            c.loan.amount,
-          termYears:         c.loan.termYears ?? null,
-          profile:           c.loan.profile,
-          currency:          c.loan.currency,
-          rateMode:          c.loan.rateMode,
-          customMonthlyRate: c.loan.customMonthlyRate,
-          startDate:         c.loan.startDate ?? '',
-          termWeeks:         c.loan.termWeeks ?? null,
-          carritoTerm:       c.loan.carritoTerm ?? null,
-          numPayments:       c.loan.numPayments ?? null,
-          frequency:         c.loan.frequency ?? null,
-        } : null,
-        result: c.loan ? {
-          monthlyPayment: c.loan.monthlyPayment,
-          totalPayment:   c.loan.totalPayment,
-          totalInterest:  c.loan.totalInterest,
-          annualRate:     c.loan.annualRate,
-          monthlyRate:    c.loan.monthlyRate,
-          totalMonths:    c.loan.totalMonths,
-          interestRatio:  c.loan.interestRatio,
-          weeklyPayment:  c.loan.weeklyPayment ?? null,
-          totalWeeks:     c.loan.termWeeks ?? null,
-          fixedPayment:   c.loan.fixedPayment ?? null,
-          numPayments:    c.loan.numPayments ?? null,
-        } : null,
+        params: buildClientLoanParams(c.loan),
+        result: buildClientLoanResult(c.loan),
         documents: c.documents ?? [],
         payments:  c.payments  ?? [],
       },

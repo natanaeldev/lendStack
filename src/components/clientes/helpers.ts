@@ -97,8 +97,8 @@ export interface ClientRecord {
   loanStatus: LoanStatus
   lifecycleStatus?: string | null
   loanType?: LoanType
-  params: ClientLoanParams
-  result: ClientLoanResult
+  params?: ClientLoanParams | null
+  result?: ClientLoanResult | null
   documents?: ClientDoc[]
   payments?: Payment[]
 }
@@ -164,9 +164,9 @@ export function formatClientField(value?: string | number | null) {
 }
 
 export function getScheduledPayment(client: ClientRecord) {
-  if (client.loanType === 'weekly') return client.result.weeklyPayment ?? client.result.monthlyPayment ?? 0
-  if (client.loanType === 'carrito') return client.result.fixedPayment ?? client.result.monthlyPayment ?? 0
-  return client.result.monthlyPayment ?? 0
+  if (client.loanType === 'weekly') return client.result?.weeklyPayment ?? client.result?.monthlyPayment ?? 0
+  if (client.loanType === 'carrito') return client.result?.fixedPayment ?? client.result?.monthlyPayment ?? 0
+  return client.result?.monthlyPayment ?? 0
 }
 
 export function getLoanTypeLabel(client: ClientRecord) {
@@ -176,9 +176,9 @@ export function getLoanTypeLabel(client: ClientRecord) {
 }
 
 export function getTotalInstallments(client: ClientRecord) {
-  if (client.loanType === 'weekly') return Number(client.result.totalWeeks ?? client.params.termWeeks ?? 0)
-  if (client.loanType === 'carrito') return Number(client.result.numPayments ?? client.params.numPayments ?? 0)
-  return Number(client.result.totalMonths ?? ((client.params.termYears ?? 0) * 12))
+  if (client.loanType === 'weekly') return Number(client.result?.totalWeeks ?? client.params?.termWeeks ?? 0)
+  if (client.loanType === 'carrito') return Number(client.result?.numPayments ?? client.params?.numPayments ?? 0)
+  return Number(client.result?.totalMonths ?? ((client.params?.termYears ?? 0) * 12))
 }
 
 export function getPaidInstallments(client: ClientRecord) {
@@ -227,7 +227,9 @@ export function getExpectedInstallments(client: ClientRecord, today = new Date()
 }
 
 export function getClientPortfolioStatus(client: ClientRecord): ClientPortfolioStatus {
+  const hasLoanData = (client.result?.totalPayment ?? 0) > 0 || (client.params?.amount ?? 0) > 0
   if (client.loanStatus !== 'approved') {
+    if (!hasLoanData) return 'no-loan'
     return client.loanStatus === 'pending' ? 'pending-review' : 'no-loan'
   }
 
@@ -263,10 +265,10 @@ export function getApplicationBadge(status: LoanStatus) {
 }
 
 export function getClientSummary(client: ClientRecord) {
-  const currency = client.params.currency
+  const currency = client.params?.currency ?? 'USD'
   const scheduledPayment = getScheduledPayment(client)
   const totalPaid = getTotalPaid(client)
-  const totalPayment = client.result.totalPayment ?? 0
+  const totalPayment = client.result?.totalPayment ?? 0
   const outstanding = Math.max(totalPayment - totalPaid, 0)
   const paidInstallments = getPaidInstallments(client)
   const totalInstallments = Math.max(getTotalInstallments(client), 0)
@@ -279,7 +281,7 @@ export function getClientSummary(client: ClientRecord) {
     client.loanType === 'weekly'
       ? 'semana'
       : client.loanType === 'carrito'
-        ? client.params.frequency === 'daily'
+        ? client.params?.frequency === 'daily'
           ? 'día'
           : 'semana'
         : 'mes'
@@ -294,12 +296,12 @@ export function getClientSummary(client: ClientRecord) {
 }
 
 export function getOutstandingLabel(client: ClientRecord) {
-  const outstanding = Math.max((client.result.totalPayment ?? 0) - getTotalPaid(client), 0)
-  return formatCurrency(outstanding, client.params.currency)
+  const outstanding = Math.max((client.result?.totalPayment ?? 0) - getTotalPaid(client), 0)
+  return formatCurrency(outstanding, client.params?.currency ?? 'USD')
 }
 
 export function getClientLoanAmount(client: ClientRecord) {
-  return formatCurrency(client.params.amount ?? 0, client.params.currency)
+  return formatCurrency(client.params?.amount ?? 0, client.params?.currency ?? 'USD')
 }
 
 export function matchesClientSearch(client: ClientRecord, rawQuery: string) {
@@ -313,12 +315,12 @@ export function matchesClientSearch(client: ClientRecord, rawQuery: string) {
 
 export function asLoanParams(client: ClientRecord): LoanParams {
   return {
-    amount: client.params.amount,
-    termYears: Number(client.params.termYears ?? 1),
-    profile: client.params.profile,
-    currency: client.params.currency,
-    rateMode: client.params.rateMode ?? 'annual',
-    customMonthlyRate: client.params.customMonthlyRate,
-    startDate: client.params.startDate,
+    amount: client.params?.amount ?? 0,
+    termYears: Number(client.params?.termYears ?? 1),
+    profile: client.params?.profile ?? 'Medium Risk',
+    currency: client.params?.currency ?? 'USD',
+    rateMode: client.params?.rateMode ?? 'annual',
+    customMonthlyRate: client.params?.customMonthlyRate,
+    startDate: client.params?.startDate,
   }
 }

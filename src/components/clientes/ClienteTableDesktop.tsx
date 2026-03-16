@@ -51,7 +51,7 @@ export default function ClienteTableDesktop({
             const portfolioBadge = getPortfolioBadge(getClientPortfolioStatus(client))
             const applicationBadge = getApplicationBadge(client.loanStatus)
             const branchBadge = client.branch ? BRANCH_STYLES[client.branch] : null
-            const risk = getRiskProfile(client.params.profile)
+            const risk = getRiskProfile(client.params?.profile)
             const callLink = phoneHref(client.phone)
             const isBusy = updatingStatusId === client.id
 

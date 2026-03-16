@@ -14,6 +14,7 @@ import {
   RiskProfile,
   LoanType,
   CarritoFrequency,
+  InterestMethod,
 } from '@/lib/loan'
 import AmortizationTable from '@/components/AmortizationTable'
 import PdfExportButton  from '@/components/PdfExport'
@@ -51,10 +52,12 @@ interface ClientProfile {
   params: {
     amount: number; termYears?: number | null; profile: string; currency: Currency; rateMode: string; customMonthlyRate: number
     startDate?: string; termWeeks?: number | null; carritoTerm?: number | null; numPayments?: number | null; frequency?: CarritoFrequency | null
+    interestMethod?: InterestMethod | null; paymentFrequency?: string | null; installmentCount?: number | null; interestPeriodCount?: number | null
+    rateValue?: number | null; rateUnit?: string | null
   }
   result: {
     monthlyPayment: number; totalPayment: number; totalInterest: number; annualRate: number; monthlyRate: number; totalMonths: number; interestRatio: number
-    weeklyPayment?: number | null; totalWeeks?: number | null; fixedPayment?: number | null; numPayments?: number | null
+    weeklyPayment?: number | null; totalWeeks?: number | null; fixedPayment?: number | null; numPayments?: number | null; interestMethod?: InterestMethod | null
   }
   documents: ClientDoc[]
   payments: Payment[]
@@ -108,7 +111,15 @@ function clientToForm(c: ClientProfile): EditForm {
 
 function getLoanProfileMeta(client: ClientProfile) {
   const loanType = (client.loanType ?? 'amortized') as LoanType
-  const paymentFrequency = loanType === 'weekly' ? 'weekly' : loanType === 'carrito' ? (client.params.frequency ?? 'weekly') : 'monthly'
+  const explicitPaymentFrequency = String(client.params.paymentFrequency ?? '').toLowerCase()
+  const paymentFrequency =
+    explicitPaymentFrequency === 'daily' || explicitPaymentFrequency === 'weekly' || explicitPaymentFrequency === 'biweekly' || explicitPaymentFrequency === 'monthly'
+      ? explicitPaymentFrequency
+      : loanType === 'weekly'
+        ? 'weekly'
+        : loanType === 'carrito'
+          ? (client.params.frequency ?? 'weekly')
+          : 'monthly'
 
   const scheduledPayment = loanType === 'weekly'
     ? (client.result.weeklyPayment ?? client.result.monthlyPayment)
@@ -116,11 +127,13 @@ function getLoanProfileMeta(client: ClientProfile) {
       ? (client.result.fixedPayment ?? client.result.monthlyPayment)
       : client.result.monthlyPayment
 
-  const totalInstallmentsRaw = loanType === 'weekly'
-    ? (client.result.totalWeeks ?? client.params.termWeeks ?? client.result.totalMonths)
-    : loanType === 'carrito'
-      ? (client.result.numPayments ?? client.params.numPayments ?? client.result.totalMonths)
-      : client.result.totalMonths
+  const totalInstallmentsRaw = client.params.installmentCount ?? (
+    loanType === 'weekly'
+      ? (client.result.totalWeeks ?? client.params.termWeeks ?? client.result.totalMonths)
+      : loanType === 'carrito'
+        ? (client.result.numPayments ?? client.params.numPayments ?? client.result.totalMonths)
+        : client.result.totalMonths
+  )
 
   const totalInstallments = Math.max(1, Number(totalInstallmentsRaw ?? 1))
   const totalPaid = (client.payments ?? []).reduce((sum, payment) => sum + payment.amount, 0)
@@ -130,17 +143,24 @@ function getLoanProfileMeta(client: ClientProfile) {
   const remainingInstallments = Math.max(0, totalInstallments - paidInstallments)
   const nextInstallmentNumber = Math.min(totalInstallments, paidInstallments + 1)
 
-  const installmentLabel = paymentFrequency === 'monthly' ? 'Cuota/mes' : paymentFrequency === 'weekly' ? 'Cuota/semana' : 'Cuota/d\u00EDa'
+  const installmentLabel =
+    paymentFrequency === 'monthly'
+      ? 'Cuota/mes'
+      : paymentFrequency === 'biweekly'
+        ? 'Cuota/quincena'
+        : paymentFrequency === 'weekly'
+          ? 'Cuota/semana'
+          : 'Cuota/día'
   const termLabel = loanType === 'weekly'
     ? `${client.params.termWeeks ?? client.result.totalWeeks ?? totalInstallments} semanas`
     : loanType === 'carrito'
-      ? `${client.params.carritoTerm ?? totalInstallments} ${paymentFrequency === 'daily' ? 'd\u00EDas' : 'semanas'}`
+      ? `${client.params.carritoTerm ?? totalInstallments} ${paymentFrequency === 'daily' ? 'días' : paymentFrequency === 'biweekly' ? 'quincenas' : 'semanas'}`
       : `${client.params.termYears ?? 0} a\u00F1os`
 
   const amortizationTitle = loanType === 'weekly'
     ? `Tabla de pagos - ${totalInstallments} cuotas semanales`
     : loanType === 'carrito'
-      ? `Tabla de pagos - ${totalInstallments} cuotas ${paymentFrequency === 'daily' ? 'diarias' : 'semanales'}`
+      ? `Tabla de pagos - ${totalInstallments} cuotas ${paymentFrequency === 'daily' ? 'diarias' : paymentFrequency === 'biweekly' ? 'quincenales' : 'semanales'}`
       : `Tabla de amortizaci\u00F3n - ${totalInstallments} cuotas`
 
   return {
@@ -327,6 +347,12 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
           profile:          client.params.profile,
           rateMode:         client.params.rateMode,
           customMonthlyRate: client.params.customMonthlyRate,
+          interestMethod:   client.params.interestMethod ?? client.result.interestMethod ?? undefined,
+          paymentFrequency: loanMeta.paymentFrequency.toUpperCase(),
+          installmentCount: loanMeta.totalInstallments,
+          interestPeriodCount: client.params.interestPeriodCount ?? (loanMeta.loanType === 'carrito' ? 1 : loanMeta.totalInstallments),
+          rateValue:        client.params.rateValue ?? client.params.customMonthlyRate ?? undefined,
+          rateUnit:         client.params.rateUnit ?? 'DECIMAL',
           annualRate:       client.result.annualRate,
           monthlyRate:      client.result.monthlyRate,
           totalMonths:      loanMeta.loanType === 'amortized' ? client.result.totalMonths : undefined,
@@ -500,9 +526,8 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
   const startDate = client.params.startDate ? new Date(client.params.startDate) : new Date()
   const carritoTerm = client.params.carritoTerm ?? loanMeta.totalInstallments
   const carritoPayments = client.result.numPayments ?? client.params.numPayments ?? loanMeta.totalInstallments
-  const carritoFlatRate = carritoTerm > 0
-    ? client.result.totalInterest / Math.max(client.params.amount * carritoTerm, 1)
-    : 0
+  const carritoFlatRate = client.params.rateValue ?? client.params.customMonthlyRate ?? 0
+  const carritoInterestMethod = client.params.interestMethod ?? client.result.interestMethod ?? 'FLAT_TOTAL'
   const loanParams: LoanParams = {
     amount:            client.params.amount,
     termYears:         client.params.termYears ?? 0,
@@ -530,13 +555,14 @@ export default function ClientProfilePanel({ clientId, onBack, onViewLoan }: Pro
         cumPrincipal: row.cumPrincipal,
       }))
     : loanMeta.loanType === 'carrito'
-      ? buildCarritoSchedule(
+        ? buildCarritoSchedule(
           client.params.amount,
           carritoFlatRate,
           carritoTerm,
           carritoPayments,
           (client.params.frequency ?? 'weekly') as CarritoFrequency,
           startDate,
+          carritoInterestMethod,
         ).map((row, index, rows) => ({
           month: row.period,
           openingBalance: index === 0 ? client.params.amount : rows[index - 1].balance,

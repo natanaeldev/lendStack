@@ -1,43 +1,106 @@
-import { NextResponse }                       from 'next/server'
-import { getDb, isDbConfigured }             from '@/lib/mongodb'
+import { NextResponse } from 'next/server'
+import { canManageOrganizationBilling, deriveEffectivePlan, getBillingAccess } from '@/lib/billingCore'
+import { deriveAppEntitlements } from '@/lib/appAccess'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
+import { getDb, isDbConfigured } from '@/lib/mongodb'
+import { deriveOrganizationFeatureOverride } from '@/lib/organizationFeatures'
+import { getBillingPlans, isStripeConfigured, isStripeConnectConfigured } from '@/lib/stripeBilling'
 
-// ─── GET /api/org — returns current org plan + limits ─────────────────────────
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const session = await requireAuth()
   if (!session) return unauthorizedResponse()
 
-  if (!isDbConfigured())
+  if (!isDbConfigured()) {
     return NextResponse.json({ configured: false }, { status: 503 })
+  }
 
   try {
-    const db  = await getDb()
+    const db = await getDb()
     const org = await db.collection('organizations').findOne({
       _id: session.user.organizationId as any,
     })
 
-    const plan = (org?.plan as string | undefined) ?? 'starter'
+    const billingStatus = (org?.billingStatus as string | undefined) ?? 'active'
+    const storedPlan = (org?.plan as string | undefined) ?? 'starter'
+    const billingPlan = (org?.billingPlan as string | undefined) ?? storedPlan
+    const billingInterval = (org?.billingInterval as string | undefined) ?? null
+    const access = getBillingAccess(billingStatus as any)
+    const featureOverride = deriveOrganizationFeatureOverride(org as any)
+    const entitlements = deriveAppEntitlements({
+      role: session.user.role,
+      organizationRole: session.user.organizationRole,
+      isOrganizationOwner: session.user.isOrganizationOwner,
+      billingStatus,
+      billingPlan,
+      storedPlan,
+      featureOverride,
+    })
+    const plan = deriveEffectivePlan(billingPlan as any, billingStatus as any)
+    const plans = getBillingPlans()
 
-    // Count clients for limit display
     const clientCount = await db.collection('clients').countDocuments({
       organizationId: session.user.organizationId,
     })
 
     const limits = {
       starter: { maxClients: 50 },
-      pro:     { maxClients: Infinity },
+      pro: { maxClients: Infinity },
       enterprise: { maxClients: Infinity },
     }
     const maxClients = (limits[plan as keyof typeof limits] ?? limits.starter).maxClients
 
     return NextResponse.json({
-      orgId:        String(org?._id ?? session.user.organizationId),
-      orgName:      (org?.name as string | undefined) ?? '',
+      orgId: String(org?._id ?? session.user.organizationId),
+      orgName: (org?.name as string | undefined) ?? '',
       plan,
+      effectivePlan: entitlements.effectivePlan,
+      billingPlan,
+      billingStatus,
+      billingInterval,
+      currentPeriodEnd: (org?.currentPeriodEnd as string | undefined) ?? null,
+      trialEndsAt: (org?.trialEndsAt as string | undefined) ?? null,
+      isPaymentPastDue: !!org?.isPaymentPastDue,
+      ownerUserId: (org?.ownerUserId as string | undefined) ?? null,
+      ownerEmail: (org?.ownerEmail as string | undefined) ?? null,
+      featureOverrides: (org?.featureOverrides as Record<string, unknown> | undefined) ?? null,
+      hasFullFeatureOverride: featureOverride.fullAccess,
+      enabledFeatureOverrides: featureOverride.enabledFeatures,
+      isOrganizationOwner: !!session.user.isOrganizationOwner,
+      organizationRole: session.user.organizationRole ?? null,
+      stripeConnectStatus: (org?.stripeConnectStatus as string | undefined) ?? 'not_connected',
       clientCount,
-      maxClients:   maxClients === Infinity ? null : maxClients,
-      isAtLimit:    maxClients !== Infinity && clientCount >= maxClients,
-      isNearLimit:  maxClients !== Infinity && clientCount >= maxClients * 0.8,
+      maxClients: maxClients === Infinity ? null : maxClients,
+      isAtLimit: maxClients !== Infinity && clientCount >= maxClients,
+      isNearLimit: maxClients !== Infinity && clientCount >= maxClients * 0.8,
+      canManageBilling: canManageOrganizationBilling({
+        role: session.user.role,
+        organizationRole: session.user.organizationRole,
+        isOrganizationOwner: session.user.isOrganizationOwner,
+      }),
+      canConnectStripe: canManageOrganizationBilling({
+        role: session.user.role,
+        organizationRole: session.user.organizationRole,
+        isOrganizationOwner: session.user.isOrganizationOwner,
+      }) && isStripeConnectConfigured(),
+      portalAvailable: !!org?.stripeCustomerId && isStripeConfigured(),
+      checkoutAvailable: plans.some((item) => item.active && !item.isFree),
+      allowWorkspace: access.allowWorkspace,
+      allowPremiumFeatures: entitlements.allowPremiumFeatures,
+      canAccessReports: entitlements.canAccessReports,
+      canAccessBranches: entitlements.canAccessBranches,
+      canAccessAdmin: entitlements.canAccessAdmin,
+      billingCatalog: plans
+        .filter((item) => item.active && !item.isFree)
+        .map((item) => ({
+          key: item.key,
+          checkoutKey: item.checkoutKey,
+          name: item.name,
+          interval: item.interval,
+          amountLabel: item.amountLabel,
+          isCurrent: billingPlan === item.key && billingInterval === item.interval && (billingStatus === 'active' || billingStatus === 'trialing'),
+        })),
     })
   } catch (err: any) {
     console.error('[GET /api/org]', err)

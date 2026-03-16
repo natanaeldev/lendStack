@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse }           from 'next/server'
+﻿import { NextRequest, NextResponse }           from 'next/server'
 import { ObjectId }                           from 'mongodb'
 import { getDb, isDbConfigured }              from '@/lib/mongodb'
 import { requireMaster, forbiddenResponse }   from '@/lib/orgAuth'
 
-// ─── DELETE /api/admin/users/[id] — remove a sub-user ────────────────────────
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -14,21 +13,23 @@ export async function DELETE(
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const db  = await getDb()
+    const db = await getDb()
     const col = db.collection('users')
+    const organization = await db.collection('organizations').findOne(
+      { _id: session.user.organizationId as any },
+      { projection: { ownerUserId: 1 } },
+    )
 
-    // Resolve _id — users use MongoDB ObjectId
     let targetId: any
     try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
 
-    // Verify target belongs to this org and is not master
     const target = await col.findOne({
-      _id:            targetId,
+      _id: targetId,
       organizationId: session.user.organizationId,
     })
     if (!target)
       return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 })
-    if (target.role === 'master')
+    if (target.role === 'master' || (organization?.ownerUserId != null && String(organization.ownerUserId) === String(target._id)))
       return NextResponse.json({ error: 'No se puede eliminar la cuenta maestra.' }, { status: 403 })
 
     await col.deleteOne({ _id: targetId })
@@ -39,7 +40,6 @@ export async function DELETE(
   }
 }
 
-// ─── PATCH /api/admin/users/[id] — reset a sub-user's password ───────────────
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -61,13 +61,12 @@ export async function PATCH(
     }
 
     if (role !== undefined) {
-      const ALLOWED = ['user', 'operator', 'manager']
-      if (!ALLOWED.includes(role))
+      const allowed = ['user', 'operator', 'manager']
+      if (!allowed.includes(role))
         return NextResponse.json({ error: 'Rol inválido.' }, { status: 400 })
       $set.role = role
     }
 
-    // allowedBranchIds: null = all branches; string[] = restricted to those
     if (allowedBranchIds !== undefined) {
       $set.allowedBranchIds = Array.isArray(allowedBranchIds) ? allowedBranchIds : null
     }
@@ -75,14 +74,21 @@ export async function PATCH(
     if (Object.keys($set).length === 0)
       return NextResponse.json({ error: 'Sin cambios.' }, { status: 400 })
 
-    // Resolve _id — users use MongoDB ObjectId
     let targetId: any
     try { targetId = new ObjectId(params.id) } catch { targetId = params.id }
 
-    const db  = await getDb()
+    const db = await getDb()
+    const organization = await db.collection('organizations').findOne(
+      { _id: session.user.organizationId as any },
+      { projection: { ownerUserId: 1 } },
+    )
+    const ownerId = organization?.ownerUserId != null ? String(organization.ownerUserId) : null
+    if (ownerId && ownerId === String(targetId)) {
+      return NextResponse.json({ error: 'No se puede modificar la cuenta maestra.' }, { status: 403 })
+    }
     const res = await db.collection('users').updateOne(
       { _id: targetId, organizationId: session.user.organizationId, role: { $ne: 'master' } },
-      { $set }
+      { $set },
     )
     if (res.matchedCount === 0)
       return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 })

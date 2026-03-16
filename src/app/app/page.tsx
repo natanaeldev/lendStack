@@ -17,6 +17,8 @@ import ToastProvider, { showToast } from '@/components/Toast'
 import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
 import MoreScreen from '@/components/app-shell/MoreScreen'
 import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
+import { canAccessTab } from '@/lib/appAccess'
+import { isAdminTab } from '@/lib/premiumAccess'
 import {
   calculateCarritoLoan,
   calculateLoan,
@@ -33,22 +35,22 @@ import {
 export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports' | 'payments' | 'more' | 'admin'
 
 const DESKTOP_TABS: { id: Tab; label: string; icon: string; mobileLabel: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠', mobileLabel: 'Inicio' },
-  { id: 'loans', label: 'Préstamos', icon: '📋', mobileLabel: 'Préstamos' },
-  { id: 'clients', label: 'Clientes', icon: '👥', mobileLabel: 'Clientes' },
-  { id: 'payments', label: 'Pagos', icon: '💵', mobileLabel: 'Pagos' },
-  { id: 'branches', label: 'Sucursales', icon: '🏢', mobileLabel: 'Sucursales' },
-  { id: 'reports', label: 'Reportes', icon: '📑', mobileLabel: 'Reportes' },
-  { id: 'admin', label: 'Admin', icon: '⚙️', mobileLabel: 'Admin' },
-  { id: 'calculator', label: 'Calculadora', icon: '🧮', mobileLabel: 'Calcular' },
+  { id: 'dashboard', label: 'Dashboard', icon: '\u{1F3E0}', mobileLabel: 'Inicio' },
+  { id: 'loans', label: 'Préstamos', icon: '\u{1F4CB}', mobileLabel: 'Préstamos' },
+  { id: 'clients', label: 'Clientes', icon: '\u{1F465}', mobileLabel: 'Clientes' },
+  { id: 'payments', label: 'Pagos', icon: '\u{1F4B5}', mobileLabel: 'Pagos' },
+  { id: 'branches', label: 'Sucursales', icon: '\u{1F3E2}', mobileLabel: 'Sucursales' },
+  { id: 'reports', label: 'Reportes', icon: '\u{1F4D1}', mobileLabel: 'Reportes' },
+  { id: 'admin', label: 'Admin', icon: '\u2699\uFE0F', mobileLabel: 'Admin' },
+  { id: 'calculator', label: 'Calculadora', icon: '\u{1F9EE}', mobileLabel: 'Calcular' },
 ]
 
 const MOBILE_TABS: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: '🏠' },
-  { id: 'loans', label: 'Préstamos', mobileLabel: 'Préstamos', icon: '📋' },
-  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: '👥' },
-  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: '💵' },
-  { id: 'more', label: 'Más', mobileLabel: 'Más', icon: '☰' },
+  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: '\u{1F3E0}' },
+  { id: 'loans', label: 'Préstamos', mobileLabel: 'Préstamos', icon: '\u{1F4CB}' },
+  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: '\u{1F465}' },
+  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: '\u{1F4B5}' },
+  { id: 'more', label: 'Más', mobileLabel: 'Más', icon: '\u2630' },
 ]
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -65,7 +67,14 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
 
 export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
   const { data: session } = useSession()
-  const isMaster = session?.user?.role === 'master'
+  const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
+  const [dashboardSearch, setDashboardSearch] = useState('')
+  const [orgAccess, setOrgAccess] = useState<{
+    allowPremiumFeatures: boolean
+    canAccessReports: boolean
+    canAccessBranches: boolean
+    canAccessAdmin: boolean
+  } | null>(null)
 
   const [tab, setTab] = useState<Tab>(initialTab)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
@@ -88,8 +97,28 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [carritoTerm, setCarritoTerm] = useState(4)
   const [carritoPayments, setCarritoPayments] = useState(4)
   const [carritoFreq, setCarritoFreq] = useState<CarritoFrequency>('weekly')
+  const canUsePremiumFeatures = orgAccess?.allowPremiumFeatures ?? false
+  const canUseReports = orgAccess?.canAccessReports ?? false
+  const canUseBranches = orgAccess?.canAccessBranches ?? false
+  const canUseAdminFeatures = orgAccess?.canAccessAdmin ?? false
+
+  const goToBillingUpgrade = useCallback(() => {
+    window.location.href = '/app/billing?required=premium'
+  }, [])
 
   const changeTab = useCallback((newTab: Tab) => {
+    if (isAdminTab(newTab) && orgAccess && !orgAccess.canAccessAdmin) {
+      window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
+      return
+    }
+    if (newTab === 'reports' && orgAccess && !orgAccess.canAccessReports) {
+      goToBillingUpgrade()
+      return
+    }
+    if (newTab === 'branches' && orgAccess && !orgAccess.canAccessBranches) {
+      goToBillingUpgrade()
+      return
+    }
     setTab(newTab)
     if (typeof window !== 'undefined') {
       const paths: Record<Tab, string> = {
@@ -105,9 +134,38 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       }
       window.history.pushState(null, '', paths[newTab])
     }
-  }, [])
+  }, [goToBillingUpgrade, orgAccess])
 
   useEffect(() => {
+    if (!session?.user?.organizationId) return
+    fetch('/api/org', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (!json?.error) {
+          setOrgAccess({
+            allowPremiumFeatures: !!json.allowPremiumFeatures,
+            canAccessReports: !!json.canAccessReports,
+            canAccessBranches: !!json.canAccessBranches,
+            canAccessAdmin: !!json.canAccessAdmin,
+          })
+        }
+      })
+      .catch(() => null)
+  }, [session?.user?.organizationId])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const clientId = params.get('clientId')
+    const loanId = params.get('loanId')
+    if (clientId) {
+      setSelectedClientId(clientId)
+      setTab('clients')
+    }
+    if (loanId) {
+      setSelectedLoanId(loanId)
+      setTab('loans')
+    }
+
     const onPopState = () => {
       const path = window.location.pathname
       if (path.startsWith('/app/calculadora')) setTab('calculator')
@@ -123,6 +181,21 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  useEffect(() => {
+    if (!orgAccess) return
+    if (isAdminTab(tab) && !orgAccess.canAccessAdmin) {
+      window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
+      return
+    }
+    if (tab === 'reports' && !orgAccess.canAccessReports) {
+      goToBillingUpgrade()
+      return
+    }
+    if (tab === 'branches' && !orgAccess.canAccessBranches) {
+      goToBillingUpgrade()
+    }
+  }, [goToBillingUpgrade, orgAccess, tab])
 
   useEffect(() => {
     const onGotoDashboard = () => changeTab('dashboard')
@@ -164,17 +237,17 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     setProfile(nextParams.profile)
     setCurrency(nextParams.currency)
     changeTab('calculator')
-    showToast('📂', 'Simulación de cliente cargada')
+    showToast('\u{1F4C2}', 'Simulación de cliente cargada')
   }, [changeTab])
 
   const handleCurrencyChange = (nextCurrency: Currency) => {
     setCurrency(nextCurrency)
-    showToast('💱', `Moneda cambiada a ${nextCurrency}`)
+    showToast('\u{1F4B1}', `Moneda cambiada a ${nextCurrency}`)
   }
 
   const handleRateModeChange = (nextMode: RateMode) => {
     setRateMode(nextMode)
-    showToast(nextMode === 'monthly' ? '🗓️' : '📆', nextMode === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
+    showToast(nextMode === 'monthly' ? '\u{1F5D3}\uFE0F' : '\u{1F4C6}', nextMode === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
   }
 
   return (
@@ -191,22 +264,15 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             <div className="ml-auto flex items-center gap-3">
               <input
                 type="text"
+                value={dashboardSearch}
+                onChange={(event) => setDashboardSearch(event.target.value)}
                 placeholder="Buscar clientes, préstamos o pagos..."
                 className="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
               />
-              <button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500" aria-label="Notificaciones">🔔</button>
-              <button
-                onClick={() => setShowPayment(true)}
-                title="Registrar pago de cuota"
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
-                style={{ background: 'linear-gradient(135deg,#1565C0,#0D2B5E)', boxShadow: '0 2px 8px rgba(21,101,192,.4)' }}
-              >
-                +
-              </button>
             </div>
           </div>
           <div className="flex items-center overflow-x-auto">
-            {DESKTOP_TABS.filter((item) => item.id !== 'admin' || isMaster).map((item) => (
+            {DESKTOP_TABS.filter((item) => canAccessTab(item.id, { canAccessReports: canUseReports, canAccessBranches: canUseBranches, canAccessAdmin: canUseAdminFeatures })).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
@@ -263,6 +329,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 
         {tab === 'dashboard' && (
           <Dashboard
+            externalSearch={dashboardSearch}
+            onExternalSearchChange={setDashboardSearch}
             onViewProfile={(id) => {
               setSelectedClientId(id)
               changeTab('clients')
@@ -334,16 +402,17 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             userName={session?.user?.name}
             userEmail={session?.user?.email}
             onGoCalculator={() => changeTab('calculator')}
-            onGoBranches={() => changeTab('branches')}
-            onGoReports={() => changeTab('reports')}
-            onGoNotifications={() => showToast('🔔', 'Centro de notificaciones próximamente')}
-            onGoSettings={() => showToast('⚙️', 'Configuración avanzada próximamente')}
-            onGoHelp={() => showToast('🆘', 'Centro de ayuda próximamente')}
+            onGoBranches={() => (canUseBranches ? changeTab('branches') : goToBillingUpgrade())}
+            onGoReports={() => (canUseReports ? changeTab('reports') : goToBillingUpgrade())}
+            onGoAdmin={() => (canUseAdminFeatures ? changeTab('admin') : window.location.assign('/app'))}
+            onGoNotifications={() => { window.location.href = '/app/notificaciones' }}
+            onGoSettings={() => showToast('\u2699\uFE0F', 'Configuración avanzada próximamente')}
+            onGoHelp={() => showToast('\u{1F198}', 'Centro de ayuda próximamente')}
             onLogoutEvent={() => window.dispatchEvent(new Event('lendstack:logout'))}
           />
         )}
 
-        {tab === 'admin' && !isMaster && (
+        {tab === 'admin' && !canUseAdminFeatures && (
           <Dashboard
             onViewProfile={(id) => {
               setSelectedClientId(id)
@@ -352,7 +421,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
-        {tab === 'admin' && isMaster && (
+        {tab === 'admin' && canUseAdminFeatures && (
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
               <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Administración</p>
@@ -360,10 +429,10 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               <p className="text-sm text-slate-500 mt-2">Gestioná usuarios, sucursales y políticas operativas desde una sola vista.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <a href="/admin/users" className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#92400E' }}>
-                  👥 Configurar usuarios
+                  {'\u{1F465}'} Configurar usuarios
                 </a>
                 <a href="/admin/branches" className="min-h-12 rounded-xl border border-sky-200 bg-sky-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#0369A1' }}>
-                  🏢 Configurar sucursales
+                  {'\u{1F3E2}'} Configurar sucursales
                 </a>
               </div>
             </div>

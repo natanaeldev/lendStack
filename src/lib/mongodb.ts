@@ -2,6 +2,8 @@ import { MongoClient, Db } from 'mongodb'
 
 /** True when MONGODB_URI env-var is present */
 export const isDbConfigured = () => !!process.env.MONGODB_URI
+const LEGACY_DB_NAME = ['j', 'v', 'f'].join('')
+export const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || LEGACY_DB_NAME
 
 // Cache the client promise so we don't open a new connection on every
 // serverless invocation during development (HMR-safe via globalThis).
@@ -29,8 +31,12 @@ function getClientPromise(): Promise<MongoClient> {
   return _clientPromise
 }
 
-/** Returns the 'jvf' database handle */
+export async function getMongoClient(): Promise<MongoClient> {
+  return getClientPromise()
+}
+
+/** Returns the configured application database handle. */
 export async function getDb(): Promise<Db> {
-  const client = await getClientPromise()
-  return client.db('jvf')
+  const client = await getMongoClient()
+  return client.db(MONGODB_DB_NAME)
 }

@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse }           from 'next/server'
+﻿import { NextRequest, NextResponse }           from 'next/server'
 import { getDb, isDbConfigured }              from '@/lib/mongodb'
 import { requireMaster, forbiddenResponse }   from '@/lib/orgAuth'
 import bcrypt                                 from 'bcryptjs'
 
-// ─── GET /api/admin/users — list users in this org ────────────────────────────
 export async function GET() {
   const session = await requireMaster()
   if (!session) return forbiddenResponse()
@@ -11,23 +10,29 @@ export async function GET() {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 })
 
   try {
-    const db    = await getDb()
+    const db = await getDb()
+    const organization = await db.collection('organizations').findOne(
+      { _id: session.user.organizationId as any },
+      { projection: { ownerUserId: 1 } },
+    )
     const users = await db.collection('users')
       .find(
         { organizationId: session.user.organizationId },
-        { projection: { passwordHash: 0 } }
+        { projection: { passwordHash: 0 } },
       )
       .sort({ createdAt: 1 })
       .toArray()
 
     return NextResponse.json({
-      users: users.map(u => ({
-        id:               String(u._id),
-        name:             u.name             ?? '',
-        email:            u.email            ?? '',
-        role:             u.role             ?? 'user',
-        createdAt:        u.createdAt        ?? '',
-        allowedBranchIds: u.allowedBranchIds ?? null,  // null = all branches
+      users: users.map((user) => ({
+        id: String(user._id),
+        name: user.name ?? '',
+        email: user.email ?? '',
+        role: organization?.ownerUserId != null && String(organization.ownerUserId) === String(user._id)
+          ? 'master'
+          : user.role ?? 'user',
+        createdAt: user.createdAt ?? '',
+        allowedBranchIds: user.allowedBranchIds ?? null,
       })),
     })
   } catch (err: any) {
@@ -36,7 +41,6 @@ export async function GET() {
   }
 }
 
-// ─── POST /api/admin/users — create sub-user in this org ──────────────────────
 export async function POST(req: NextRequest) {
   const session = await requireMaster()
   if (!session) return forbiddenResponse()
@@ -51,15 +55,11 @@ export async function POST(req: NextRequest) {
     if (!password || password.length < 8)
       return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
 
-    // Only allow sub-user roles — never 'master'
-    const ALLOWED_ROLES = ['user', 'operator', 'manager']
-    const role = ALLOWED_ROLES.includes(rawRole) ? rawRole : 'user'
+    const allowedRoles = ['user', 'operator', 'manager']
+    const role = allowedRoles.includes(rawRole) ? rawRole : 'user'
+    const branchAccess: string[] | null = Array.isArray(allowedBranchIds) ? allowedBranchIds : null
 
-    // allowedBranchIds: null = all branches, string[] = restricted to those
-    const branchAccess: string[] | null =
-      Array.isArray(allowedBranchIds) ? allowedBranchIds : null
-
-    const db  = await getDb()
+    const db = await getDb()
     const col = db.collection('users')
 
     const exists = await col.findOne({ email: email.trim().toLowerCase() })
@@ -67,26 +67,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ya existe un usuario con ese email.' }, { status: 409 })
 
     const passwordHash = await bcrypt.hash(password, 12)
+    const createdAt = new Date().toISOString()
 
     const result = await col.insertOne({
-      name:             name?.trim() || 'Usuario',
-      email:            email.trim().toLowerCase(),
+      name: name?.trim() || 'Usuario',
+      email: email.trim().toLowerCase(),
       passwordHash,
       role,
-      organizationId:   session.user.organizationId,
-      createdAt:        new Date().toISOString(),
-      createdBy:        session.user.id,
+      organizationId: session.user.organizationId,
+      createdAt,
+      createdBy: session.user.id,
       allowedBranchIds: branchAccess,
     })
 
     return NextResponse.json({
       success: true,
       user: {
-        id:               result.insertedId.toString(),
-        name:             name?.trim() || 'Usuario',
-        email:            email.trim().toLowerCase(),
+        id: result.insertedId.toString(),
+        name: name?.trim() || 'Usuario',
+        email: email.trim().toLowerCase(),
         role,
-        createdAt:        new Date().toISOString(),
+        createdAt,
         allowedBranchIds: branchAccess,
       },
     })

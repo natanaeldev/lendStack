@@ -2,7 +2,7 @@
 import { randomUUID }                         from 'crypto'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
-import { applyPayment, computeDelinquency }  from '@/lib/installmentEngine'
+import { applyPayment, computeDelinquency, computeLoanContractBalance }  from '@/lib/installmentEngine'
 import type { InstallmentDoc }               from '@/lib/loanDomain'
 
 async function getLinkedLoan(db: any, orgId: string, clientId: string, clientDoc?: any) {
@@ -78,7 +78,11 @@ async function reverseGlobalPayment(db: any, orgId: string, loanId: string, paym
   const newPaidTotal = Math.max((loan.paidTotal ?? 0) - payment.amount, 0)
   const newPaidPrin  = Math.max((loan.paidPrincipal ?? 0) - (payment.appliedPrincipal ?? 0), 0)
   const newPaidInt   = Math.max((loan.paidInterest ?? 0) - (payment.appliedInterest ?? 0), 0)
-  const newRemaining = Math.min((loan.remainingBalance ?? 0) + (payment.appliedPrincipal ?? 0), loan.amount)
+  const newRemaining = computeLoanContractBalance({
+    totalPayment: loan.totalPayment,
+    paidTotal: Math.max((loan.paidTotal ?? 0) - payment.amount, 0),
+    remainingBalance: loan.remainingBalance,
+  } as any, installments)
 
   let newStatus = loan.status
   if (loan.status === 'paid_off' && newRemaining > 0.005) {
@@ -160,7 +164,7 @@ export async function POST(
       if (process.env.BLOB_READ_WRITE_TOKEN) {
         const { put } = await import('@vercel/blob')
         const blob = await put(
-          `jvf-comprobantes/${params.id}/${Date.now()}-comprobante`,
+          `lendstack-comprobantes/${params.id}/${Date.now()}-comprobante`,
           comprobanteFile,
           { access: 'public' }
         )
@@ -224,6 +228,19 @@ export async function POST(
         .sort({ installmentNumber: 1 })
         .toArray()
       const installments = rawInstallments as unknown as InstallmentDoc[]
+      const outstandingBeforePayment = computeLoanContractBalance(loan as any, installments)
+
+      if (amount > outstandingBeforePayment + 0.005) {
+        await db.collection('clients').updateOne(
+          { _id: params.id as any, organizationId: orgId },
+          { $pull: { payments: { id: payment.id } } } as any
+        )
+        return NextResponse.json(
+          { error: `El monto (${amount}) supera el saldo pendiente (${outstandingBeforePayment.toFixed(2)})` },
+          { status: 400 },
+        )
+      }
+
       const applied      = applyPayment(installments, amount)
 
       const appliedPrincipal = rawInstallments.length > 0
@@ -278,7 +295,11 @@ export async function POST(
       const newPaidTotal = (loan.paidTotal ?? 0) + amount
       const newPaidPrin  = (loan.paidPrincipal ?? 0) + appliedPrincipal
       const newPaidInt   = (loan.paidInterest ?? 0) + appliedInterest
-      const newRemaining = Math.max((loan.remainingBalance ?? loan.amount) - appliedPrincipal, 0)
+      const newRemaining = computeLoanContractBalance({
+        totalPayment: loan.totalPayment,
+        paidTotal: newPaidTotal,
+        remainingBalance: loan.remainingBalance,
+      } as any, applied.updatedInstallments)
       const delinquency  = computeDelinquency(applied.updatedInstallments)
 
       let newStatus = loan.status

@@ -67,7 +67,7 @@ export default function PrestamoFormCarrito({
 }) {
   return (
     <div className="space-y-4">
-      <Section title="Condiciones del prestamo" subtitle="Configura el capital y la estructura general del carrito.">
+      <Section title="Condiciones del préstamo" subtitle="Configura el capital y la estructura general del producto.">
         <Field label="Monto" hint="Capital principal a desembolsar.">
           <input type="number" min="0" step="100" value={amount} onChange={(event) => onChange({ amount: Number(event.target.value) })} className={inputClassName} />
         </Field>
@@ -80,7 +80,7 @@ export default function PrestamoFormCarrito({
             ))}
           </select>
         </Field>
-        <Field label="Tasa plana (%)" hint="Interés total plano aplicado al producto.">
+        <Field label="Tasa total sobre capital (%)" hint="Se aplica una sola vez al capital original. La frecuencia solo cambia fechas de cobro, no el interés total.">
           <input type="number" min="0" step="0.5" value={Number((flatRate * 100).toFixed(2))} onChange={(event) => onChange({ carritoFlatRate: Number(event.target.value) / 100 })} className={inputClassName} />
         </Field>
         <Field label="Frecuencia">
@@ -92,7 +92,7 @@ export default function PrestamoFormCarrito({
       </Section>
 
       <Section title="Cobro" subtitle="Ajusta plazo y número de cuotas según la operación real.">
-        <Field label={`Plazo (${frequency === 'daily' ? 'días' : 'semanas'})`} hint="Duración total del producto.">
+        <Field label={`Plazo operativo (${frequency === 'daily' ? 'días' : 'semanas'})`} hint="Duración total del producto para programar vencimientos.">
           <input type="number" min="1" step="1" value={term} onChange={(event) => onChange({ carritoTerm: Number(event.target.value) })} className={inputClassName} />
         </Field>
         <Field label="Cuotas" hint="Cantidad de pagos esperados durante el plazo.">
