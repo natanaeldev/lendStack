@@ -1,8 +1,5 @@
-// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
 import { deriveEffectivePlan, getBillingAccess, normalizeBillingStatus, type BillingPlanKey, type BillingStatus } from './billingCore.ts'
-// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
 import { canAccessOrganizationAdmin, hasOrganizationScopedAccess, type OrganizationPermissionIdentity } from './organizationAccess.ts'
-// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
 import { hasOrganizationFeatureAccess, type OrganizationFeatureOverride } from './organizationFeatures.ts'
 
 export interface AppEntitlementsInput extends OrganizationPermissionIdentity {
