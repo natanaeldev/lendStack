@@ -430,6 +430,12 @@ export async function processStripeWebhookEvent(
     if (organizationId) {
       const requestedPlan = (object?.metadata?.planKey as BillingPlanKey | undefined) ?? 'pro'
       const interval = object?.metadata?.interval === 'year' ? 'year' : 'month'
+      console.info('[billing webhook sync]', {
+        eventType: event.type,
+        organizationId: String(organizationId),
+        billingPlan: requestedPlan,
+        billingInterval: interval,
+      })
       await repository.updateOrganization(String(organizationId), {
         stripeCustomerId: object?.customer ? String(object.customer) : null,
         stripeSubscriptionId: object?.subscription ? String(object.subscription) : null,
@@ -451,6 +457,13 @@ export async function processStripeWebhookEvent(
     )
     if (organization) {
       const patch = deriveSubscriptionPatch(object, plans, organization.billingPlan ?? organization.plan ?? 'starter')
+      console.info('[billing webhook sync]', {
+        eventType: event.type,
+        organizationId: organization._id,
+        billingPlan: patch.billingPlan,
+        billingInterval: patch.billingInterval,
+        billingStatus: patch.billingStatus,
+      })
       await repository.updateOrganization(organization._id, patch)
     }
     return { duplicate: false }
@@ -466,6 +479,13 @@ export async function processStripeWebhookEvent(
         organization.billingPlan ?? organization.plan ?? 'starter',
         organization.billingInterval ?? null,
       )
+      console.info('[billing webhook sync]', {
+        eventType: event.type,
+        organizationId: organization._id,
+        billingPlan: invoicePlan.billingPlan,
+        billingInterval: invoicePlan.billingInterval,
+        billingStatus: status,
+      })
       await repository.updateOrganization(organization._id, {
         billingStatus: status,
         billingPlan: invoicePlan.billingPlan,

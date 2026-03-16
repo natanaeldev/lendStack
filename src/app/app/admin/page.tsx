@@ -10,9 +10,12 @@ export default async function AdminPage() {
     redirect('/login')
   }
 
-  const access = await getOrganizationBillingAccess(session.user.organizationId)
+  const access = await getOrganizationBillingAccess(session.user.organizationId, session.user.role)
   if (!access.allowPremiumFeatures) {
     redirect('/app/billing?required=premium')
+  }
+  if (!access.canAccessAdmin) {
+    redirect('/app')
   }
 
   return <HomeWithTab initialTab="admin" />

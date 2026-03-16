@@ -10,8 +10,8 @@ export default async function SucursalesPage() {
     redirect('/login')
   }
 
-  const access = await getOrganizationBillingAccess(session.user.organizationId)
-  if (!access.allowPremiumFeatures) {
+  const access = await getOrganizationBillingAccess(session.user.organizationId, session.user.role)
+  if (!access.canAccessBranches) {
     redirect('/app/billing?required=premium')
   }
 

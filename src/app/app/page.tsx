@@ -17,7 +17,8 @@ import ToastProvider, { showToast } from '@/components/Toast'
 import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
 import MoreScreen from '@/components/app-shell/MoreScreen'
 import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
-import { isPremiumTab } from '@/lib/premiumAccess'
+import { canAccessTab } from '@/lib/appAccess'
+import { isAdminTab, isPremiumTab } from '@/lib/premiumAccess'
 import {
   calculateCarritoLoan,
   calculateLoan,
@@ -68,7 +69,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const { data: session } = useSession()
   const isMaster = session?.user?.role === 'master'
   const [dashboardSearch, setDashboardSearch] = useState('')
-  const [orgAccess, setOrgAccess] = useState<{ allowPremiumFeatures: boolean } | null>(null)
+  const [orgAccess, setOrgAccess] = useState<{ allowPremiumFeatures: boolean; canAccessAdmin: boolean } | null>(null)
 
   const [tab, setTab] = useState<Tab>(initialTab)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
@@ -92,11 +93,16 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [carritoPayments, setCarritoPayments] = useState(4)
   const [carritoFreq, setCarritoFreq] = useState<CarritoFrequency>('weekly')
   const canUsePremiumFeatures = orgAccess?.allowPremiumFeatures ?? false
+  const canUseAdminFeatures = orgAccess?.canAccessAdmin ?? false
   const goToBillingUpgrade = useCallback(() => {
     window.location.href = '/app/billing?required=premium'
   }, [])
 
   const changeTab = useCallback((newTab: Tab) => {
+    if (isAdminTab(newTab) && orgAccess && !orgAccess.canAccessAdmin) {
+      window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
+      return
+    }
     if (isPremiumTab(newTab) && orgAccess && !orgAccess.allowPremiumFeatures) {
       goToBillingUpgrade()
       return
@@ -120,12 +126,13 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
 
   useEffect(() => {
     if (!session?.user?.organizationId) return
-    fetch('/api/org')
+    fetch('/api/org', { cache: 'no-store' })
       .then((response) => response.json())
       .then((json) => {
         if (!json?.error) {
           setOrgAccess({
             allowPremiumFeatures: !!json.allowPremiumFeatures,
+            canAccessAdmin: !!json.canAccessAdmin,
           })
         }
       })
@@ -162,7 +169,12 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   }, [])
 
   useEffect(() => {
-    if (orgAccess && !orgAccess.allowPremiumFeatures && isPremiumTab(tab)) {
+    if (!orgAccess) return
+    if (isAdminTab(tab) && !orgAccess.canAccessAdmin) {
+      window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
+      return
+    }
+    if (isPremiumTab(tab) && !orgAccess.allowPremiumFeatures) {
       goToBillingUpgrade()
     }
   }, [goToBillingUpgrade, orgAccess, tab])
@@ -242,7 +254,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             </div>
           </div>
           <div className="flex items-center overflow-x-auto">
-            {DESKTOP_TABS.filter((item) => (!isPremiumTab(item.id) || canUsePremiumFeatures) && (item.id !== 'admin' || isMaster)).map((item) => (
+            {DESKTOP_TABS.filter((item) => canAccessTab(item.id, { allowPremiumFeatures: canUsePremiumFeatures, canAccessAdmin: canUseAdminFeatures })).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
@@ -381,7 +393,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
-        {tab === 'admin' && !isMaster && (
+        {tab === 'admin' && !canUseAdminFeatures && (
           <Dashboard
             onViewProfile={(id) => {
               setSelectedClientId(id)
@@ -390,7 +402,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
-        {tab === 'admin' && isMaster && (
+        {tab === 'admin' && canUseAdminFeatures && (
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
               <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Administración</p>

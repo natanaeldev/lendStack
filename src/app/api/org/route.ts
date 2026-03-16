@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { canManageOrganizationBilling, deriveEffectivePlan, getBillingAccess } from '@/lib/billingCore'
+import { deriveAppEntitlements } from '@/lib/appAccess'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { getDb, isDbConfigured } from '@/lib/mongodb'
 import { getBillingPlans, isStripeConfigured, isStripeConnectConfigured } from '@/lib/stripeBilling'
@@ -21,10 +22,16 @@ export async function GET() {
     })
 
     const billingStatus = (org?.billingStatus as string | undefined) ?? 'active'
-    const access = getBillingAccess(billingStatus as any)
     const storedPlan = (org?.plan as string | undefined) ?? 'starter'
     const billingPlan = (org?.billingPlan as string | undefined) ?? storedPlan
     const billingInterval = (org?.billingInterval as string | undefined) ?? null
+    const access = getBillingAccess(billingStatus as any)
+    const entitlements = deriveAppEntitlements({
+      role: session.user.role,
+      billingStatus,
+      billingPlan,
+      storedPlan,
+    })
     const plan = deriveEffectivePlan(billingPlan as any, billingStatus as any)
     const plans = getBillingPlans()
 
@@ -43,6 +50,7 @@ export async function GET() {
       orgId: String(org?._id ?? session.user.organizationId),
       orgName: (org?.name as string | undefined) ?? '',
       plan,
+      effectivePlan: entitlements.effectivePlan,
       billingPlan,
       billingStatus,
       billingInterval,
@@ -59,7 +67,10 @@ export async function GET() {
       portalAvailable: !!org?.stripeCustomerId && isStripeConfigured(),
       checkoutAvailable: plans.some((item) => item.active && !item.isFree),
       allowWorkspace: access.allowWorkspace,
-      allowPremiumFeatures: access.allowPremiumFeatures,
+      allowPremiumFeatures: entitlements.allowPremiumFeatures,
+      canAccessReports: entitlements.canAccessReports,
+      canAccessBranches: entitlements.canAccessBranches,
+      canAccessAdmin: entitlements.canAccessAdmin,
       billingCatalog: plans
         .filter((item) => item.active && !item.isFree)
         .map((item) => ({

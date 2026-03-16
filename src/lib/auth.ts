@@ -46,17 +46,23 @@ export const authOptions: NextAuthOptions = {
         token.role           = (user as any).role           ?? 'user'
         token.organizationId = (user as any).organizationId ?? 'org_001'
       }
-      // Back-fill role/organizationId for tokens issued before these fields were added
-      if ((!token.role || !token.organizationId) && token.id && isDbConfigured()) {
+      // Re-sync role and organization on every JWT refresh so nav and authorization
+      // do not drift after admin updates or onboarding changes.
+      if (token.id && isDbConfigured()) {
         try {
           const db     = await getDb()
-          const oid    = new ObjectId(token.id as string)
-          const dbUser = await db.collection('users').findOne({ _id: oid })
+          let dbUser = null
+          try {
+            const oid = new ObjectId(token.id as string)
+            dbUser = await db.collection('users').findOne({ _id: oid })
+          } catch {
+            dbUser = await db.collection('users').findOne({ _id: token.id as any })
+          }
           if (dbUser) {
             token.role           = dbUser.role           ?? 'user'
             token.organizationId = dbUser.organizationId ?? 'org_001'
           }
-        } catch { /* silently skip if id is not a valid ObjectId */ }
+        } catch { /* silently skip when session refresh cannot reach the user document */ }
       }
       return token
     },

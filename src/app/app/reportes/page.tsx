@@ -10,8 +10,8 @@ export default async function ReportesPage() {
     redirect('/login')
   }
 
-  const access = await getOrganizationBillingAccess(session.user.organizationId)
-  if (!access.allowPremiumFeatures) {
+  const access = await getOrganizationBillingAccess(session.user.organizationId, session.user.role)
+  if (!access.canAccessReports) {
     redirect('/app/billing?required=premium')
   }
 
