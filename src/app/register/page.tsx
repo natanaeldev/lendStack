@@ -183,7 +183,7 @@ function RegisterPageContent() {
         }
         if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding' || data.errorCode === 'conflict') {
           writePendingDraft(pendingDraft)
-          router.push(`/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create`)
+          router.push(`/login?next=${encodeURIComponent('/billing/resume')}&reason=org-create`)
           return
         }
 
