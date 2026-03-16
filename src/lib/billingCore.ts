@@ -1,4 +1,3 @@
-// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
 import { canManageOrganizationBillingAccess, type OrganizationPermissionIdentity } from './organizationAccess.ts'
 
 export type BillingPlanKey = 'starter' | 'pro' | 'enterprise'
