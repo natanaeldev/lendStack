@@ -3,6 +3,7 @@ import { canManageOrganizationBilling, deriveEffectivePlan, getBillingAccess } f
 import { deriveAppEntitlements } from '@/lib/appAccess'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
 import { getDb, isDbConfigured } from '@/lib/mongodb'
+import { deriveOrganizationFeatureOverride } from '@/lib/organizationFeatures'
 import { getBillingPlans, isStripeConfigured, isStripeConnectConfigured } from '@/lib/stripeBilling'
 
 export const dynamic = 'force-dynamic'
@@ -26,6 +27,7 @@ export async function GET() {
     const billingPlan = (org?.billingPlan as string | undefined) ?? storedPlan
     const billingInterval = (org?.billingInterval as string | undefined) ?? null
     const access = getBillingAccess(billingStatus as any)
+    const featureOverride = deriveOrganizationFeatureOverride(org as any)
     const entitlements = deriveAppEntitlements({
       role: session.user.role,
       organizationRole: session.user.organizationRole,
@@ -33,6 +35,7 @@ export async function GET() {
       billingStatus,
       billingPlan,
       storedPlan,
+      featureOverride,
     })
     const plan = deriveEffectivePlan(billingPlan as any, billingStatus as any)
     const plans = getBillingPlans()
@@ -61,6 +64,9 @@ export async function GET() {
       isPaymentPastDue: !!org?.isPaymentPastDue,
       ownerUserId: (org?.ownerUserId as string | undefined) ?? null,
       ownerEmail: (org?.ownerEmail as string | undefined) ?? null,
+      featureOverrides: (org?.featureOverrides as Record<string, unknown> | undefined) ?? null,
+      hasFullFeatureOverride: featureOverride.fullAccess,
+      enabledFeatureOverrides: featureOverride.enabledFeatures,
       isOrganizationOwner: !!session.user.isOrganizationOwner,
       organizationRole: session.user.organizationRole ?? null,
       stripeConnectStatus: (org?.stripeConnectStatus as string | undefined) ?? 'not_connected',

@@ -18,7 +18,7 @@ import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
 import MoreScreen from '@/components/app-shell/MoreScreen'
 import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
 import { canAccessTab } from '@/lib/appAccess'
-import { isAdminTab, isPremiumTab } from '@/lib/premiumAccess'
+import { isAdminTab } from '@/lib/premiumAccess'
 import {
   calculateCarritoLoan,
   calculateLoan,
@@ -69,7 +69,12 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const { data: session } = useSession()
   const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
   const [dashboardSearch, setDashboardSearch] = useState('')
-  const [orgAccess, setOrgAccess] = useState<{ allowPremiumFeatures: boolean; canAccessAdmin: boolean } | null>(null)
+  const [orgAccess, setOrgAccess] = useState<{
+    allowPremiumFeatures: boolean
+    canAccessReports: boolean
+    canAccessBranches: boolean
+    canAccessAdmin: boolean
+  } | null>(null)
 
   const [tab, setTab] = useState<Tab>(initialTab)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
@@ -93,6 +98,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [carritoPayments, setCarritoPayments] = useState(4)
   const [carritoFreq, setCarritoFreq] = useState<CarritoFrequency>('weekly')
   const canUsePremiumFeatures = orgAccess?.allowPremiumFeatures ?? false
+  const canUseReports = orgAccess?.canAccessReports ?? false
+  const canUseBranches = orgAccess?.canAccessBranches ?? false
   const canUseAdminFeatures = orgAccess?.canAccessAdmin ?? false
 
   const goToBillingUpgrade = useCallback(() => {
@@ -104,7 +111,11 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
       return
     }
-    if (isPremiumTab(newTab) && orgAccess && !orgAccess.allowPremiumFeatures) {
+    if (newTab === 'reports' && orgAccess && !orgAccess.canAccessReports) {
+      goToBillingUpgrade()
+      return
+    }
+    if (newTab === 'branches' && orgAccess && !orgAccess.canAccessBranches) {
       goToBillingUpgrade()
       return
     }
@@ -133,6 +144,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
         if (!json?.error) {
           setOrgAccess({
             allowPremiumFeatures: !!json.allowPremiumFeatures,
+            canAccessReports: !!json.canAccessReports,
+            canAccessBranches: !!json.canAccessBranches,
             canAccessAdmin: !!json.canAccessAdmin,
           })
         }
@@ -175,7 +188,11 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
       window.location.href = orgAccess.allowPremiumFeatures ? '/app' : '/app/billing?required=premium'
       return
     }
-    if (isPremiumTab(tab) && !orgAccess.allowPremiumFeatures) {
+    if (tab === 'reports' && !orgAccess.canAccessReports) {
+      goToBillingUpgrade()
+      return
+    }
+    if (tab === 'branches' && !orgAccess.canAccessBranches) {
       goToBillingUpgrade()
     }
   }, [goToBillingUpgrade, orgAccess, tab])
@@ -255,7 +272,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             </div>
           </div>
           <div className="flex items-center overflow-x-auto">
-            {DESKTOP_TABS.filter((item) => canAccessTab(item.id, { allowPremiumFeatures: canUsePremiumFeatures, canAccessAdmin: canUseAdminFeatures })).map((item) => (
+            {DESKTOP_TABS.filter((item) => canAccessTab(item.id, { canAccessReports: canUseReports, canAccessBranches: canUseBranches, canAccessAdmin: canUseAdminFeatures })).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
@@ -385,8 +402,9 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             userName={session?.user?.name}
             userEmail={session?.user?.email}
             onGoCalculator={() => changeTab('calculator')}
-            onGoBranches={() => (canUsePremiumFeatures ? changeTab('branches') : goToBillingUpgrade())}
-            onGoReports={() => (canUsePremiumFeatures ? changeTab('reports') : goToBillingUpgrade())}
+            onGoBranches={() => (canUseBranches ? changeTab('branches') : goToBillingUpgrade())}
+            onGoReports={() => (canUseReports ? changeTab('reports') : goToBillingUpgrade())}
+            onGoAdmin={() => (canUseAdminFeatures ? changeTab('admin') : window.location.assign('/app'))}
             onGoNotifications={() => { window.location.href = '/app/notificaciones' }}
             onGoSettings={() => showToast('\u2699\uFE0F', 'Configuración avanzada próximamente')}
             onGoHelp={() => showToast('\u{1F198}', 'Centro de ayuda próximamente')}

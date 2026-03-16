@@ -23,6 +23,8 @@ type OrgBillingState = {
   canConnectStripe?: boolean
   portalAvailable?: boolean
   stripeConnectStatus?: string
+  hasFullFeatureOverride?: boolean
+  enabledFeatureOverrides?: string[]
   billingCatalog?: BillingPlanCard[]
 }
 
@@ -126,6 +128,11 @@ export default function BillingPage() {
                 {orgInfo?.isPaymentPastDue ? (
                   <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     Stripe reporto un cobro pendiente. El workspace sigue visible, pero debes actualizar el metodo de pago cuanto antes.
+                  </div>
+                ) : null}
+                {orgInfo?.hasFullFeatureOverride ? (
+                  <div className="rounded-3xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                    Esta organización tiene un override temporal de acceso completo para validación interna. El estado real de Stripe sigue siendo <strong>{orgInfo.billingStatus || 'No disponible'}</strong>.
                   </div>
                 ) : null}
                 {orgInfo?.canManageBilling ? (

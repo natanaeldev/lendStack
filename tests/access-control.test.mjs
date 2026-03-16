@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { deriveAppEntitlements, canAccessAdminRole, canAccessTab } from '../src/lib/appAccess.ts'
+import { deriveOrganizationFeatureOverride } from '../src/lib/organizationFeatures.ts'
 
 async function run(name, fn) {
   try {
@@ -31,6 +32,28 @@ await run('pro can access reports', () => {
   })
   assert.equal(entitlements.canAccessReports, true)
   assert.equal(canAccessTab('reports', entitlements), true)
+})
+
+await run('testOrganizacion full-access override unlocks reports and branches without faking active billing', () => {
+  const featureOverride = deriveOrganizationFeatureOverride({
+    slug: 'testorganizacion',
+  })
+  const entitlements = deriveAppEntitlements({
+    role: 'master',
+    organizationRole: 'OWNER',
+    isOrganizationOwner: true,
+    billingStatus: 'pending_checkout',
+    billingPlan: 'pro',
+    featureOverride,
+  })
+
+  assert.equal(featureOverride.fullAccess, true)
+  assert.equal(entitlements.allowPremiumFeatures, true)
+  assert.equal(entitlements.canAccessReports, true)
+  assert.equal(entitlements.canAccessBranches, true)
+  assert.equal(entitlements.canAccessAdmin, true)
+  assert.equal(canAccessTab('reports', entitlements), true)
+  assert.equal(canAccessTab('branches', entitlements), true)
 })
 
 await run('owner sees Admin even without premium and non-owner does not', () => {

@@ -38,6 +38,7 @@ export default function MoreScreen({
   onGoCalculator,
   onGoBranches,
   onGoReports,
+  onGoAdmin,
   onGoNotifications,
   onGoSettings,
   onGoHelp,
@@ -49,6 +50,7 @@ export default function MoreScreen({
   onGoCalculator: () => void
   onGoBranches: () => void
   onGoReports: () => void
+  onGoAdmin: () => void
   onGoNotifications: () => void
   onGoSettings: () => void
   onGoHelp: () => void
@@ -103,6 +105,7 @@ export default function MoreScreen({
 
   const secondaryItems: MoreItem[] = [
     { title: 'Reportes', subtitle: 'KPIs y exportaciones financieras', icon: '\u{1F4D1}', onClick: onGoReports },
+    ...(isMaster ? [{ title: 'Admin', subtitle: 'Usuarios, sucursales y control organizacional', icon: '\u2699\uFE0F', onClick: onGoAdmin }] : []),
     { title: 'Notificaciones', subtitle: 'Recordatorios y alertas de cobranza', icon: '\u{1F514}', onClick: onGoNotifications },
     { title: 'Configuraci\u00f3n', subtitle: 'Preferencias y ajustes del sistema', icon: '\u2699\uFE0F', onClick: onGoSettings },
     { title: 'Ayuda', subtitle: 'Soporte y documentaci\u00f3n', icon: '\u{1F198}', onClick: onGoHelp },

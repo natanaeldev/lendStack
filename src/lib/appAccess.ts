@@ -2,11 +2,14 @@
 import { deriveEffectivePlan, getBillingAccess, normalizeBillingStatus, type BillingPlanKey, type BillingStatus } from './billingCore.ts'
 // @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
 import { canAccessOrganizationAdmin, hasOrganizationScopedAccess, type OrganizationPermissionIdentity } from './organizationAccess.ts'
+// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
+import { hasOrganizationFeatureAccess, type OrganizationFeatureOverride } from './organizationFeatures.ts'
 
 export interface AppEntitlementsInput extends OrganizationPermissionIdentity {
   billingStatus?: string | null
   billingPlan?: string | null
   storedPlan?: string | null
+  featureOverride?: OrganizationFeatureOverride | null
 }
 
 export interface AppEntitlements {
@@ -32,22 +35,30 @@ export function deriveAppEntitlements(input: AppEntitlementsInput): AppEntitleme
   const effectivePlan = deriveEffectivePlan(billingPlan, billingStatus)
   const hasOrgAccess = hasOrganizationScopedAccess(input)
   const canAccessAdmin = canAccessAdminRole(input)
+  const fullAccessOverride = input.featureOverride?.fullAccess === true
+  const allowPremiumFeatures = billingAccess.allowPremiumFeatures || fullAccessOverride
+  const canAccessReports =
+    (allowPremiumFeatures || hasOrganizationFeatureAccess(input.featureOverride, 'reports')) &&
+    hasOrgAccess
+  const canAccessBranches =
+    allowPremiumFeatures || hasOrganizationFeatureAccess(input.featureOverride, 'branches')
 
   return {
     billingStatus,
     effectivePlan,
-    allowPremiumFeatures: billingAccess.allowPremiumFeatures,
-    canAccessReports: billingAccess.allowPremiumFeatures && hasOrgAccess,
-    canAccessBranches: billingAccess.allowPremiumFeatures,
+    allowPremiumFeatures,
+    canAccessReports,
+    canAccessBranches,
     canAccessAdmin,
   }
 }
 
 export function canAccessTab(
   tab: string,
-  entitlements: Pick<AppEntitlements, 'allowPremiumFeatures' | 'canAccessAdmin'>,
+  entitlements: Pick<AppEntitlements, 'canAccessReports' | 'canAccessBranches' | 'canAccessAdmin'>,
 ) {
   if (tab === 'admin') return entitlements.canAccessAdmin
-  if (tab === 'reports' || tab === 'branches') return entitlements.allowPremiumFeatures
+  if (tab === 'reports') return entitlements.canAccessReports
+  if (tab === 'branches') return entitlements.canAccessBranches
   return true
 }

@@ -97,6 +97,8 @@ export interface OrgInfo {
   canAccessReports?: boolean
   canAccessBranches?: boolean
   canAccessAdmin?: boolean
+  hasFullFeatureOverride?: boolean
+  enabledFeatureOverrides?: string[]
   portalAvailable?: boolean
   checkoutAvailable?: boolean
   billingCatalog?: {
