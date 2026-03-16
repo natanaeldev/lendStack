@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions }      from './auth'
 import { NextResponse }     from 'next/server'
 import type { Session }     from 'next-auth'
+import { canAccessOrganizationAdmin } from './organizationAccess'
 
 /**
  * Returns the current session, or null if not authenticated.
@@ -23,7 +24,11 @@ export async function requireAuth(): Promise<Session | null> {
  */
 export async function requireMaster(): Promise<Session | null> {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'master') return null
+  if (!session || !canAccessOrganizationAdmin({
+    role: session.user.role,
+    organizationRole: session.user.organizationRole,
+    isOrganizationOwner: session.user.isOrganizationOwner,
+  })) return null
   return session
 }
 

@@ -11,6 +11,10 @@ export async function GET() {
 
   try {
     const db = await getDb()
+    const organization = await db.collection('organizations').findOne(
+      { _id: session.user.organizationId as any },
+      { projection: { ownerUserId: 1 } },
+    )
     const users = await db.collection('users')
       .find(
         { organizationId: session.user.organizationId },
@@ -24,7 +28,9 @@ export async function GET() {
         id: String(user._id),
         name: user.name ?? '',
         email: user.email ?? '',
-        role: user.role ?? 'user',
+        role: organization?.ownerUserId != null && String(organization.ownerUserId) === String(user._id)
+          ? 'master'
+          : user.role ?? 'user',
         createdAt: user.createdAt ?? '',
         allowedBranchIds: user.allowedBranchIds ?? null,
       })),

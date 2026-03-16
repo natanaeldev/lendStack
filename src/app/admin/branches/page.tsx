@@ -133,6 +133,7 @@ function BranchCard({
 export default function AdminBranchesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const canAccessAdmin = session?.user?.role === 'master' || session?.user?.isOrganizationOwner
 
   const [branches, setBranches] = useState<BranchDoc[]>([])
   const [loading, setLoading] = useState(true)
@@ -149,11 +150,11 @@ export default function AdminBranchesPage() {
 
   useEffect(() => {
     if (status === 'loading') return
-    if (!session || session.user.role !== 'master') router.replace('/')
-  }, [session, status, router])
+    if (!session || !canAccessAdmin) router.replace('/')
+  }, [canAccessAdmin, session, status, router])
 
   useEffect(() => {
-    if (session?.user.role !== 'master') return
+    if (!canAccessAdmin) return
     fetch('/api/admin/branches')
       .then((response) => response.json())
       .then((data) => {
@@ -164,7 +165,7 @@ export default function AdminBranchesPage() {
         setError('No se pudo cargar la lista de sucursales.')
         setLoading(false)
       })
-  }, [session])
+  }, [canAccessAdmin, session])
 
   const selectedBranch = useMemo(() => branches.find((branch) => branch.id === selectedId) ?? null, [branches, selectedId])
 
@@ -268,7 +269,7 @@ export default function AdminBranchesPage() {
     if (selectedId === branch.id) resetCreateForm()
   }
 
-  if (status === 'loading' || session?.user.role !== 'master') return null
+  if (status === 'loading' || !canAccessAdmin) return null
 
   return (
     <div className="min-h-screen bg-slate-50">

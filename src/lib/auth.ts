@@ -3,6 +3,33 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { ObjectId } from 'mongodb'
 import { getDb, isDbConfigured } from './mongodb'
 import bcrypt from 'bcryptjs'
+import { isOrganizationOwner as resolveOwnerFlag } from './organizationAccess'
+
+async function loadOrganizationIdentity(db: Awaited<ReturnType<typeof getDb>>, dbUser: any) {
+  const organizationId = dbUser.organizationId ?? 'org_001'
+  const organization = await db.collection('organizations').findOne(
+    { _id: organizationId as any },
+    { projection: { ownerUserId: 1 } },
+  )
+  const membership = await db.collection('organization_users').findOne(
+    { organizationId, userId: dbUser._id },
+    { projection: { role: 1 } },
+  )
+
+  const organizationRole = (membership?.role as string | undefined) ?? null
+  const isOrganizationOwner = resolveOwnerFlag({
+    role: dbUser.role,
+    organizationRole,
+    isOrganizationOwner:
+      organization?.ownerUserId != null && String(organization.ownerUserId) === String(dbUser._id),
+  })
+
+  return {
+    organizationId,
+    organizationRole,
+    isOrganizationOwner,
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -31,6 +58,8 @@ export const authOptions: NextAuthOptions = {
           name:           user.name           ?? 'Usuario',
           role:           user.role           ?? 'user',
           organizationId: user.organizationId ?? 'org_001',
+          organizationRole: null,
+          isOrganizationOwner: false,
         }
       },
     }),
@@ -45,18 +74,29 @@ export const authOptions: NextAuthOptions = {
         token.email          = user.email
         token.role           = (user as any).role           ?? 'user'
         token.organizationId = (user as any).organizationId ?? 'org_001'
+        token.organizationRole = (user as any).organizationRole ?? null
+        token.isOrganizationOwner = Boolean((user as any).isOrganizationOwner)
       }
-      // Back-fill role/organizationId for tokens issued before these fields were added
-      if ((!token.role || !token.organizationId) && token.id && isDbConfigured()) {
+      // Re-sync role and organization on every JWT refresh so nav and authorization
+      // do not drift after admin updates or onboarding changes.
+      if (token.id && isDbConfigured()) {
         try {
           const db     = await getDb()
-          const oid    = new ObjectId(token.id as string)
-          const dbUser = await db.collection('users').findOne({ _id: oid })
-          if (dbUser) {
-            token.role           = dbUser.role           ?? 'user'
-            token.organizationId = dbUser.organizationId ?? 'org_001'
+          let dbUser = null
+          try {
+            const oid = new ObjectId(token.id as string)
+            dbUser = await db.collection('users').findOne({ _id: oid })
+          } catch {
+            dbUser = await db.collection('users').findOne({ _id: token.id as any })
           }
-        } catch { /* silently skip if id is not a valid ObjectId */ }
+          if (dbUser) {
+            const identity = await loadOrganizationIdentity(db, dbUser)
+            token.role           = identity.isOrganizationOwner ? 'master' : (dbUser.role ?? 'user')
+            token.organizationId = identity.organizationId
+            token.organizationRole = identity.organizationRole
+            token.isOrganizationOwner = identity.isOrganizationOwner
+          }
+        } catch { /* silently skip when session refresh cannot reach the user document */ }
       }
       return token
     },
@@ -66,6 +106,8 @@ export const authOptions: NextAuthOptions = {
         session.user.role           = token.role           as string
         session.user.email          = token.email          as string
         session.user.organizationId = (token.organizationId as string) ?? 'org_001'
+        session.user.organizationRole = (token.organizationRole as string | null | undefined) ?? null
+        session.user.isOrganizationOwner = Boolean(token.isOrganizationOwner)
       }
       return session
     },

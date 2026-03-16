@@ -1,6 +1,12 @@
 export interface Organization {
   _id: string
   name: string
+  ownerUserId?: string | null
+  ownerEmail?: string | null
+  featureOverrides?: {
+    fullAccess?: boolean
+    enabledFeatures?: string[]
+  } | null
   plan: 'starter' | 'pro' | 'enterprise'
   billingPlan?: 'starter' | 'pro' | 'enterprise'
   billingStatus?:

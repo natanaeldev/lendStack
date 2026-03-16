@@ -7,7 +7,11 @@ export async function POST() {
   const session = await requireAuth()
   if (!session) return unauthorizedResponse()
 
-  if (!canManageOrganizationBilling(session.user.role)) {
+  if (!canManageOrganizationBilling({
+    role: session.user.role,
+    organizationRole: session.user.organizationRole,
+    isOrganizationOwner: session.user.isOrganizationOwner,
+  })) {
     return NextResponse.json({ error: 'No tienes permisos para conectar Stripe.' }, { status: 403 })
   }
 

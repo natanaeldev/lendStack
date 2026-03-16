@@ -10,9 +10,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     redirect('/login')
   }
 
-  const access = await getOrganizationBillingAccess(session.user.organizationId)
-  if (!access.allowPremiumFeatures) {
-    redirect('/app/billing?required=premium')
+  const access = await getOrganizationBillingAccess(session.user.organizationId, session.user.role, {
+    organizationRole: session.user.organizationRole,
+    isOrganizationOwner: session.user.isOrganizationOwner,
+  })
+  if (!access.canAccessAdmin) {
+    redirect('/app')
   }
 
   return children

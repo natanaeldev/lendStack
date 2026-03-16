@@ -7,7 +7,7 @@ import NotificationCenterBell from './notifications/NotificationCenterBell'
 
 export default function Header() {
   const { data: session } = useSession()
-  const isMaster = session?.user?.role === 'master'
+  const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
 
   useEffect(() => {
     const onLogout = () => signOut({ callbackUrl: '/login' })

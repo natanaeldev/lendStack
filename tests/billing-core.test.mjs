@@ -214,6 +214,37 @@ await run('webhook sync handles checkout and subscription lifecycle transitions'
   assert.equal(repository.orgs[0].plan, 'starter')
 })
 
+await run('invoice.payment_succeeded updates the organization plan from the invoice price id', async () => {
+  const repository = new InMemoryBillingRepository([{
+    _id: 'org_1',
+    name: 'Org Uno',
+    plan: 'starter',
+    billingPlan: 'starter',
+    billingStatus: 'active',
+    stripeCustomerId: 'cus_1',
+    stripeSubscriptionId: 'sub_1',
+  }])
+
+  await processStripeWebhookEvent(repository, plans, {
+    id: 'evt_invoice_success',
+    type: 'invoice.payment_succeeded',
+    data: {
+      object: {
+        customer: 'cus_1',
+        subscription: 'sub_1',
+        lines: {
+          data: [{ price: { id: 'price_pro_yearly' } }],
+        },
+      },
+    },
+  })
+
+  assert.equal(repository.orgs[0].billingStatus, 'active')
+  assert.equal(repository.orgs[0].billingPlan, 'pro')
+  assert.equal(repository.orgs[0].billingInterval, 'year')
+  assert.equal(repository.orgs[0].plan, 'pro')
+})
+
 await run('duplicate webhook event is idempotent', async () => {
   const repository = new InMemoryBillingRepository([{ _id: 'org_1', name: 'Org Uno', plan: 'starter', billingPlan: 'starter', billingStatus: 'active' }])
   const event = {
@@ -260,7 +291,8 @@ await run('access gating downgrades unpaid subscriptions to starter entitlements
   assert.equal(getBillingAccess('unpaid').allowPremiumFeatures, false)
   assert.equal(deriveConnectStatus({ accountId: 'acct_1', chargesEnabled: true, payoutsEnabled: true }), 'active')
   assert.equal(canManageOrganizationBilling('master'), true)
-  assert.equal(canManageOrganizationBilling('admin'), true)
+  assert.equal(canManageOrganizationBilling('admin'), false)
+  assert.equal(canManageOrganizationBilling({ role: 'user', organizationRole: 'OWNER', isOrganizationOwner: true }), true)
   assert.equal(canManageOrganizationBilling('user'), false)
 })
 

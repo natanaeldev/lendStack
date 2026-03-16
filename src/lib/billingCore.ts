@@ -1,3 +1,6 @@
+// @ts-expect-error TS5097: explicit .ts import keeps Node strip-types tests aligned with the app helper.
+import { canManageOrganizationBillingAccess, type OrganizationPermissionIdentity } from './organizationAccess.ts'
+
 export type BillingPlanKey = 'starter' | 'pro' | 'enterprise'
 export type BillingInterval = 'month' | 'year' | null
 export type BillingCheckoutInterval = Exclude<BillingInterval, null>
@@ -181,8 +184,13 @@ export function getBillingAccess(status: BillingStatus): BillingAccess {
   }
 }
 
-export function canManageOrganizationBilling(role: string | null | undefined) {
-  return role === 'master' || role === 'admin'
+export function canManageOrganizationBilling(
+  input: string | OrganizationPermissionIdentity | null | undefined,
+) {
+  if (typeof input === 'string' || input == null) {
+    return canManageOrganizationBillingAccess({ role: input ?? undefined })
+  }
+  return canManageOrganizationBillingAccess(input)
 }
 
 export function deriveEffectivePlan(planKey: BillingPlanKey | null | undefined, billingStatus: BillingStatus): BillingPlanKey {
@@ -245,6 +253,23 @@ export function deriveSubscriptionPatch(
     isPaymentPastDue: billingStatus === 'past_due',
     stripeCheckoutSessionId: null,
     updatedAt: new Date().toISOString(),
+  }
+}
+
+function resolveInvoicePlan(
+  invoice: any,
+  plans: BillingPlanDefinition[],
+  fallbackPlan?: BillingPlanKey | null,
+  fallbackInterval?: BillingInterval,
+) {
+  const linePriceId =
+    invoice?.lines?.data?.find((line: any) => line?.price?.id)?.price?.id ??
+    invoice?.lines?.data?.[0]?.price?.id ??
+    null
+  const matchedPlan = resolvePlanByPriceId(plans, linePriceId)
+  return {
+    billingPlan: matchedPlan?.key ?? fallbackPlan ?? 'starter',
+    billingInterval: matchedPlan?.interval ?? fallbackInterval ?? null,
   }
 }
 
@@ -413,6 +438,12 @@ export async function processStripeWebhookEvent(
     if (organizationId) {
       const requestedPlan = (object?.metadata?.planKey as BillingPlanKey | undefined) ?? 'pro'
       const interval = object?.metadata?.interval === 'year' ? 'year' : 'month'
+      console.info('[billing webhook sync]', {
+        eventType: event.type,
+        organizationId: String(organizationId),
+        billingPlan: requestedPlan,
+        billingInterval: interval,
+      })
       await repository.updateOrganization(String(organizationId), {
         stripeCustomerId: object?.customer ? String(object.customer) : null,
         stripeSubscriptionId: object?.subscription ? String(object.subscription) : null,
@@ -434,19 +465,43 @@ export async function processStripeWebhookEvent(
     )
     if (organization) {
       const patch = deriveSubscriptionPatch(object, plans, organization.billingPlan ?? organization.plan ?? 'starter')
+      console.info('[billing webhook sync]', {
+        eventType: event.type,
+        organizationId: organization._id,
+        billingPlan: patch.billingPlan,
+        billingInterval: patch.billingInterval,
+        billingStatus: patch.billingStatus,
+      })
       await repository.updateOrganization(organization._id, patch)
     }
     return { duplicate: false }
   }
 
-  if (event.type === 'invoice.paid' || event.type === 'invoice.payment_failed') {
+  if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded' || event.type === 'invoice.payment_failed') {
     const organization = await resolveOrganizationForStripeObject(repository, object, null)
     if (organization) {
-      const status: BillingStatus = event.type === 'invoice.paid' ? 'active' : 'past_due'
+      const status: BillingStatus = event.type === 'invoice.payment_failed' ? 'past_due' : 'active'
+      const invoicePlan = resolveInvoicePlan(
+        object,
+        plans,
+        organization.billingPlan ?? organization.plan ?? 'starter',
+        organization.billingInterval ?? null,
+      )
+      console.info('[billing webhook sync]', {
+        eventType: event.type,
+        organizationId: organization._id,
+        billingPlan: invoicePlan.billingPlan,
+        billingInterval: invoicePlan.billingInterval,
+        billingStatus: status,
+      })
       await repository.updateOrganization(organization._id, {
         billingStatus: status,
+        billingPlan: invoicePlan.billingPlan,
+        billingInterval: invoicePlan.billingInterval,
         isPaymentPastDue: status === 'past_due',
-        plan: deriveEffectivePlan(organization.billingPlan ?? organization.plan ?? 'starter', status),
+        plan: deriveEffectivePlan(invoicePlan.billingPlan, status),
+        stripeCustomerId: object?.customer ? String(object.customer) : organization.stripeCustomerId ?? null,
+        stripeSubscriptionId: object?.subscription ? String(object.subscription) : organization.stripeSubscriptionId ?? null,
         updatedAt: new Date().toISOString(),
       })
     }

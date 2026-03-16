@@ -84,6 +84,7 @@ export interface StatsData {
 
 export interface OrgInfo {
   plan: string
+  effectivePlan?: string
   billingPlan?: string
   billingStatus?: string
   billingInterval?: string | null
@@ -93,6 +94,11 @@ export interface OrgInfo {
   stripeConnectStatus?: string
   canManageBilling?: boolean
   canConnectStripe?: boolean
+  canAccessReports?: boolean
+  canAccessBranches?: boolean
+  canAccessAdmin?: boolean
+  hasFullFeatureOverride?: boolean
+  enabledFeatureOverrides?: string[]
   portalAvailable?: boolean
   checkoutAvailable?: boolean
   billingCatalog?: {
