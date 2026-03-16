@@ -55,6 +55,18 @@ class InMemoryOnboardingRepository {
     return this.state.users.find((user) => user.email === email) ?? null
   }
 
+  async findOrganizationBySlug(slug) {
+    return this.state.organizations.find((organization) => organization.slug === slug) ?? null
+  }
+
+  async findOrganizationByName(name) {
+    return this.state.organizations.find((organization) => String(organization.name).toLowerCase() === String(name).trim().toLowerCase()) ?? null
+  }
+
+  async findMembership(organizationId, userId) {
+    return this.state.memberships.find((membership) => membership.organizationId === organizationId && membership.userId === userId) ?? null
+  }
+
   async slugExists(slug) {
     return this.state.organizations.some((organization) => organization.slug === slug)
   }
@@ -83,6 +95,13 @@ class InMemoryOnboardingRepository {
     const created = { ...doc, _id: `user_${this.state.users.length + 1}` }
     this.state.users.push(created)
     return created
+  }
+
+  async updateUser(userId, patch) {
+    this.maybeFail('updateUser')
+    const user = this.state.users.find((item) => item._id === userId)
+    if (!user) throw new Error('User not found')
+    Object.assign(user, patch)
   }
 
   async insertMembership(doc) {
@@ -268,6 +287,156 @@ await run('duplicate submission does not create duplicate organizations', async 
   )
 
   assert.equal(repository.state.organizations.length, 1)
+})
+
+await run('strict org conflicts require existing users to sign in before creating a workspace', async () => {
+  const repository = new InMemoryOnboardingRepository({
+    users: [{
+      _id: 'user_1',
+      name: 'Existing Owner',
+      email: 'owner@example.com',
+      role: 'master',
+      organizationId: 'org_old',
+    }],
+    organizations: [{
+      _id: 'org_old',
+      name: 'Old Org',
+      slug: 'old-org',
+      ownerUserId: 'user_1',
+    }],
+  })
+
+  await assert.rejects(
+    () => runSelfServiceOnboardingWithRepository(repository, {
+      fullName: 'Existing Owner',
+      email: 'owner@example.com',
+      organizationName: 'New Org',
+      plan: 'starter',
+      strictOrganizationConflicts: true,
+    }, { nodeEnv: 'test' }),
+    (error) => error instanceof OnboardingConflictError && error.code === 'existing_user_requires_login',
+  )
+})
+
+await run('strict org conflicts allow authenticated existing users to create a new workspace', async () => {
+  const repository = new InMemoryOnboardingRepository({
+    users: [{
+      _id: 'user_1',
+      name: 'Existing Owner',
+      email: 'owner@example.com',
+      role: 'manager',
+      organizationId: 'org_old',
+      status: 'active',
+    }],
+    organizations: [{
+      _id: 'org_old',
+      name: 'Old Org',
+      slug: 'old-org',
+      ownerUserId: 'user_1',
+    }],
+  })
+
+  const result = await runSelfServiceOnboardingWithRepository(repository, {
+    fullName: 'Existing Owner',
+    email: 'owner@example.com',
+    organizationName: 'New Org',
+    plan: 'starter',
+    authenticatedUserId: 'user_1',
+    strictOrganizationConflicts: true,
+  }, { nodeEnv: 'test' })
+
+  assert.equal(repository.state.organizations.length, 2)
+  assert.equal(repository.state.memberships.at(-1).role, 'OWNER')
+  assert.equal(repository.state.users[0].organizationId, result.organizationId)
+  assert.equal(repository.state.organizations.at(-1).ownerUserId, 'user_1')
+})
+
+await run('strict org conflicts return organization_exists for duplicate organization names', async () => {
+  const repository = new InMemoryOnboardingRepository({
+    organizations: [{
+      _id: 'org_existing',
+      name: 'Acme Lending',
+      slug: 'acme-lending',
+      ownerUserId: 'user_9',
+    }],
+    memberships: [{
+      _id: 'membership_9',
+      organizationId: 'org_existing',
+      userId: 'user_9',
+      role: 'OWNER',
+    }],
+  })
+
+  await assert.rejects(
+    () => runSelfServiceOnboardingWithRepository(repository, {
+      fullName: 'Another Owner',
+      email: 'another@example.com',
+      password: 'Test1234!',
+      organizationName: 'Acme Lending',
+      plan: 'starter',
+      strictOrganizationConflicts: true,
+    }, { nodeEnv: 'test' }),
+    (error) => error instanceof OnboardingConflictError && error.code === 'organization_exists',
+  )
+})
+
+await run('strict org conflicts return membership_exists when user already belongs to that organization', async () => {
+  const repository = new InMemoryOnboardingRepository({
+    users: [{
+      _id: 'user_1',
+      name: 'Owner',
+      email: 'owner@example.com',
+      role: 'master',
+      organizationId: 'org_existing',
+    }],
+    organizations: [{
+      _id: 'org_existing',
+      name: 'Member Org',
+      slug: 'member-org',
+      ownerUserId: 'user_1',
+    }],
+    memberships: [{
+      _id: 'membership_1',
+      organizationId: 'org_existing',
+      userId: 'user_1',
+      role: 'OWNER',
+    }],
+  })
+
+  await assert.rejects(
+    () => runSelfServiceOnboardingWithRepository(repository, {
+      fullName: 'Owner',
+      email: 'owner@example.com',
+      organizationName: 'Member Org',
+      plan: 'starter',
+      authenticatedUserId: 'user_1',
+      strictOrganizationConflicts: true,
+    }, { nodeEnv: 'test' }),
+    (error) => error instanceof OnboardingConflictError && error.code === 'membership_exists',
+  )
+})
+
+await run('strict org conflicts return incomplete_onboarding for orphan organizations', async () => {
+  const repository = new InMemoryOnboardingRepository({
+    organizations: [{
+      _id: 'org_orphan',
+      name: 'Orphan Org',
+      slug: 'orphan-org',
+      ownerUserId: null,
+    }],
+  })
+
+  await assert.rejects(
+    () => runSelfServiceOnboardingWithRepository(repository, {
+      fullName: 'Owner',
+      email: 'owner@example.com',
+      password: 'Test1234!',
+      organizationName: 'Orphan Org',
+      plan: 'starter',
+      strictOrganizationConflicts: true,
+    }, { nodeEnv: 'test' }),
+    (error) => error instanceof OnboardingConflictError && error.code === 'incomplete_onboarding',
+  )
 })
 
 await run('timestamped upsert document keeps createdAt only on insert', () => {

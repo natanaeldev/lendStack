@@ -5,6 +5,7 @@ import { getBillingPlanByCheckoutKey } from '@/lib/billingPlans'
 import { createOrganizationCheckoutSession, isStripeConfigured } from '@/lib/stripeBilling'
 import { getDb, getMongoClient, isDbConfigured } from '@/lib/mongodb'
 import { OnboardingConflictError, OnboardingValidationError, runSelfServiceOnboarding } from '@/lib/selfServiceOnboarding'
+import { mapMongoDuplicateKeyToOnboardingConflict } from '@/lib/onboardingConflicts'
 
 export async function POST(req: NextRequest) {
   if (!isDbConfigured()) {
@@ -85,9 +86,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (error?.code === 11000) {
+    const duplicateConflict = mapMongoDuplicateKeyToOnboardingConflict(error)
+    if (duplicateConflict) {
       return NextResponse.json(
-        { error: 'Se detecto un conflicto con datos ya existentes.', errorCode: 'conflict' },
+        { error: duplicateConflict.message, errorCode: duplicateConflict.code },
         { status: 409 },
       )
     }
