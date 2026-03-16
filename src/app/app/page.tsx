@@ -35,22 +35,22 @@ import {
 export type Tab = 'calculator' | 'dashboard' | 'clients' | 'loans' | 'branches' | 'reports' | 'payments' | 'more' | 'admin'
 
 const DESKTOP_TABS: { id: Tab; label: string; icon: string; mobileLabel: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠', mobileLabel: 'Inicio' },
-  { id: 'loans', label: 'Préstamos', icon: '📋', mobileLabel: 'Préstamos' },
-  { id: 'clients', label: 'Clientes', icon: '👥', mobileLabel: 'Clientes' },
-  { id: 'payments', label: 'Pagos', icon: '💵', mobileLabel: 'Pagos' },
-  { id: 'branches', label: 'Sucursales', icon: '🏢', mobileLabel: 'Sucursales' },
-  { id: 'reports', label: 'Reportes', icon: '📑', mobileLabel: 'Reportes' },
-  { id: 'admin', label: 'Admin', icon: '⚙️', mobileLabel: 'Admin' },
-  { id: 'calculator', label: 'Calculadora', icon: '🧮', mobileLabel: 'Calcular' },
+  { id: 'dashboard', label: 'Dashboard', icon: '\u{1F3E0}', mobileLabel: 'Inicio' },
+  { id: 'loans', label: 'Préstamos', icon: '\u{1F4CB}', mobileLabel: 'Préstamos' },
+  { id: 'clients', label: 'Clientes', icon: '\u{1F465}', mobileLabel: 'Clientes' },
+  { id: 'payments', label: 'Pagos', icon: '\u{1F4B5}', mobileLabel: 'Pagos' },
+  { id: 'branches', label: 'Sucursales', icon: '\u{1F3E2}', mobileLabel: 'Sucursales' },
+  { id: 'reports', label: 'Reportes', icon: '\u{1F4D1}', mobileLabel: 'Reportes' },
+  { id: 'admin', label: 'Admin', icon: '\u2699\uFE0F', mobileLabel: 'Admin' },
+  { id: 'calculator', label: 'Calculadora', icon: '\u{1F9EE}', mobileLabel: 'Calcular' },
 ]
 
 const MOBILE_TABS: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: '🏠' },
-  { id: 'loans', label: 'Préstamos', mobileLabel: 'Préstamos', icon: '📋' },
-  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: '👥' },
-  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: '💵' },
-  { id: 'more', label: 'Más', mobileLabel: 'Más', icon: '☰' },
+  { id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: '\u{1F3E0}' },
+  { id: 'loans', label: 'Préstamos', mobileLabel: 'Préstamos', icon: '\u{1F4CB}' },
+  { id: 'clients', label: 'Clientes', mobileLabel: 'Clientes', icon: '\u{1F465}' },
+  { id: 'payments', label: 'Pagos', mobileLabel: 'Pagos', icon: '\u{1F4B5}' },
+  { id: 'more', label: 'Más', mobileLabel: 'Más', icon: '\u2630' },
 ]
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -94,6 +94,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [carritoFreq, setCarritoFreq] = useState<CarritoFrequency>('weekly')
   const canUsePremiumFeatures = orgAccess?.allowPremiumFeatures ?? false
   const canUseAdminFeatures = orgAccess?.canAccessAdmin ?? false
+
   const goToBillingUpgrade = useCallback(() => {
     window.location.href = '/app/billing?required=premium'
   }, [])
@@ -219,17 +220,17 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
     setProfile(nextParams.profile)
     setCurrency(nextParams.currency)
     changeTab('calculator')
-    showToast('📂', 'Simulación de cliente cargada')
+    showToast('\u{1F4C2}', 'Simulación de cliente cargada')
   }, [changeTab])
 
   const handleCurrencyChange = (nextCurrency: Currency) => {
     setCurrency(nextCurrency)
-    showToast('💱', `Moneda cambiada a ${nextCurrency}`)
+    showToast('\u{1F4B1}', `Moneda cambiada a ${nextCurrency}`)
   }
 
   const handleRateModeChange = (nextMode: RateMode) => {
     setRateMode(nextMode)
-    showToast(nextMode === 'monthly' ? '🗓️' : '📆', nextMode === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
+    showToast(nextMode === 'monthly' ? '\u{1F5D3}\uFE0F' : '\u{1F4C6}', nextMode === 'monthly' ? 'Modo tasa mensual activado' : 'Modo tasa anual activado')
   }
 
   return (
@@ -387,8 +388,8 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
             onGoBranches={() => (canUsePremiumFeatures ? changeTab('branches') : goToBillingUpgrade())}
             onGoReports={() => (canUsePremiumFeatures ? changeTab('reports') : goToBillingUpgrade())}
             onGoNotifications={() => { window.location.href = '/app/notificaciones' }}
-            onGoSettings={() => showToast('⚙️', 'Configuración avanzada próximamente')}
-            onGoHelp={() => showToast('🆘', 'Centro de ayuda próximamente')}
+            onGoSettings={() => showToast('\u2699\uFE0F', 'Configuración avanzada próximamente')}
+            onGoHelp={() => showToast('\u{1F198}', 'Centro de ayuda próximamente')}
             onLogoutEvent={() => window.dispatchEvent(new Event('lendstack:logout'))}
           />
         )}
@@ -410,10 +411,10 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
               <p className="text-sm text-slate-500 mt-2">Gestioná usuarios, sucursales y políticas operativas desde una sola vista.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <a href="/admin/users" className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#92400E' }}>
-                  👥 Configurar usuarios
+                  {'\u{1F465}'} Configurar usuarios
                 </a>
                 <a href="/admin/branches" className="min-h-12 rounded-xl border border-sky-200 bg-sky-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#0369A1' }}>
-                  🏢 Configurar sucursales
+                  {'\u{1F3E2}'} Configurar sucursales
                 </a>
               </div>
             </div>

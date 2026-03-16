@@ -237,149 +237,149 @@ export default function Dashboard({ onViewProfile, externalSearch, onExternalSea
   return (
     <>
       <div className="space-y-4 sm:space-y-5">
-      <DashboardHeader
-        title={dashboardTitle}
-        description="Centro de operaciones para cartera, cobranza y seguimiento diario."
-        context={context}
-        summary={summary}
-        onPrimaryAction={goToNewLoan}
-      />
+        <DashboardHeader
+          title={dashboardTitle}
+          description="Centro de operaciones para cartera, cobranza y seguimiento diario."
+          context={context}
+          summary={summary}
+          onPrimaryAction={goToNewLoan}
+        />
 
-      {orgInfo ? (
-        <div className={`rounded-[26px] border px-4 py-4 shadow-[0_18px_36px_rgba(15,23,42,.05)] ${orgInfo.isAtLimit ? 'border-rose-200 bg-rose-50' : orgInfo.isNearLimit ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Plan y capacidad</p>
-              <p className="mt-1 break-words text-sm font-black text-slate-950">
-                {orgInfo.plan === 'starter' && orgInfo.maxClients !== null
-                  ? `${orgInfo.clientCount} de ${orgInfo.maxClients} clientes utilizados en Starter`
-                  : `Plan ${orgInfo.plan.charAt(0).toUpperCase() + orgInfo.plan.slice(1)} activo`}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                {orgInfo.isAtLimit
-                  ? 'El plan alcanzó su límite y requiere actualización para seguir creciendo.'
-                  : orgInfo.isNearLimit
-                    ? 'La operación está cerca del límite del plan actual.'
-                    : 'La capacidad del plan está saludable para la operación actual.'}
-              </p>
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                Billing {orgInfo.billingStatus ?? 'active'}{orgInfo.isPaymentPastDue ? ' · revisar pago' : ''}
-              </p>
-            </div>
-            <div className="flex flex-col items-start gap-2 sm:items-end">
-              <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
-                {orgInfo.plan}
+        {orgInfo ? (
+          <div className={`rounded-[26px] border px-4 py-4 shadow-[0_18px_36px_rgba(15,23,42,.05)] ${orgInfo.isAtLimit ? 'border-rose-200 bg-rose-50' : orgInfo.isNearLimit ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Plan y capacidad</p>
+                <p className="mt-1 break-words text-sm font-black text-slate-950">
+                  {orgInfo.plan === 'starter' && orgInfo.maxClients !== null
+                    ? `${orgInfo.clientCount} de ${orgInfo.maxClients} clientes utilizados en Starter`
+                    : `Plan ${orgInfo.plan.charAt(0).toUpperCase() + orgInfo.plan.slice(1)} activo`}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {orgInfo.isAtLimit
+                    ? 'El plan alcanzó su límite y requiere actualización para seguir creciendo.'
+                    : orgInfo.isNearLimit
+                      ? 'La operación está cerca del límite del plan actual.'
+                      : 'La capacidad del plan está saludable para la operación actual.'}
+                </p>
+                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Billing {orgInfo.billingStatus ?? 'active'}{orgInfo.isPaymentPastDue ? ' · revisar pago' : ''}
+                </p>
               </div>
-              {orgInfo.canManageBilling ? (
-                <div className="flex flex-wrap gap-2">
-                  {orgInfo.checkoutAvailable ? (
-                    <button
-                      onClick={goToBilling}
-                      disabled={billingLoading !== null}
-                      className="min-h-10 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white disabled:opacity-50"
-                    >
-                      Ver planes
-                    </button>
-                  ) : null}
-                  {orgInfo.portalAvailable ? (
-                    <button
-                      onClick={() => openBillingUrl('portal', '/api/billing/portal')}
-                      disabled={billingLoading !== null}
-                      className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
-                    >
-                      {billingLoading === 'portal' ? 'Abriendo portal...' : 'Gestionar billing'}
-                    </button>
-                  ) : null}
-                  {orgInfo.canConnectStripe ? (
-                    <button
-                      onClick={() => openBillingUrl('connect', '/api/billing/connect')}
-                      disabled={billingLoading !== null}
-                      className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
-                    >
-                      {billingLoading === 'connect'
-                        ? 'Conectando Stripe...'
-                        : orgInfo.stripeConnectStatus === 'active'
-                          ? 'Stripe conectado'
-                          : 'Conectar Stripe'}
-                    </button>
-                  ) : null}
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <div className="rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                  {orgInfo.plan}
                 </div>
-              ) : null}
+                {orgInfo.canManageBilling ? (
+                  <div className="flex flex-wrap gap-2">
+                    {orgInfo.checkoutAvailable ? (
+                      <button
+                        onClick={goToBilling}
+                        disabled={billingLoading !== null}
+                        className="min-h-10 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        Ver planes
+                      </button>
+                    ) : null}
+                    {orgInfo.portalAvailable ? (
+                      <button
+                        onClick={() => openBillingUrl('portal', '/api/billing/portal')}
+                        disabled={billingLoading !== null}
+                        className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
+                      >
+                        {billingLoading === 'portal' ? 'Abriendo portal...' : 'Gestionar billing'}
+                      </button>
+                    ) : null}
+                    {orgInfo.canConnectStripe ? (
+                      <button
+                        onClick={() => openBillingUrl('connect', '/api/billing/connect')}
+                        disabled={billingLoading !== null}
+                        className="min-h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-50"
+                      >
+                        {billingLoading === 'connect'
+                          ? 'Conectando Stripe...'
+                          : orgInfo.stripeConnectStatus === 'active'
+                            ? 'Stripe conectado'
+                            : 'Conectar Stripe'}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <ResponsiveDashboardSection
-        eyebrow="Portafolio"
-        title="Visión inmediata de cartera y cobranza"
-        description="Los indicadores principales están ordenados por urgencia y utilidad operativa para que un agente móvil entienda el estado del día en segundos."
-        action={
-          <select value={dashboardCurrency} onChange={(event) => setDashboardCurrency(event.target.value as Currency)} className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none">
-            <option value="USD">USD ($)</option>
-            <option value="DOP">DOP (RD$)</option>
-          </select>
-        }
-      >
-        <DashboardKpiGrid items={kpis} />
-      </ResponsiveDashboardSection>
-
-      <ResponsiveDashboardSection eyebrow="Acciones" title="Accesos rápidos de operación" description="Atajos pensados para trabajo de campo: originar, cobrar, abrir clientes y saltar a los casos con más riesgo.">
-        <QuickActionsPanel actions={quickActions} />
-      </ResponsiveDashboardSection>
-
-      <div ref={urgentRef}>
-        <ResponsiveDashboardSection eyebrow="Urgente" title="Qué requiere atención ahora" description="Lista priorizada con mora, pagos del día y próximos vencimientos para reducir retrasos y acelerar el seguimiento.">
-          <UrgentItemsPanel
-            items={filteredUrgentItems}
-            onOpenClient={(clientId) => onViewProfile?.(clientId)}
-            onQuickPay={(clientId) => setQuickPayClientId(clientId)}
-          />
-        </ResponsiveDashboardSection>
-      </div>
-
-      <ResponsiveDashboardSection eyebrow="Rendimiento" title="Snapshot de desempeño del portafolio" description="Lectura rápida de recaudación y composición operativa. En desktop ofrece contexto analítico; en móvil conserva legibilidad y foco.">
-        <PerformanceSnapshotCard stats={stats} fmtK={fmtK} />
-      </ResponsiveDashboardSection>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisión rápida.">
-          <RecentActivityCard items={filteredRecentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
+        <ResponsiveDashboardSection
+          eyebrow="Portafolio"
+          title="Visión inmediata de cartera y cobranza"
+          description="Los indicadores principales están ordenados por urgencia y utilidad operativa para que un agente móvil entienda el estado del día en segundos."
+          action={
+            <select value={dashboardCurrency} onChange={(event) => setDashboardCurrency(event.target.value as Currency)} className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none">
+              <option value="USD">USD ($)</option>
+              <option value="DOP">DOP (RD$)</option>
+            </select>
+          }
+        >
+          <DashboardKpiGrid items={kpis} />
         </ResponsiveDashboardSection>
 
-        <div ref={clientRef}>
-          <ResponsiveDashboardSection eyebrow="Búsqueda" title="Clientes recientes y búsqueda rápida" description="Módulo liviano para abrir expedientes desde Inicio sin cargar una tabla pesada en móvil.">
-            <div className="space-y-4">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
-                <input
-                  type="text"
-                  value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  placeholder="Buscar por nombre, teléfono o email"
-                  className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-3">
-                {filteredClients.length === 0 ? (
-                  <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                    No hay clientes que coincidan con la búsqueda.
-                  </div>
-                ) : (
-                  filteredClients.map((client) => (
-                    <button key={client.id} type="button" onClick={() => onViewProfile?.(client.id)} className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
-                      <div className="min-w-0">
-                        <p className="break-words text-sm font-black text-slate-950">{client.name}</p>
-                        <p className="mt-1 break-words text-xs text-slate-500">{client.phone || client.email || 'Sin contacto disponible'}</p>
-                      </div>
-                      <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">Abrir</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
+        <ResponsiveDashboardSection eyebrow="Acciones" title="Accesos rápidos de operación" description="Atajos pensados para trabajo de campo: originar, cobrar, abrir clientes y saltar a los casos con más riesgo.">
+          <QuickActionsPanel actions={quickActions} />
+        </ResponsiveDashboardSection>
+
+        <div ref={urgentRef}>
+          <ResponsiveDashboardSection eyebrow="Urgente" title="Qué requiere atención ahora" description="Lista priorizada con mora, pagos del día y próximos vencimientos para reducir retrasos y acelerar el seguimiento.">
+            <UrgentItemsPanel
+              items={filteredUrgentItems}
+              onOpenClient={(clientId) => onViewProfile?.(clientId)}
+              onQuickPay={(clientId) => setQuickPayClientId(clientId)}
+            />
           </ResponsiveDashboardSection>
         </div>
-      </div>
+
+        <ResponsiveDashboardSection eyebrow="Rendimiento" title="Snapshot de desempeño del portafolio" description="Lectura rápida de recaudación y composición operativa. En desktop ofrece contexto analítico; en móvil conserva legibilidad y foco.">
+          <PerformanceSnapshotCard stats={stats} fmtK={fmtK} />
+        </ResponsiveDashboardSection>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_.9fr]">
+          <ResponsiveDashboardSection eyebrow="Actividad" title="Actividad reciente" description="Pagos registrados y nuevos clientes incorporados, ordenados por recencia para supervisión rápida.">
+            <RecentActivityCard items={filteredRecentActivity} onOpenClient={(clientId) => onViewProfile?.(clientId)} />
+          </ResponsiveDashboardSection>
+
+          <div ref={clientRef}>
+            <ResponsiveDashboardSection eyebrow="Búsqueda" title="Clientes recientes y búsqueda rápida" description="Módulo liviano para abrir expedientes desde Inicio sin cargar una tabla pesada en móvil.">
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 focus-within:border-blue-500 focus-within:bg-white">
+                  <input
+                    type="text"
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    placeholder="Buscar por nombre, teléfono o email"
+                    className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="space-y-3">
+                  {filteredClients.length === 0 ? (
+                    <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                      No hay clientes que coincidan con la búsqueda.
+                    </div>
+                  ) : (
+                    filteredClients.map((client) => (
+                      <button key={client.id} type="button" onClick={() => onViewProfile?.(client.id)} className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-blue-200 hover:bg-blue-50">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-black text-slate-950">{client.name}</p>
+                          <p className="mt-1 break-words text-xs text-slate-500">{client.phone || client.email || 'Sin contacto disponible'}</p>
+                        </div>
+                        <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">Abrir</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </ResponsiveDashboardSection>
+          </div>
+        </div>
       </div>
 
       <QuickPaymentModal isOpen={quickPayClientId !== null} initialClientId={quickPayClientId} onClose={() => setQuickPayClientId(null)} />

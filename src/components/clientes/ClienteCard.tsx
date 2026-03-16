@@ -36,7 +36,7 @@ export default function ClienteCard({
   const portfolioBadge = getPortfolioBadge(getClientPortfolioStatus(client))
   const applicationBadge = getApplicationBadge(client.loanStatus)
   const branchBadge = client.branch ? BRANCH_STYLES[client.branch] : null
-  const risk = getRiskProfile(client.params.profile)
+  const risk = getRiskProfile(client.params?.profile)
   const callLink = phoneHref(client.phone)
 
   return (
