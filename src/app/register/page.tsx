@@ -194,12 +194,14 @@ function RegisterPageContent() {
         return
       }
 
-      clearPendingDraft()
-
       if (data.checkoutUrl) {
+        // Keep the draft alive so the user can resume if they cancel Stripe checkout
+        writePendingDraft(pendingDraft)
         window.location.href = data.checkoutUrl
         return
       }
+
+      clearPendingDraft()
 
       if (data.warning) setSuccessMsg(data.warning)
 

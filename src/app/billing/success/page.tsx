@@ -50,6 +50,11 @@ function BillingSuccessContent() {
   const [summary, setSummary] = useState<{ status?: string; paymentStatus?: string } | null>(null)
 
   useEffect(() => {
+    // Checkout completed — clear any pending registration draft
+    window.localStorage.removeItem('pending-org-registration')
+  }, [])
+
+  useEffect(() => {
     if (!sessionId) {
       setLoading(false)
       return
