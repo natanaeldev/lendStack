@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import LendStackLogo from '@/components/LendStackLogo'
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -66,11 +66,11 @@ export default function LoginPage() {
             </h2>
             <p className="text-sm text-slate-400 mb-6">Accede a tu organizacion en LendStack</p>
 
-            {isOrgResume && (
+            {isOrgResume ? (
               <div className="px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700 mb-4">
                 Inicia sesion con el email owner para continuar la creacion de la organizacion.
               </div>
-            )}
+            ) : null}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -129,5 +129,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   )
 }
