@@ -34,7 +34,42 @@ export async function POST(req: NextRequest) {
       },
     )
 
-    if (result.status === 409) {
+    // When the user already belongs to an org that's still pending Stripe checkout
+    // (e.g. they cancelled and are retrying), create a new checkout for the existing org
+    // instead of failing with a conflict error.
+    if (
+      result.status === 409 &&
+      (result.body.errorCode === 'membership_exists' || result.body.errorCode === 'organization_exists')
+    ) {
+      const orgId = session.user.organizationId
+      if (orgId && isStripeConfigured()) {
+        const org = await db.collection('organizations').findOne({ _id: orgId as any })
+        if (org && org.billingStatus === 'pending_checkout') {
+          const selectedPlan = getBillingPlanByCheckoutKey(body.planKey)
+          if (selectedPlan?.active && selectedPlan?.stripePriceId) {
+            try {
+              const checkout = await createOrganizationCheckoutSession({
+                organizationId: String(org._id),
+                userId: session.user.id,
+                userEmail: String(session.user.email ?? '').trim().toLowerCase(),
+                userName: session.user.name,
+                planKey: selectedPlan.productKey as any,
+                interval: selectedPlan.interval,
+              })
+              return NextResponse.json({
+                success: true,
+                organizationId: org._id,
+                checkoutUrl: checkout.url,
+                createdUser: false,
+                requiresLogin: false,
+              })
+            } catch (checkoutError: any) {
+              console.error('[POST /api/organizations] retry checkout failed', checkoutError)
+            }
+          }
+        }
+      }
+
       console.warn('[POST /api/organizations] conflict', {
         userId: session.user.id,
         email: session.user.email,

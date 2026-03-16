@@ -13,8 +13,8 @@ export default function BillingCancelPage() {
           <Link href="/login" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-white px-5 text-sm font-bold text-slate-950">
             Iniciar sesión
           </Link>
-          <Link href="/register" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/15 px-5 text-sm font-semibold text-white">
-            Volver al registro
+          <Link href="/register?resume=1" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/15 px-5 text-sm font-semibold text-white">
+            Reintentar registro
           </Link>
         </div>
       </div>
