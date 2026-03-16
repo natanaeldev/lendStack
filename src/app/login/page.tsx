@@ -1,17 +1,22 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { signIn } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import LendStackLogo from '@/components/LendStackLogo'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const requestedNextPath = searchParams.get('next')
+  const nextPath = requestedNextPath?.startsWith('/') ? requestedNextPath : '/app'
+  const isOrgResume = searchParams.get('reason') === 'org-create'
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -27,10 +32,10 @@ export default function LoginPage() {
     })
 
     if (result?.ok) {
-      router.push('/app')
+      router.push(nextPath)
       router.refresh()
     } else {
-      setError('Email o contraseña incorrectos.')
+      setError('Email o contrasena incorrectos.')
     }
 
     setLoading(false)
@@ -44,8 +49,7 @@ export default function LoginPage() {
       <div
         className="fixed inset-0 opacity-[0.05] pointer-events-none"
         style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
           backgroundSize: '38px 38px',
         }}
       />
@@ -58,9 +62,15 @@ export default function LoginPage() {
 
           <div className="bg-white rounded-2xl p-8" style={{ boxShadow: '0 8px 48px rgba(0,0,0,.35)' }}>
             <h2 className="text-2xl font-bold mb-1" style={{ color: '#0D2B5E', fontFamily: "'DM Sans', sans-serif" }}>
-              Iniciar sesión
+              Iniciar sesion
             </h2>
-            <p className="text-sm text-slate-400 mb-6">Accedé a tu organización en LendStack</p>
+            <p className="text-sm text-slate-400 mb-6">Accede a tu organizacion en LendStack</p>
+
+            {isOrgResume && (
+              <div className="px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700 mb-4">
+                Inicia sesion con el email owner para continuar la creacion de la organizacion.
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -78,12 +88,12 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Contraseña</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Contrasena</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
+                  placeholder="********"
                   required
                   autoComplete="current-password"
                   className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors"
@@ -106,15 +116,15 @@ export default function LoginPage() {
             </form>
 
             <p className="text-center text-xs text-slate-400 mt-5">
-              ¿Primera vez?{' '}
+              Primera vez?{' '}
               <Link href="/register" className="font-semibold hover:underline" style={{ color: '#1565C0' }}>
-                Crear organización
+                Crear organizacion
               </Link>
             </p>
           </div>
 
           <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,.35)' }}>
-            LendStack · Sistema de gestión de préstamos
+            LendStack · Sistema de gestion de prestamos
           </p>
         </div>
       </div>

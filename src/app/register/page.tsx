@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import Link from 'next/link'
 import LendStackLogo from '@/components/LendStackLogo'
 
 type AvailablePlan = {
@@ -17,12 +17,49 @@ type AvailablePlan = {
   features: string[]
 }
 
+type PendingDraft = {
+  orgName: string
+  adminName: string
+  adminEmail: string
+  planKey: string
+}
+
+const PENDING_ORG_STORAGE_KEY = 'pending-org-registration'
+
 function intervalLabel(interval: 'month' | 'year') {
   return interval === 'year' ? 'Anual' : 'Mensual'
 }
 
+function readPendingDraft(): PendingDraft | null {
+  if (typeof window === 'undefined') return null
+
+  const raw = window.localStorage.getItem(PENDING_ORG_STORAGE_KEY)
+  if (!raw) return null
+
+  try {
+    return JSON.parse(raw) as PendingDraft
+  } catch {
+    window.localStorage.removeItem(PENDING_ORG_STORAGE_KEY)
+    return null
+  }
+}
+
+function writePendingDraft(draft: PendingDraft) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(PENDING_ORG_STORAGE_KEY, JSON.stringify(draft))
+}
+
+function clearPendingDraft() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(PENDING_ORG_STORAGE_KEY)
+}
+
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { data: session, status, update } = useSession()
+  const isAuthenticated = status === 'authenticated'
+
   const [step, setStep] = useState<1 | 2>(1)
   const [orgName, setOrgName] = useState('')
   const [adminName, setAdminName] = useState('')
@@ -30,7 +67,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [plans, setPlans] = useState<AvailablePlan[]>([])
-  const [selectedPlanKey, setSelectedPlanKey] = useState<string>('')
+  const [selectedPlanKey, setSelectedPlanKey] = useState('')
   const [plansLoading, setPlansLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -42,63 +79,116 @@ export default function RegisterPage() {
       .then((json) => {
         const nextPlans = Array.isArray(json.plans) ? json.plans : []
         setPlans(nextPlans)
-        if (nextPlans[0]) setSelectedPlanKey(nextPlans[0].key)
+        setSelectedPlanKey((current) => current || nextPlans[0]?.key || '')
       })
       .catch(() => setError('No se pudieron cargar los planes disponibles.'))
       .finally(() => setPlansLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!session?.user) return
+
+    setAdminEmail(session.user.email ?? '')
+    setAdminName((current) => current || session.user.name || '')
+  }, [session])
+
+  useEffect(() => {
+    const shouldResume = searchParams.get('resume') === '1'
+    if (!shouldResume) return
+
+    const draft = readPendingDraft()
+    if (!draft) return
+
+    setOrgName(draft.orgName)
+    setAdminName((current) => current || draft.adminName)
+    setAdminEmail((current) => current || draft.adminEmail)
+    setSelectedPlanKey((current) => current || draft.planKey)
+    setStep(2)
+
+    if (isAuthenticated) {
+      setSuccessMsg('Sesion iniciada. Revisa el plan y continua con la creacion de la organizacion.')
+    }
+  }, [isAuthenticated, searchParams])
 
   const selectedPlan = useMemo(
     () => plans.find((plan) => plan.key === selectedPlanKey) ?? null,
     [plans, selectedPlanKey],
   )
 
+  const validateStepOne = () => {
+    if (!orgName.trim()) {
+      setError('Ingresa el nombre de tu organizacion.')
+      return false
+    }
+    if (!adminEmail.trim()) {
+      setError('El email es obligatorio.')
+      return false
+    }
+    if (!isAuthenticated && password.length < 8) {
+      setError('La contrasena debe tener al menos 8 caracteres.')
+      return false
+    }
+    if (!isAuthenticated && password !== confirm) {
+      setError('Las contrasenas no coinciden.')
+      return false
+    }
+    if (!selectedPlanKey) {
+      setError('Selecciona un plan para continuar.')
+      return false
+    }
+    return true
+  }
+
   const handleNext = (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
 
-    if (!orgName.trim()) {
-      setError('Ingresa el nombre de tu organizacion.')
-      return
-    }
-    if (!adminEmail.trim()) {
-      setError('El email es obligatorio.')
-      return
-    }
-    if (password.length < 8) {
-      setError('La contrasena debe tener al menos 8 caracteres.')
-      return
-    }
-    if (password !== confirm) {
-      setError('Las contrasenas no coinciden.')
-      return
-    }
-    if (!selectedPlanKey) {
-      setError('Selecciona un plan para continuar.')
-      return
-    }
-
+    if (!validateStepOne()) return
     setStep(2)
   }
 
   const handleSubmit = async () => {
     if (loading || !selectedPlanKey) return
+
     setLoading(true)
     setError('')
+
+    const pendingDraft: PendingDraft = {
+      orgName,
+      adminName,
+      adminEmail,
+      planKey: selectedPlanKey,
+    }
 
     try {
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgName, adminName, adminEmail, password, planKey: selectedPlanKey }),
+        body: JSON.stringify({
+          orgName,
+          adminName,
+          adminEmail,
+          password: isAuthenticated ? undefined : password,
+          planKey: selectedPlanKey,
+        }),
       })
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error ?? 'Error al registrar.')
-        setStep(2)
+        if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding') {
+          writePendingDraft(pendingDraft)
+          router.push(`/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create`)
+          return
+        }
+
+        setError(data.error ?? 'Error al registrar la organizacion.')
+        if (data.errorCode === 'organization_exists' || data.errorCode === 'membership_exists') {
+          setStep(1)
+        }
         return
       }
+
+      clearPendingDraft()
 
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl
@@ -106,15 +196,14 @@ export default function RegisterPage() {
       }
 
       if (data.warning) setSuccessMsg(data.warning)
-      const login = await signIn('credentials', {
-        email: adminEmail.trim().toLowerCase(),
-        password,
-        redirect: false,
-      })
 
-      if (!login?.ok) {
+      if (data.requiresLogin) {
         router.push('/login?registered=1')
         return
+      }
+
+      if (isAuthenticated) {
+        await update()
       }
 
       router.push('/app?onboarding=1')
@@ -179,8 +268,14 @@ export default function RegisterPage() {
                     Crear organizacion
                   </h2>
                   <p className="mb-6 text-sm text-slate-400">
-                    Registra tu empresa y selecciona un plan real de Stripe. El checkout se abrira automaticamente al finalizar.
+                    Registra tu empresa. El email owner sera la cuenta maestra de la organizacion.
                   </p>
+
+                  {isAuthenticated ? (
+                    <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                      Estas creando una organizacion con tu sesion actual. El email owner queda fijado a esta cuenta.
+                    </div>
+                  ) : null}
 
                   <form onSubmit={handleNext} className="space-y-4">
                     <div>
@@ -215,7 +310,7 @@ export default function RegisterPage() {
 
                     <div>
                       <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Email *
+                        Email owner *
                       </label>
                       <input
                         type="email"
@@ -224,44 +319,49 @@ export default function RegisterPage() {
                         placeholder="admin@tuempresa.com"
                         required
                         autoComplete="email"
-                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+                        disabled={isAuthenticated}
+                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
                         style={{ color: '#374151' }}
                       />
                     </div>
 
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Contrasena *
-                      </label>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder="********"
-                        required
-                        autoComplete="new-password"
-                        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
-                        style={{ color: '#374151' }}
-                      />
-                    </div>
+                    {!isAuthenticated ? (
+                      <>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Contrasena * <span className="font-normal normal-case text-slate-400">(min. 8 caracteres)</span>
+                          </label>
+                          <input
+                            type="password"
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
+                            placeholder="********"
+                            required
+                            autoComplete="new-password"
+                            className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+                            style={{ color: '#374151' }}
+                          />
+                        </div>
 
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Confirmar contrasena *
-                      </label>
-                      <input
-                        type="password"
-                        value={confirm}
-                        onChange={(event) => setConfirm(event.target.value)}
-                        placeholder="********"
-                        required
-                        autoComplete="new-password"
-                        className={`w-full rounded-xl border-2 px-4 py-3 text-sm transition-colors focus:outline-none ${
-                          confirm && confirm !== password ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
-                        }`}
-                        style={{ color: '#374151' }}
-                      />
-                    </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Confirmar contrasena *
+                          </label>
+                          <input
+                            type="password"
+                            value={confirm}
+                            onChange={(event) => setConfirm(event.target.value)}
+                            placeholder="********"
+                            required
+                            autoComplete="new-password"
+                            className={`w-full rounded-xl border-2 px-4 py-3 text-sm transition-colors focus:outline-none ${
+                              confirm && confirm !== password ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
+                            }`}
+                            style={{ color: '#374151' }}
+                          />
+                        </div>
+                      </>
+                    ) : null}
 
                     {error ? (
                       <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -271,7 +371,7 @@ export default function RegisterPage() {
 
                     <button
                       type="submit"
-                      disabled={!orgName || !adminEmail || !password || !confirm || password !== confirm || plansLoading || !selectedPlanKey}
+                      disabled={!orgName || !adminEmail || (!isAuthenticated && (!password || !confirm || password !== confirm)) || plansLoading || !selectedPlanKey}
                       className="mt-2 w-full rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
                       style={{ background: 'linear-gradient(135deg, #0D2B5E, #1565C0)' }}
                     >
@@ -299,7 +399,7 @@ export default function RegisterPage() {
                     Confirmar suscripcion
                   </h2>
                   <p className="mb-6 text-sm text-slate-400">
-                    Vas a crear el workspace y luego iras a Stripe Checkout con el plan seleccionado.
+                    Crearemos la organizacion y luego te llevaremos a Stripe Checkout con el plan seleccionado.
                   </p>
 
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
@@ -327,7 +427,7 @@ export default function RegisterPage() {
                     className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #0D2B5E, #1565C0)' }}
                   >
-                    {loading ? 'Creando cuenta...' : 'Continuar a Stripe Checkout'}
+                    {loading ? 'Creando organizacion...' : 'Continuar a Stripe Checkout'}
                   </button>
                 </>
               )}
@@ -337,7 +437,7 @@ export default function RegisterPage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Planes disponibles</p>
               <h3 className="mt-2 text-2xl font-black text-slate-950">Catalogo conectado a Stripe</h3>
               <p className="mt-3 text-sm text-slate-600">
-                Los planes visibles salen del entorno real. Si un price ID no existe en Vercel, el plan no se muestra aqui.
+                Selecciona el plan que quieres activar durante el onboarding.
               </p>
 
               {plansLoading ? (

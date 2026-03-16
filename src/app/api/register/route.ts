@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { getBillingPlanByCheckoutKey } from '@/lib/billingPlans'
 import { createOrganizationCheckoutSession, isStripeConfigured } from '@/lib/stripeBilling'
 import { getDb, getMongoClient, isDbConfigured } from '@/lib/mongodb'
@@ -14,56 +16,82 @@ export async function POST(req: NextRequest) {
     const selectedPlan = getBillingPlanByCheckoutKey(body.planKey)
 
     if (!selectedPlan || !selectedPlan.active || !selectedPlan.stripePriceId) {
-      return NextResponse.json({ error: 'El plan seleccionado no esta configurado para este entorno.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'El plan seleccionado no esta configurado para este entorno.', errorCode: 'validation_error' },
+        { status: 400 },
+      )
     }
 
     if (!isStripeConfigured()) {
-      return NextResponse.json({ error: 'Stripe no esta configurado.' }, { status: 503 })
+      return NextResponse.json({ error: 'Stripe no esta configurado.', errorCode: 'validation_error' }, { status: 503 })
     }
 
+    const session = await getServerSession(authOptions)
     const client = await getMongoClient()
     const db = await getDb()
 
     const onboarding = await runSelfServiceOnboarding(client, db, {
-      fullName: body.adminName ?? body.fullName ?? '',
-      email: body.adminEmail ?? body.email ?? '',
+      fullName: body.adminName ?? body.fullName ?? session?.user?.name ?? '',
+      email: body.adminEmail ?? body.email ?? session?.user?.email ?? '',
       password: body.password ?? '',
       organizationName: body.orgName ?? body.organizationName ?? '',
       plan: selectedPlan.productKey,
       billingInterval: selectedPlan.interval,
       requiresCheckout: true,
+      authenticatedUserId: session?.user?.id ?? null,
+      strictOrganizationConflicts: true,
     })
 
     try {
       const checkout = await createOrganizationCheckoutSession({
         organizationId: onboarding.organizationId,
         userId: onboarding.userId,
-        userEmail: (body.adminEmail ?? body.email ?? '').trim().toLowerCase(),
-        userName: body.adminName ?? body.fullName ?? '',
+        userEmail: String(body.adminEmail ?? body.email ?? session?.user?.email ?? '').trim().toLowerCase(),
+        userName: body.adminName ?? body.fullName ?? session?.user?.name ?? '',
         planKey: selectedPlan.productKey,
         interval: selectedPlan.interval,
       })
 
-      return NextResponse.json({ success: true, ...onboarding, checkoutUrl: checkout.url })
+      return NextResponse.json({
+        success: true,
+        ...onboarding,
+        checkoutUrl: checkout.url,
+        createdUser: !session?.user?.id,
+        requiresLogin: !session?.user?.id,
+      })
     } catch (checkoutError) {
       console.error('[POST /api/register] checkout bootstrap failed', checkoutError)
       return NextResponse.json({
         success: true,
         ...onboarding,
         checkoutUrl: null,
+        createdUser: !session?.user?.id,
+        requiresLogin: !session?.user?.id,
         warning: 'La organizacion fue creada, pero no se pudo abrir Stripe Checkout. Inicia sesion y reintenta el checkout desde billing.',
       })
     }
   } catch (error: any) {
     if (error instanceof OnboardingValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json(
+        { error: error.message, errorCode: 'validation_error' },
+        { status: 400 },
+      )
     }
+
     if (error instanceof OnboardingConflictError) {
-      return NextResponse.json({ error: error.message }, { status: 409 })
+      return NextResponse.json(
+        { error: error.message, errorCode: error.code },
+        { status: 409 },
+      )
     }
+
     if (error?.code === 11000) {
-      return NextResponse.json({ error: 'La cuenta ya fue creada. Inicia sesion.' }, { status: 409 })
+      return NextResponse.json(
+        { error: 'Se detecto un conflicto con datos ya existentes.', errorCode: 'conflict' },
+        { status: 409 },
+      )
     }
+
     console.error('[POST /api/register]', error)
     return NextResponse.json({ error: 'No se pudo completar el onboarding.' }, { status: 500 })
   }

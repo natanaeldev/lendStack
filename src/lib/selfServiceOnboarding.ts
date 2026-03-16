@@ -5,11 +5,13 @@ import type { MongoClient, Db, ClientSession } from 'mongodb'
 export interface SelfServiceOnboardingInput {
   fullName: string
   email: string
-  password: string
+  password?: string
   organizationName: string
   plan?: 'starter' | 'pro'
   billingInterval?: 'month' | 'year' | null
   requiresCheckout?: boolean
+  authenticatedUserId?: string | null
+  strictOrganizationConflicts?: boolean
 }
 
 export interface SelfServiceOnboardingResult {
@@ -27,10 +29,14 @@ export interface SelfServiceOnboardingRepository {
   ensureIndexes(): Promise<void>
   withTransaction<T>(runner: () => Promise<T>): Promise<T>
   findUserByEmail(email: string): Promise<any | null>
+  findOrganizationBySlug(slug: string): Promise<any | null>
+  findOrganizationByName(name: string): Promise<any | null>
+  findMembership(organizationId: string, userId: any): Promise<any | null>
   slugExists(slug: string): Promise<boolean>
   insertOrganization(doc: OrgDoc): Promise<OrgDoc>
   updateOrganization(organizationId: string, patch: Record<string, unknown>): Promise<void>
   insertUser(doc: UserDoc): Promise<UserDoc & { _id: any }>
+  updateUser(userId: any, patch: Record<string, unknown>): Promise<void>
   insertMembership(doc: MembershipDoc): Promise<MembershipDoc>
   upsertLoanSettings(doc: LoanSettingsDoc): Promise<LoanSettingsDoc>
   insertBranch(doc: BranchDoc): Promise<BranchDoc>
@@ -41,9 +47,12 @@ export interface SelfServiceOnboardingRepository {
 }
 
 export class OnboardingConflictError extends Error {
-  constructor(message: string) {
+  code: string
+
+  constructor(message: string, code = 'conflict') {
     super(message)
     this.name = 'OnboardingConflictError'
+    this.code = code
   }
 }
 
@@ -95,6 +104,7 @@ type MembershipDoc = {
   userId: any
   role: 'OWNER'
   createdAt: string
+  updatedAt?: string
   isTest: boolean
 }
 
@@ -208,6 +218,10 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export function slugifyOrganizationName(name: string) {
   return name
     .normalize('NFD')
@@ -295,6 +309,24 @@ class MongoOnboardingRepository implements SelfServiceOnboardingRepository {
     return this.db.collection('users').findOne({ email }, this.options())
   }
 
+  async findOrganizationBySlug(slug: string) {
+    return this.db.collection('organizations').findOne({ slug }, this.options())
+  }
+
+  async findOrganizationByName(name: string) {
+    return this.db.collection('organizations').findOne(
+      { name: new RegExp(`^${escapeRegex(name.trim())}$`, 'i') },
+      this.options(),
+    )
+  }
+
+  async findMembership(organizationId: string, userId: any) {
+    return this.db.collection('organization_users').findOne(
+      { organizationId, userId },
+      this.options(),
+    )
+  }
+
   async slugExists(slug: string) {
     const org = await this.db.collection('organizations').findOne({ slug }, this.options())
     return !!org
@@ -316,6 +348,14 @@ class MongoOnboardingRepository implements SelfServiceOnboardingRepository {
   async insertUser(doc: UserDoc) {
     const result = await this.db.collection('users').insertOne(doc as any, this.options())
     return { ...doc, _id: result.insertedId }
+  }
+
+  async updateUser(userId: any, patch: Record<string, unknown>) {
+    await this.db.collection('users').updateOne(
+      { _id: userId },
+      { $set: patch },
+      this.options(),
+    )
   }
 
   async insertMembership(doc: MembershipDoc) {
@@ -490,11 +530,11 @@ export function buildSampleLoanArtifacts(organizationId: string, clientId: strin
   }
 }
 
-function validateInput(input: SelfServiceOnboardingInput) {
+function validateInput(input: SelfServiceOnboardingInput, hasExistingUser: boolean) {
   if (!input.fullName.trim()) throw new OnboardingValidationError('El nombre completo es obligatorio.')
   if (!input.organizationName.trim()) throw new OnboardingValidationError('El nombre de la organización es obligatorio.')
   if (!input.email.trim()) throw new OnboardingValidationError('El email es obligatorio.')
-  if (!input.password || input.password.length < 8) {
+  if (!hasExistingUser && (!input.password || input.password.length < 8)) {
     throw new OnboardingValidationError('La contraseña debe tener al menos 8 caracteres.')
   }
 }
@@ -513,13 +553,67 @@ export async function runSelfServiceOnboardingWithRepository(
   input: SelfServiceOnboardingInput,
   options: { nodeEnv?: string } = {},
 ): Promise<SelfServiceOnboardingResult> {
-  validateInput(input)
+  const email = normalizeEmail(input.email)
+  const requestedSlug = slugifyOrganizationName(input.organizationName)
+  const existingUser = await repository.findUserByEmail(email)
+  validateInput(input, Boolean(existingUser))
   await repository.ensureIndexes()
 
-  const email = normalizeEmail(input.email)
-  const existingUser = await repository.findUserByEmail(email)
+  if (input.strictOrganizationConflicts) {
+    const repositoryWithConflicts = repository as SelfServiceOnboardingRepository & {
+      findOrganizationBySlug?: (slug: string) => Promise<any | null>
+      findOrganizationByName?: (name: string) => Promise<any | null>
+      findMembership?: (organizationId: string, userId: any) => Promise<any | null>
+    }
+    const existingOrgBySlug = repositoryWithConflicts.findOrganizationBySlug
+      ? await repositoryWithConflicts.findOrganizationBySlug(requestedSlug)
+      : null
+    const existingOrgByName = repositoryWithConflicts.findOrganizationByName
+      ? await repositoryWithConflicts.findOrganizationByName(input.organizationName)
+      : null
+    const conflictingOrganization = existingOrgBySlug ?? existingOrgByName
+
+    if (conflictingOrganization) {
+      const ownerMembership = conflictingOrganization.ownerUserId
+        ? await repositoryWithConflicts.findMembership?.(conflictingOrganization._id, conflictingOrganization.ownerUserId)
+        : null
+
+      if (!conflictingOrganization.ownerUserId && !ownerMembership) {
+        throw new OnboardingConflictError(
+          'Ya existe un alta incompleta para esa organización. Inicia sesión para retomarla o contacta soporte.',
+          'incomplete_onboarding',
+        )
+      }
+
+      if (existingUser) {
+        const membership = await repositoryWithConflicts.findMembership?.(conflictingOrganization._id, existingUser._id)
+        if (membership || String(existingUser.organizationId ?? '') === String(conflictingOrganization._id)) {
+          throw new OnboardingConflictError('Ya perteneces a esa organización.', 'membership_exists')
+        }
+      }
+
+      throw new OnboardingConflictError('Ya existe una organización con ese nombre.', 'organization_exists')
+    }
+  }
+
   if (existingUser) {
-    throw new OnboardingConflictError('Ya existe una cuenta con ese email.')
+    if (!input.strictOrganizationConflicts) {
+      throw new OnboardingConflictError('Ya existe una cuenta con ese email.')
+    }
+
+    if (!input.authenticatedUserId) {
+      throw new OnboardingConflictError(
+        'Ese email ya tiene una cuenta. Inicia sesión para continuar con la creación de la organización.',
+        'existing_user_requires_login',
+      )
+    }
+
+    if (String(existingUser._id) !== String(input.authenticatedUserId)) {
+      throw new OnboardingConflictError(
+        'La sesión activa no coincide con el email que intentas usar como cuenta dueña.',
+        'existing_user_session_mismatch',
+      )
+    }
   }
 
   const now = new Date().toISOString()
@@ -527,10 +621,12 @@ export async function runSelfServiceOnboardingWithRepository(
   const isTestWorkspace = isNonProduction || email === 'test@lendstack.com'
   const environment = isNonProduction ? 'test' : 'production'
   const emailVerified = isNonProduction
-  const passwordHash = await bcrypt.hash(input.password, 12)
+  const passwordHash = existingUser ? null : await bcrypt.hash(input.password!, 12)
 
   return repository.withTransaction(async () => {
-    const organizationSlug = await resolveUniqueOrganizationSlug(input.organizationName, (slug) => repository.slugExists(slug))
+    const organizationSlug = input.strictOrganizationConflicts
+      ? requestedSlug
+      : await resolveUniqueOrganizationSlug(input.organizationName, (slug) => repository.slugExists(slug))
     const organizationId = `org_${randomUUID().replace(/-/g, '').slice(0, 8)}`
     const organization = await repository.insertOrganization({
       _id: organizationId,
@@ -553,30 +649,45 @@ export async function runSelfServiceOnboardingWithRepository(
       isTest: isTestWorkspace,
     })
 
-    const user = await repository.insertUser({
-      name: input.fullName.trim(),
-      email,
-      passwordHash,
-      role: 'master',
-      organizationId: organization._id,
-      status: 'active',
-      emailVerified,
-      createdAt: now,
-      updatedAt: now,
-      isTest: isTestWorkspace,
-    })
+    let userId: any
+    if (existingUser) {
+      userId = existingUser._id
+      await repository.updateUser(existingUser._id, {
+        name: input.fullName.trim() || existingUser.name || 'Administrador',
+        email,
+        role: 'master',
+        organizationId: organization._id,
+        status: 'active',
+        updatedAt: now,
+      })
+    } else {
+      const user = await repository.insertUser({
+        name: input.fullName.trim(),
+        email,
+        passwordHash: passwordHash!,
+        role: 'master',
+        organizationId: organization._id,
+        status: 'active',
+        emailVerified,
+        createdAt: now,
+        updatedAt: now,
+        isTest: isTestWorkspace,
+      })
+      userId = user._id
+    }
 
     await repository.updateOrganization(organization._id, {
-      ownerUserId: String(user._id),
+      ownerUserId: String(userId),
       updatedAt: now,
     })
 
     await repository.insertMembership({
       _id: randomUUID(),
       organizationId: organization._id,
-      userId: user._id,
+      userId,
       role: 'OWNER',
       createdAt: now,
+      updatedAt: now,
       isTest: isTestWorkspace,
     })
 
@@ -632,7 +743,7 @@ export async function runSelfServiceOnboardingWithRepository(
     return {
       organizationId: organization._id,
       organizationSlug,
-      userId: String(user._id),
+      userId: String(userId),
       branchId: branch._id,
       starterProductId: String((starterProduct as any)._id ?? starterProduct._id),
       sampleBorrowerId: borrowerId,
