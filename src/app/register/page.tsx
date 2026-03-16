@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import LendStackLogo from '@/components/LendStackLogo'
+import { getOrganizationCreationEndpoint } from '@/lib/organizationFlow'
 
 type AvailablePlan = {
   key: string
@@ -161,7 +162,8 @@ function RegisterPageContent() {
     }
 
     try {
-      const response = await fetch('/api/register', {
+      const endpoint = getOrganizationCreationEndpoint(isAuthenticated)
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,6 +177,10 @@ function RegisterPageContent() {
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.errorCode === 'use_organization_creation_endpoint') {
+          setError('La sesion ya esta iniciada. Reintenta crear la organizacion desde tu cuenta actual.')
+          return
+        }
         if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding') {
           writePendingDraft(pendingDraft)
           router.push(`/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create`)

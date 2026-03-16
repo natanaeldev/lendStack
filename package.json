@@ -15,6 +15,7 @@
     "test:onboarding": "node --experimental-strip-types tests/self-service-onboarding.test.mjs",
     "test:stripe-config": "node --experimental-strip-types tests/stripe-config.test.mjs",
     "test:org-registration": "node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types tests/organizationRegistration.test.ts",
+    "test:organization-flow": "node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types tests/organization-flow.test.ts",
     "test:onboarding-conflicts": "node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types tests/onboarding-conflicts.test.ts",
     "seed:test-org": "node --experimental-strip-types scripts/seed-test-org.mjs"
   },
