@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { formatCurrency, type LoanType } from '@/lib/loan'
+import ChargesSection from './ChargesSection'
 import ClienteSelectField from './ClienteSelectField'
 import LoanTypeSelector from './LoanTypeSelector'
 import PrestamoFormCarrito from './PrestamoFormCarrito'
@@ -252,6 +253,11 @@ export default function PrestamoForm({
             {value.loanType === 'carrito' && (
               <PrestamoFormCarrito amount={value.amount} currency={value.currency} flatRate={value.carritoFlatRate} term={value.carritoTerm} payments={value.carritoPayments} frequency={value.carritoFrequency} startDate={value.startDate} notes={value.notes} onChange={(patch) => onChange(patch as Partial<PrestamoFormState>)} />
             )}
+
+            <ChargesSection
+              charges={value.charges}
+              onChange={(charges) => onChange({ charges })}
+            />
           </StepPanel>
 
           <section className="rounded-[28px] border border-slate-200 bg-slate-950 px-4 py-5 text-white shadow-[0_16px_42px_rgba(2,6,23,.35)] sm:px-5">
@@ -276,7 +282,7 @@ export default function PrestamoForm({
                 <p className="mt-1 text-sm font-bold">{preview.installments}</p>
               </div>
               <div className="rounded-2xl bg-white/5 px-3 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-slate-400">Capital</p>
+                <p className="text-[11px] uppercase tracking-wider text-slate-400">Capital solicitado</p>
                 <p className="mt-1 text-sm font-bold">{formatCurrency(value.amount, value.currency)}</p>
               </div>
               <div className="rounded-2xl bg-white/5 px-3 py-3">
@@ -300,6 +306,54 @@ export default function PrestamoForm({
                 <p className="mt-1 text-sm font-bold">{selectedClient?.name ?? 'Pendiente'}</p>
               </div>
             </div>
+
+            {/* Charges breakdown — only shown when there are charges */}
+            {value.charges.length > 0 && (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Detalle de cargos
+                </p>
+                <div className="mb-3 space-y-2">
+                  {value.charges.map((charge) => (
+                    <div key={charge.type} className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 px-3 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white">{charge.label}</p>
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">
+                          {charge.financed ? 'Financiado en el prestamo' : 'Cobrado al desembolso'}
+                        </p>
+                      </div>
+                      <p className="text-sm font-bold text-white">{formatCurrency(charge.amount, value.currency)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-2xl bg-emerald-900/30 px-3 py-3 ring-1 ring-emerald-700/40">
+                    <p className="text-[11px] uppercase tracking-wider text-emerald-300">Cargos financiados</p>
+                    <p className="mt-1 text-sm font-bold text-emerald-200">
+                      +{formatCurrency(preview.totalFinancedCharges, value.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-amber-900/30 px-3 py-3 ring-1 ring-amber-700/40">
+                    <p className="text-[11px] uppercase tracking-wider text-amber-300">Cargos al contado</p>
+                    <p className="mt-1 text-sm font-bold text-amber-200">
+                      -{formatCurrency(preview.totalUpfrontCharges, value.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-wider text-slate-400">Total financiado</p>
+                    <p className="mt-1 text-sm font-bold">
+                      {formatCurrency(preview.totalFinancedAmount, value.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-wider text-slate-400">Neto desembolsado</p>
+                    <p className="mt-1 text-sm font-bold">
+                      {formatCurrency(preview.netDisbursedAmount, value.currency)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </div>

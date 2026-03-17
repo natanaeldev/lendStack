@@ -6,6 +6,8 @@
 
 import type { Currency, InterestMethod, PaymentFrequency, RateUnit, ScheduleGenerationMethod } from './loan'
 
+export type LoanChargeType = 'origination_cost' | 'gastos_procesales'
+
 // ─── Loan Lifecycle ───────────────────────────────────────────────────────────
 
 /**
@@ -79,6 +81,8 @@ export interface LoanDoc {
   loanType:          'amortized' | 'weekly' | 'carrito'
   currency:          Currency
   amount:            number
+  totalFinancedAmount?: number
+  netDisbursedAmount?: number
   termYears?:        number    // amortized
   termWeeks?:        number    // weekly
   carritoTerm?:      number    // carrito
@@ -123,6 +127,18 @@ export interface LoanDoc {
 
   // Notes
   notes?: string
+}
+
+export interface LoanChargeDoc {
+  _id:            string
+  organizationId: string
+  loanId:         string
+  type:           LoanChargeType
+  label:          string
+  amount:         number
+  financed:       boolean
+  createdAt:      string
+  updatedAt:      string
 }
 
 // ─── Installment (installments collection) ────────────────────────────────────

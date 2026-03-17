@@ -15,6 +15,13 @@ import ModificationsPanel                  from '@/components/restructure/Modifi
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface LoanCharge {
+  type: 'origination_cost' | 'gastos_procesales'
+  label: string
+  amount: number
+  financed: boolean
+}
+
 interface LoanData {
   _id: string; status: LoanStatus; loanType: string
   currency: Currency; amount: number; scheduledPayment: number
@@ -25,6 +32,9 @@ interface LoanData {
   disbursedAt?: string; disbursedAmount?: number; disbursementNotes?: string
   daysPastDue?: number; overdueInstallmentsCount?: number; overdueAmount?: number
   notes?: string; createdAt: string
+  charges?: LoanCharge[]
+  totalFinancedAmount?: number
+  netDisbursedAmount?: number
 }
 interface Borrower {
   _id: string; name: string; email: string; phone: string
@@ -535,6 +545,8 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
   const canCollect  = ['active', 'delinquent'].includes(loan.status)
   const progressPct = loan.totalPayment > 0 ? Math.min((loan.paidTotal / loan.totalPayment) * 100, 100) : 0
   const hasActions  = canDisburse || canPay || canCollect
+  const financedCharges = loan.charges?.filter((charge) => charge.financed).reduce((sum, charge) => sum + charge.amount, 0) ?? 0
+  const upfrontCharges = loan.charges?.filter((charge) => !charge.financed).reduce((sum, charge) => sum + charge.amount, 0) ?? 0
 
   return (
     <>
@@ -670,6 +682,74 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
             <p className="text-right text-xs text-slate-400 mt-1">{progressPct.toFixed(1)}% completado</p>
           </div>
         </SectionCard>
+
+        {/* ── Charges ──────────────────────────────────────────────────────── */}
+        {loan.charges && loan.charges.length > 0 && (
+          <SectionCard title="Cargos y comisiones" emoji="💼">
+            <div className="space-y-3">
+              {loan.charges.map((charge, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800">{charge.label}</p>
+                    <span
+                      className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                      style={
+                        charge.financed
+                          ? { background: '#ECFDF5', color: '#047857' }
+                          : { background: '#FFFBEB', color: '#92400E' }
+                      }
+                    >
+                      {charge.financed ? 'Financiado' : 'Al contado'}
+                    </span>
+                  </div>
+                  <p className="flex-shrink-0 font-mono text-sm font-bold text-slate-800">
+                    {formatCurrency(charge.amount, cur)}
+                  </p>
+                </div>
+              ))}
+
+              {/* Totals row */}
+              <div className="mt-1 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-4">
+                <div className="rounded-xl bg-slate-50 p-3 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Cargos financiados
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {formatCurrency(financedCharges, cur)}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Cargos al contado
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {formatCurrency(upfrontCharges, cur)}
+                  </p>
+                </div>
+                {loan.totalFinancedAmount != null && (
+                  <div className="rounded-xl bg-slate-50 p-3 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Total financiado
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">
+                      {formatCurrency(loan.totalFinancedAmount, cur)}
+                    </p>
+                  </div>
+                )}
+                {loan.netDisbursedAmount != null && (
+                  <div className="rounded-xl bg-slate-50 p-3 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Neto desembolsado
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">
+                      {formatCurrency(loan.netDisbursedAmount, cur)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
         {/* ── 3-col: disbursement + borrower + delinquency ─────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -959,7 +1039,7 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
       {showDisburse && (
         <DisburseModal
-          loanId={loanId} amount={loan.amount} currency={cur}
+          loanId={loanId} amount={loan.netDisbursedAmount ?? loan.amount} currency={cur}
           onClose={() => setShowDisburse(false)}
           onSuccess={() => { setShowDisburse(false); loadData() }} />
       )}

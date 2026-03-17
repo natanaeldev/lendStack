@@ -55,7 +55,7 @@ export function generateInstallments(
       : loan.customMonthlyRate ?? 0)
 
   const quote = calculateLoanQuote({
-    principal: loan.amount,
+    principal: loan.totalFinancedAmount ?? loan.amount,
     interestMethod,
     installmentCount,
     paymentFrequency,
