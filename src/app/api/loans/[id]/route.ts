@@ -26,6 +26,11 @@ export async function GET(
     })
     if (!loan) return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 })
 
+    const chargeDocs = await db.collection('loan_charges')
+      .find({ loanId: params.id, organizationId: orgId })
+      .sort({ createdAt: 1 })
+      .toArray()
+
     // Borrower
     const client = await db.collection('clients').findOne({
       _id:            loan.clientId as any,
@@ -54,7 +59,18 @@ export async function GET(
     const delinquency = computeDelinquency(installments as any)
 
     return NextResponse.json({
-      loan:         { ...loan, _id: String(loan._id) },
+      loan:         {
+        ...loan,
+        _id: String(loan._id),
+        charges: chargeDocs.length > 0
+          ? chargeDocs.map((charge) => ({
+              type: charge.type,
+              label: charge.label,
+              amount: charge.amount,
+              financed: charge.financed,
+            }))
+          : loan.charges,
+      },
       borrower:     client ? { ...client, _id: String(client._id) } : null,
       installments: installments.map(i => ({ ...i, _id: String(i._id) })),
       payments:     payments.map(p => ({ ...p, _id: String(p._id) })),

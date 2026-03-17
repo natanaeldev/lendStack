@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse }          from 'next/server'
 import { getDb, isDbConfigured }             from '@/lib/mongodb'
 import { requireAuth, unauthorizedResponse } from '@/lib/orgAuth'
-import { migrateLegacyStatus }               from '@/lib/loanDomain'
 import { inferLegacyInterestMethod, inferLegacyPaymentFrequency, type InterestMethod } from '@/lib/loan'
+import { buildLoanChargeDocs, normalizeLoanCharges, summarizeLoanCharges } from '@/lib/loanCharges'
 import { emitNotification }                 from '@/lib/notifications'
 import { v4 as uuidv4 }                      from 'uuid'
 
@@ -98,6 +98,10 @@ export async function POST(req: NextRequest) {
       loanType = 'amortized',
       currency,
       amount,
+      totalFinancedAmount,
+      netDisbursedAmount,
+      loanCharges,
+      charges,
       termYears,
       termWeeks,
       carritoTerm,
@@ -154,6 +158,8 @@ export async function POST(req: NextRequest) {
 
     const resolvedInterestMethod = interestMethod ?? inferLegacyInterestMethod(normalizedLoanType, interestMethod)
     const resolvedPaymentFrequency = paymentFrequency ?? inferLegacyPaymentFrequency(normalizedLoanType, carritoFrequency)
+    const normalizedCharges = normalizeLoanCharges(loanCharges ?? charges)
+    const chargeSummary = summarizeLoanCharges(Number(amount), normalizedCharges)
     const resolvedInstallmentCount =
       installmentCount ??
       (normalizedLoanType === 'amortized'
@@ -183,6 +189,8 @@ export async function POST(req: NextRequest) {
       loanType: normalizedLoanType,
       currency,
       amount,
+      totalFinancedAmount: normalizedCharges.length > 0 ? chargeSummary.totalFinancedAmount : totalFinancedAmount ?? undefined,
+      netDisbursedAmount:  normalizedCharges.length > 0 ? chargeSummary.netDisbursedAmount : netDisbursedAmount ?? undefined,
       termYears:         termYears         ?? undefined,
       termWeeks:         termWeeks         ?? undefined,
       carritoTerm:       carritoTerm       ?? undefined,
@@ -215,6 +223,11 @@ export async function POST(req: NextRequest) {
     }
 
     await db.collection('loans').insertOne(loanDoc as any)
+    if (normalizedCharges.length > 0) {
+      await db.collection('loan_charges').insertMany(
+        buildLoanChargeDocs(loanId, orgId, normalizedCharges, now) as any[],
+      )
+    }
 
     const amountLabel = new Intl.NumberFormat('es-DO', {
       style: 'currency',

@@ -46,7 +46,7 @@ export async function POST(
       .countDocuments({ loanId: params.id, organizationId: orgId })
 
     const now         = new Date().toISOString()
-    const disbAmount  = disbursedAmount ?? loan.amount
+    const disbAmount  = disbursedAmount ?? loan.netDisbursedAmount ?? loan.amount
     const disbDate    = now
 
     // ── Update loan ──────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export async function POST(
         _id:        params.id,
         disbursedAt: disbDate,
         startDate:  disbDate.slice(0, 10),
-        amount:     disbAmount,
+        disbursedAmount: disbAmount,
       }
       const installments = generateInstallments(updatedLoan, orgId)
       if (installments.length > 0) {

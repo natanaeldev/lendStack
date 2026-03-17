@@ -14,6 +14,15 @@ export type PrestamoClientOption = {
   branchName?: string | null
 }
 
+export type LoanChargeType = 'origination_cost' | 'gastos_procesales'
+
+export interface LoanCharge {
+  type: LoanChargeType
+  label: string
+  amount: number
+  financed: boolean
+}
+
 export type PrestamoFormState = {
   clientId: string
   loanType: LoanType
@@ -31,6 +40,7 @@ export type PrestamoFormState = {
   carritoTerm: number
   carritoPayments: number
   carritoFrequency: CarritoFrequency
+  charges: LoanCharge[]
 }
 
 export type PrestamoPreview = {
@@ -40,5 +50,9 @@ export type PrestamoPreview = {
   totalPayment: number
   totalInterest: number
   rateLabel: string
+  totalFinancedCharges: number
+  totalUpfrontCharges: number
+  totalFinancedAmount: number
+  netDisbursedAmount: number
 }
 

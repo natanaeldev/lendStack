@@ -7,8 +7,13 @@ import {
   calculateWeeklyLoan,
   getRiskConfig,
 } from '@/lib/loan'
+import { summarizeLoanCharges } from '@/lib/loanCharges'
 import PrestamoForm from './PrestamoForm'
 import type { PrestamoClientOption, PrestamoFormState, PrestamoPreview } from './types'
+
+function computeCharges(baseAmount: number, charges: PrestamoFormState['charges']) {
+  return summarizeLoanCharges(baseAmount, charges)
+}
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -31,6 +36,7 @@ const DEFAULT_FORM: PrestamoFormState = {
   carritoTerm: 12,
   carritoPayments: 12,
   carritoFrequency: 'weekly',
+  charges: [],
 }
 
 export default function CreatePrestamoFlow({
@@ -79,9 +85,16 @@ export default function CreatePrestamoFlow({
   }, [open])
 
   const preview = useMemo<PrestamoPreview>(() => {
+    const {
+      financed: totalFinancedCharges,
+      upfront: totalUpfrontCharges,
+      totalFinancedAmount,
+      netDisbursedAmount,
+    } = computeCharges(form.amount, form.charges)
+
     if (form.loanType === 'amortized') {
       const result = calculateLoan({
-        amount: form.amount,
+        amount: totalFinancedAmount,
         termYears: form.monthlyTermMonths / 12,
         profile: form.monthlyProfile,
         currency: form.currency,
@@ -99,11 +112,15 @@ export default function CreatePrestamoFlow({
           form.monthlyRateMode === 'monthly'
             ? `${(form.monthlyCustomRate * 100).toFixed(2)}% mensual`
             : `${(getRiskConfig(form.monthlyProfile).midRate * 100).toFixed(2)}% anual`,
+        totalFinancedCharges,
+        totalUpfrontCharges,
+        totalFinancedAmount,
+        netDisbursedAmount,
       }
     }
 
     if (form.loanType === 'weekly') {
-      const result = calculateWeeklyLoan(form.amount, form.weeklyTermWeeks, form.weeklyMonthlyRate)
+      const result = calculateWeeklyLoan(totalFinancedAmount, form.weeklyTermWeeks, form.weeklyMonthlyRate)
       return {
         frequencyLabel: 'Semanal',
         installments: result.totalWeeks,
@@ -111,11 +128,15 @@ export default function CreatePrestamoFlow({
         totalPayment: result.totalPayment,
         totalInterest: result.totalInterest,
         rateLabel: `${(form.weeklyMonthlyRate * 100).toFixed(2)}% mensual`,
+        totalFinancedCharges,
+        totalUpfrontCharges,
+        totalFinancedAmount,
+        netDisbursedAmount,
       }
     }
 
     const result = calculateCarritoLoan(
-      form.amount,
+      totalFinancedAmount,
       form.carritoFlatRate,
       form.carritoTerm,
       form.carritoPayments,
@@ -128,6 +149,10 @@ export default function CreatePrestamoFlow({
       totalPayment: result.totalPayment,
       totalInterest: result.totalInterest,
       rateLabel: `${(form.carritoFlatRate * 100).toFixed(2)}% total sobre capital`,
+      totalFinancedCharges,
+      totalUpfrontCharges,
+      totalFinancedAmount,
+      netDisbursedAmount,
     }
   }, [form])
 
@@ -157,6 +182,10 @@ export default function CreatePrestamoFlow({
       if (form.carritoTerm < 1) return 'El plazo de carrito debe ser mayor que cero.'
       if (form.carritoPayments < 1) return 'Las cuotas de carrito deben ser mayores que cero.'
       if (form.carritoFlatRate < 0) return 'La tasa total sobre capital no puede ser negativa.'
+    }
+
+    if (form.charges.some((charge) => charge.amount < 0)) {
+      return 'Los cargos no pueden ser negativos.'
     }
 
     return ''
@@ -234,9 +263,15 @@ export default function CreatePrestamoFlow({
 }
 
 function buildPayload(form: PrestamoFormState) {
+  const {
+    totalFinancedAmount,
+    netDisbursedAmount,
+  } = computeCharges(form.amount, form.charges)
+  const chargesPayload = form.charges.filter((charge) => charge.amount > 0)
+
   if (form.loanType === 'amortized') {
     const result = calculateLoan({
-      amount: form.amount,
+      amount: totalFinancedAmount,
       termYears: form.monthlyTermMonths / 12,
       profile: form.monthlyProfile,
       currency: form.currency,
@@ -250,6 +285,9 @@ function buildPayload(form: PrestamoFormState) {
       loanType: 'amortized',
       currency: form.currency,
       amount: form.amount,
+      totalFinancedAmount,
+      netDisbursedAmount,
+      loanCharges: chargesPayload,
       termYears: form.monthlyTermMonths / 12,
       profile: form.monthlyProfile,
       rateMode: form.monthlyRateMode,
@@ -266,13 +304,16 @@ function buildPayload(form: PrestamoFormState) {
   }
 
   if (form.loanType === 'weekly') {
-    const result = calculateWeeklyLoan(form.amount, form.weeklyTermWeeks, form.weeklyMonthlyRate)
+    const result = calculateWeeklyLoan(totalFinancedAmount, form.weeklyTermWeeks, form.weeklyMonthlyRate)
 
     return {
       clientId: form.clientId,
       loanType: 'weekly',
       currency: form.currency,
       amount: form.amount,
+      totalFinancedAmount,
+      netDisbursedAmount,
+      loanCharges: chargesPayload,
       termWeeks: form.weeklyTermWeeks,
       monthlyRate: form.weeklyMonthlyRate,
       weeklyRate: result.weeklyRate,
@@ -286,19 +327,22 @@ function buildPayload(form: PrestamoFormState) {
     }
   }
 
-    const result = calculateCarritoLoan(
-      form.amount,
-      form.carritoFlatRate,
-      form.carritoTerm,
-      form.carritoPayments,
-      'FLAT_TOTAL',
-    )
+  const result = calculateCarritoLoan(
+    totalFinancedAmount,
+    form.carritoFlatRate,
+    form.carritoTerm,
+    form.carritoPayments,
+    'FLAT_TOTAL',
+  )
 
   return {
     clientId: form.clientId,
     loanType: 'carrito',
     currency: form.currency,
     amount: form.amount,
+    totalFinancedAmount,
+    netDisbursedAmount,
+    loanCharges: chargesPayload,
     carritoTerm: form.carritoTerm,
     carritoPayments: form.carritoPayments,
     carritoFrequency: form.carritoFrequency,
