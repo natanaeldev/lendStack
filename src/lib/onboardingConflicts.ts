@@ -18,9 +18,13 @@ export function mapMongoDuplicateKeyToOnboardingConflict(error: any): Onboarding
     includesAny(namespace, ['.users']) ||
     includesAny(message, [' index: email_', ' dup key: { email:'])
   ) {
+    // Use a distinct code from `existing_user_requires_login`.
+    // An E11000 means the INSERT was rejected — the user was never saved (the
+    // transaction rolled back). Redirecting to login would guarantee a 401 because
+    // the account does not exist. The frontend must show an in-place error instead.
     return new OnboardingConflictError(
-      'Ese email ya tiene una cuenta. Inicia sesión para continuar con la creación de la organización.',
-      'existing_user_requires_login',
+      'Ese email ya está en uso. Intentá con otro email o iniciá sesión si ya tenés cuenta.',
+      'email_conflict',
     )
   }
 

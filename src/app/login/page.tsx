@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -17,6 +17,12 @@ function LoginPageContent() {
   const requestedNextPath = searchParams.get('next')
   const nextPath = requestedNextPath?.startsWith('/') ? requestedNextPath : '/app'
   const isOrgResume = searchParams.get('reason') === 'org-create'
+  const prefillEmail = searchParams.get('email') ?? ''
+
+  // Pre-fill email from URL (set when redirected from the register page)
+  useEffect(() => {
+    if (prefillEmail) setEmail(prefillEmail)
+  }, [prefillEmail])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
