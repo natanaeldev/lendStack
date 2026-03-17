@@ -40,17 +40,29 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Contraseña', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
-        if (!isDbConfigured()) return null
+        if (!credentials?.email || !credentials?.password) {
+          console.warn('[auth] authorize: missing credentials')
+          return null
+        }
+        if (!isDbConfigured()) {
+          console.warn('[auth] authorize: database not configured')
+          return null
+        }
 
         const db = await getDb()
         const user = await db.collection('users').findOne({
           email: credentials.email.trim().toLowerCase(),
         })
-        if (!user) return null
+        if (!user) {
+          console.warn('[auth] authorize: no user found for email')
+          return null
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash)
-        if (!valid) return null
+        if (!valid) {
+          console.warn('[auth] authorize: invalid password')
+          return null
+        }
 
         const identity = await loadOrganizationIdentity(db, user)
 
