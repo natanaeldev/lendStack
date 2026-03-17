@@ -181,10 +181,17 @@ function RegisterPageContent() {
           setError('La sesion ya esta iniciada. Reintenta crear la organizacion desde tu cuenta actual.')
           return
         }
-        if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding') {
-          // Only redirect to login when the user is NOT yet authenticated.
-          // If they are already authenticated, redirecting to /login creates an
-          // infinite loop (login → /register?resume=1 → same error → login → …).
+        // These codes mean "something related to this account already exists in the DB —
+        // log in to resume or see the current state."
+        // `conflict` covers unexpected DB duplicate-key errors (e.g. ghost data from a
+        // partial previous registration on a cluster without full transaction support).
+        // IMPORTANT: only redirect to /login when NOT already authenticated — doing so
+        // for authenticated users creates an infinite loop.
+        if (
+          data.errorCode === 'existing_user_requires_login' ||
+          data.errorCode === 'incomplete_onboarding' ||
+          data.errorCode === 'conflict'
+        ) {
           if (!isAuthenticated) {
             writePendingDraft(pendingDraft)
             const loginUrl =
