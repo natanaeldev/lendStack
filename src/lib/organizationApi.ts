@@ -194,6 +194,7 @@ export async function handleAuthenticatedOrganizationCreation(
       strictOrganizationConflicts: true,
     })
 
+    try {
       const checkout = await deps.createOrganizationCheckoutSession({
         organizationId: onboarding.organizationId,
         userId: onboarding.userId,
@@ -203,15 +204,31 @@ export async function handleAuthenticatedOrganizationCreation(
         interval: selectedPlan.interval,
       })
 
-    return {
-      status: 200,
-      body: {
-        success: true,
-        ...onboarding,
-        checkoutUrl: checkout.url,
-        createdUser: false,
-        requiresLogin: false,
-      },
+      return {
+        status: 200,
+        body: {
+          success: true,
+          ...onboarding,
+          checkoutUrl: checkout.url,
+          createdUser: false,
+          requiresLogin: false,
+        },
+      }
+    } catch {
+      // Org was saved successfully but Stripe checkout could not be created.
+      // Return success so the user reaches the dashboard and can retry from billing.
+      return {
+        status: 200,
+        body: {
+          success: true,
+          ...onboarding,
+          checkoutUrl: null,
+          createdUser: false,
+          requiresLogin: false,
+          warning:
+            'La organizacion fue creada, pero no se pudo abrir Stripe Checkout. Ingresa a tu panel y reintenta el pago desde la seccion de facturacion.',
+        },
+      }
     }
   } catch (error: any) {
     return mapOrganizationApiError(error, 'No se pudo crear la organizacion.')
