@@ -34,13 +34,13 @@ export async function POST(req: NextRequest) {
       },
     )
 
-    // When the user already belongs to an org that's still pending Stripe checkout
-    // (e.g. they cancelled and are retrying), create a new checkout for the existing org
-    // instead of failing with a conflict error.
-    if (
-      result.status === 409 &&
-      (result.body.errorCode === 'membership_exists' || result.body.errorCode === 'organization_exists')
-    ) {
+    // When the user already has an org that is still pending Stripe checkout
+    // (e.g. they cancelled Stripe and are retrying), create a new checkout session
+    // for the existing pending org instead of failing with a conflict error.
+    // NOTE: only attempt the retry for `membership_exists` — the user is the owner of
+    // that org.  `organization_exists` means a *different* user's org has the same
+    // name; retrying with the caller's org would be wrong.
+    if (result.status === 409 && result.body.errorCode === 'membership_exists') {
       const orgId = session.user.organizationId
       if (orgId && isStripeConfigured()) {
         const org = await db.collection('organizations').findOne({ _id: orgId as any })
@@ -65,12 +65,22 @@ export async function POST(req: NextRequest) {
               })
             } catch (checkoutError: any) {
               console.error('[POST /api/organizations] retry checkout failed', checkoutError)
+              // Return an explicit checkout-failure error instead of falling through
+              // to the confusing "Ya perteneces a esa organizacion" 409 message.
+              return NextResponse.json(
+                {
+                  error:
+                    'Tu organizacion fue registrada, pero no se pudo abrir Stripe Checkout. Ingresa a tu panel y reintenta el pago desde la seccion de facturacion.',
+                  errorCode: 'checkout_failed',
+                },
+                { status: 502 },
+              )
             }
           }
         }
       }
 
-      console.warn('[POST /api/organizations] conflict', {
+      console.warn('[POST /api/organizations] membership conflict without pending checkout', {
         userId: session.user.id,
         email: session.user.email,
         errorCode: result.body.errorCode,
