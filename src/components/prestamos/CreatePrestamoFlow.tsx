@@ -9,6 +9,7 @@ import {
 } from '@/lib/loan'
 import { summarizeLoanCharges } from '@/lib/loanCharges'
 import PrestamoForm from './PrestamoForm'
+import ReauthWizard from '@/components/reauth/ReauthWizard'
 import type { PrestamoClientOption, PrestamoFormState, PrestamoPreview } from './types'
 
 function computeCharges(baseAmount: number, charges: PrestamoFormState['charges']) {
@@ -53,6 +54,12 @@ export default function CreatePrestamoFlow({
   const [form, setForm] = useState<PrestamoFormState>(DEFAULT_FORM)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [reauthState, setReauthState] = useState<{
+    loanId: string
+    thresholdAmount: number
+    amount: number
+    currency: string
+  } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -214,6 +221,18 @@ export default function CreatePrestamoFlow({
         throw new Error(data.error ?? 'No se pudo guardar el préstamo.')
       }
 
+      if (data.reauthRequired && data.thresholdAmount) {
+        // Show the reauth wizard instead of closing
+        setReauthState({
+          loanId:          data.loanId,
+          thresholdAmount: data.thresholdAmount,
+          amount:          form.amount,
+          currency:        form.currency,
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       setForm(DEFAULT_FORM)
       onCreated(data.loanId)
       onClose()
@@ -225,6 +244,31 @@ export default function CreatePrestamoFlow({
   }
 
   if (!open) return null
+
+  if (reauthState) {
+    return (
+      <ReauthWizard
+        loanId={reauthState.loanId}
+        amount={reauthState.amount}
+        currency={reauthState.currency}
+        thresholdAmount={reauthState.thresholdAmount}
+        onComplete={() => {
+          const loanId = reauthState.loanId
+          setReauthState(null)
+          setForm(DEFAULT_FORM)
+          onCreated(loanId)
+          onClose()
+        }}
+        onCancel={() => {
+          const loanId = reauthState.loanId
+          setReauthState(null)
+          setForm(DEFAULT_FORM)
+          onCreated(loanId)
+          onClose()
+        }}
+      />
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/45 backdrop-blur-[2px]">

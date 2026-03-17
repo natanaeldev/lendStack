@@ -41,6 +41,14 @@ export async function POST(
       )
     }
 
+    // Block disbursement if reauth/approval flow is incomplete
+    if (loan.disbursementLocked) {
+      return NextResponse.json(
+        { error: 'El desembolso está bloqueado hasta completar la reautorización y aprobación requeridas.' },
+        { status: 400 },
+      )
+    }
+
     // Idempotency: if already disbursed, check whether installments exist
     const existingInstallments = await db.collection('installments')
       .countDocuments({ loanId: params.id, organizationId: orgId })

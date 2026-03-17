@@ -12,6 +12,7 @@ import { PaymentReceiptModal }              from '@/components/PaymentReceipt'
 import type { ReceiptData }                 from '@/components/PaymentReceipt'
 import type { Currency }                    from '@/lib/loan'
 import ModificationsPanel                  from '@/components/restructure/ModificationsPanel'
+import ApprovalStatusPanel                 from '@/components/reauth/ApprovalStatusPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -940,6 +941,17 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
             </>
           )}
         </SectionCard>
+
+        {/* ── Reauthorization & Approval Status ─────────────────────────────── */}
+        {(loan as any).requiresReauth && (
+          <div id="reauth-approval-panel" className="rounded-2xl border border-slate-100 bg-white p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-lg">🔒</span>
+              <h2 className="text-base font-bold text-slate-900">Reautorización y Aprobación</h2>
+            </div>
+            <ApprovalStatusPanel loanId={loanId} />
+          </div>
+        )}
 
         {/* ── Restructuring & Rescheduling ──────────────────────────────────── */}
         <div id="modifications-panel">

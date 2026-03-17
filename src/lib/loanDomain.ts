@@ -29,6 +29,14 @@ export type LoanStatus =
   | 'paid_off'
   | 'defaulted'
   | 'cancelled'
+  // ── Reauth & multi-level approval statuses ──────────────────────────────
+  | 'reauth_required'
+  | 'reauth_in_progress'
+  | 'reauth_failed'
+  | 'reauth_completed'
+  | 'pending_approval'
+  | 'approval_approved'
+  | 'approval_rejected'
 
 /** Map legacy 3-state values to the full lifecycle */
 export function migrateLegacyStatus(raw: string | undefined): LoanStatus {
@@ -39,6 +47,8 @@ export function migrateLegacyStatus(raw: string | undefined): LoanStatus {
   const valid: LoanStatus[] = [
     'application_submitted', 'under_review', 'approved', 'denied',
     'disbursed', 'active', 'delinquent', 'paid_off', 'defaulted', 'cancelled',
+    'reauth_required', 'reauth_in_progress', 'reauth_failed', 'reauth_completed',
+    'pending_approval', 'approval_approved', 'approval_rejected',
   ]
   return valid.includes(raw as LoanStatus) ? (raw as LoanStatus) : 'application_submitted'
 }
@@ -62,7 +72,14 @@ export const LOAN_STATUS_CONFIG: Record<LoanStatus, {
   delinquent:            { label: 'Moroso',        color: '#7C2D12', bg: '#FFF7ED', border: '#FDBA74', dot: '#F97316' },
   paid_off:              { label: 'Pagado',        color: '#1E3A5F', bg: '#F0F9FF', border: '#BAE6FD', dot: '#0284C7' },
   defaulted:             { label: 'En default',    color: '#450A0A', bg: '#FEF2F2', border: '#FCA5A5', dot: '#B91C1C' },
-  cancelled:             { label: 'Cancelado',     color: '#374151', bg: '#F9FAFB', border: '#E5E7EB', dot: '#6B7280' },
+  cancelled:             { label: 'Cancelado',       color: '#374151', bg: '#F9FAFB', border: '#E5E7EB', dot: '#6B7280' },
+  reauth_required:       { label: 'Reauth. requerida', color: '#92400E', bg: '#FFFBEB', border: '#FDE68A', dot: '#F59E0B' },
+  reauth_in_progress:    { label: 'Reauth. en progreso', color: '#1E40AF', bg: '#EFF6FF', border: '#BFDBFE', dot: '#3B82F6' },
+  reauth_failed:         { label: 'Reauth. fallida',  color: '#881337', bg: '#FFF1F2', border: '#FECDD3', dot: '#DC2626' },
+  reauth_completed:      { label: 'Reauth. completada', color: '#14532D', bg: '#F0FDF4', border: '#86EFAC', dot: '#16A34A' },
+  pending_approval:      { label: 'Pend. aprobación', color: '#4C1D95', bg: '#F5F3FF', border: '#C4B5FD', dot: '#7C3AED' },
+  approval_approved:     { label: 'Aprobado',         color: '#064E3B', bg: '#ECFDF5', border: '#6EE7B7', dot: '#10B981' },
+  approval_rejected:     { label: 'Rechazado',        color: '#450A0A', bg: '#FEF2F2', border: '#FCA5A5', dot: '#B91C1C' },
 }
 
 // ─── Loan (loans collection) ──────────────────────────────────────────────────
@@ -127,6 +144,15 @@ export interface LoanDoc {
 
   // Notes
   notes?: string
+
+  // ── High-amount reauthorization & approval ──────────────────────────────
+  requiresReauth?: boolean
+  reauthStatus?: string | null
+  reauthSessionId?: string | null
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | null
+  disbursementLocked?: boolean
+  triggeredPolicyId?: string | null
+  triggeredThresholdAmount?: number | null
 }
 
 export interface LoanChargeDoc {
