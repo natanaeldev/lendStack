@@ -49,7 +49,7 @@ export function mapMongoDuplicateKeyToOnboardingConflict(error: any): Onboarding
   }
 
   return new OnboardingConflictError(
-    'Se detectó un conflicto con datos ya existentes.',
+    'Ya existe un registro con esos datos. Si ya intentaste registrarte antes, inicia sesión para continuar.',
     'conflict',
   )
 }

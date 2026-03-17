@@ -585,6 +585,14 @@ export async function runSelfServiceOnboardingWithRepository(
         )
       }
 
+      // Org was created but Stripe checkout was never completed — guide user to log in and resume
+      if (conflictingOrganization.billingStatus === 'pending_checkout') {
+        throw new OnboardingConflictError(
+          'Ya tienes un registro pendiente para esa organización. Inicia sesión para completar el pago.',
+          'incomplete_onboarding',
+        )
+      }
+
       if (existingUser) {
         const membership = await repositoryWithConflicts.findMembership?.(conflictingOrganization._id, existingUser._id)
         if (membership || String(existingUser.organizationId ?? '') === String(conflictingOrganization._id)) {

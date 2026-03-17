@@ -181,17 +181,9 @@ function RegisterPageContent() {
           setError('La sesion ya esta iniciada. Reintenta crear la organizacion desde tu cuenta actual.')
           return
         }
-        if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding') {
-          // Only redirect to login when the user is NOT yet authenticated.
-          // If they are already authenticated, redirecting to /login creates an
-          // infinite loop (login → /register?resume=1 → same error → login → …).
-          if (!isAuthenticated) {
-            writePendingDraft(pendingDraft)
-            router.push(`/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create`)
-            return
-          }
-          // Authenticated user: show the error in-place so they can adjust.
-          setError(data.error ?? 'Error al registrar la organizacion.')
+        if (data.errorCode === 'existing_user_requires_login' || data.errorCode === 'incomplete_onboarding' || data.errorCode === 'conflict') {
+          writePendingDraft(pendingDraft)
+          router.push(`/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create`)
           return
         }
 
