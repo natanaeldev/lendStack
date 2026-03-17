@@ -19,6 +19,20 @@ export async function POST(
   if (!session) return unauthorizedResponse()
   if (!isDbConfigured()) return NextResponse.json({ configured: false }, { status: 503 })
 
+  // Only managers and above can disburse loans
+  const canDisburse =
+    session.user.role === 'master' ||
+    session.user.isOrganizationOwner ||
+    session.user.role === 'manager' ||
+    session.user.organizationRole?.toUpperCase() === 'MANAGER'
+
+  if (!canDisburse) {
+    return NextResponse.json(
+      { error: 'No tiene permisos para desembolsar préstamos. Se requiere rol de Gerente o superior.' },
+      { status: 403 },
+    )
+  }
+
   try {
     const body = await req.json()
     const { disbursedAmount, notes } = body

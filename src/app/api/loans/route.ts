@@ -241,6 +241,21 @@ export async function POST(req: NextRequest) {
         currency:   String(currency),
       })
 
+      // Safety net: if no threshold policy is configured for this org, apply a
+      // hardcoded fallback of RD$500,000 DOP for non-manager roles so that operators
+      // cannot bypass the approval flow simply because the DB has no policy yet.
+      const agentRole = (session.user.role ?? session.user.organizationRole ?? '').toLowerCase()
+      const isManagerOrAbove = ['master', 'manager', 'owner'].includes(agentRole) || session.user.isOrganizationOwner
+      if (
+        !thresholdResult.exceeded &&
+        !thresholdResult.applicablePolicy &&
+        !isManagerOrAbove &&
+        Number(amount) > 500_000 &&
+        String(currency).toUpperCase() === 'DOP'
+      ) {
+        thresholdResult = { ...thresholdResult, exceeded: true, thresholdAmount: 500_000 }
+      }
+
       if (thresholdResult.exceeded) {
         reauthRequired = true
         Object.assign(loanDoc, {
