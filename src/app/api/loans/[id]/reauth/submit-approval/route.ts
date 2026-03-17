@@ -48,10 +48,30 @@ export async function POST(
     })
 
     if (!approvalPolicy) {
-      return NextResponse.json(
-        { error: 'No se encontró una política de aprobación aplicable. Contacte al administrador.' },
-        { status: 422 },
-      )
+      // No policy configured in DB — use a safe hardcoded fallback.
+      const now2 = new Date().toISOString()
+      approvalPolicy = {
+        _id:                   'fallback_default',
+        organizationId:        orgId,
+        name:                  'Aprobación predeterminada (sin política configurada)',
+        active:                true,
+        scopeType:             'global',
+        scopeId:               null,
+        minAmount:             0,
+        maxAmount:             null,
+        currency:              String(loan.currency),
+        approvalMode:          'all_required',
+        requiredApprovalCount: 1,
+        rejectionMode:         'terminal',
+        approvers:             [{ type: 'manager' }],
+        biometricMode:         'either',
+        retryLimit:            3,
+        notificationChannels:  ['inApp'],
+        secondThresholdAmount: null,
+        createdAt:             now2,
+        updatedAt:             now2,
+        createdBy:             'system_fallback',
+      }
     }
 
     const tasks = await createApprovalTasks(

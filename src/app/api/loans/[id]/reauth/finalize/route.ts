@@ -60,13 +60,31 @@ export async function POST(
     })
 
     if (!approvalPolicy) {
-      // No policy found — finalize succeeded but approval cannot be auto-submitted
-      return NextResponse.json({
-        success:           true,
-        session:           updatedSession,
-        approvalSubmitted: false,
-        reason:            'no_approval_policy',
-      })
+      // No policy configured in DB — use a safe hardcoded fallback so loans are
+      // never left stuck. Requires at least one manager to approve.
+      const now2 = new Date().toISOString()
+      approvalPolicy = {
+        _id:                   'fallback_default',
+        organizationId:        orgId,
+        name:                  'Aprobación predeterminada (sin política configurada)',
+        active:                true,
+        scopeType:             'global',
+        scopeId:               null,
+        minAmount:             0,
+        maxAmount:             null,
+        currency:              String(loan.currency),
+        approvalMode:          'all_required',
+        requiredApprovalCount: 1,
+        rejectionMode:         'terminal',
+        approvers:             [{ type: 'manager' }],
+        biometricMode:         'either',
+        retryLimit:            3,
+        notificationChannels:  ['inApp'],
+        secondThresholdAmount: null,
+        createdAt:             now2,
+        updatedAt:             now2,
+        createdBy:             'system_fallback',
+      }
     }
 
     const tasks = await createApprovalTasks(
