@@ -66,7 +66,7 @@ export async function POST() {
         createdAt:      now,
         updatedAt:      now,
         createdBy:      'seed',
-      })
+      } as any)
       thresholdSeeded = true
     }
 
@@ -94,7 +94,7 @@ export async function POST() {
         createdAt:      now,
         updatedAt:      now,
         createdBy:      'seed',
-      })
+      } as any)
       approvalSeeded = true
     }
 
