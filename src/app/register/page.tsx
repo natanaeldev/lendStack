@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -74,9 +74,14 @@ function RegisterPageContent() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
-  // orgCreatedId is set after a successful POST /api/organizations.
-  // It is passed to POST /api/billing/checkout so the checkout can target
-  // the newly-created org even before the JWT has been refreshed.
+  // loginSuggestionUrl is set when registration fails because the email is already
+  // in use. We show an inline link instead of automatically redirecting so that a
+  // failed registration never triggers a signIn call.
+  const [loginSuggestionUrl, setLoginSuggestionUrl] = useState<string | null>(null)
+
+  // orgCreatedId is set after a successful POST /api/organizations (step 1 for
+  // authenticated users). It is passed to POST /api/billing/checkout so the
+  // checkout targets the right org even before the JWT has been refreshed.
   const [orgCreatedId, setOrgCreatedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -98,23 +103,42 @@ function RegisterPageContent() {
     setAdminName((current) => current || session.user.name || '')
   }, [session])
 
+  // ── Resume from saved draft ──────────────────────────────────────────────────
+  // This effect waits until the session has fully resolved (sessionLoading = false)
+  // before applying the draft, preventing a double-fire that would first set step=2
+  // (when isAuthenticated=false during loading) and then reset the UI when the
+  // session becomes authenticated.
+  //
+  // A ref guards against re-application if the dependency array fires again.
+  const resumeAppliedRef = useRef(false)
   useEffect(() => {
+    if (sessionLoading) return // Wait until session is resolved
+    if (resumeAppliedRef.current) return // Only apply once per page load
+
     const shouldResume = searchParams.get('resume') === '1'
     if (!shouldResume) return
 
     const draft = readPendingDraft()
     if (!draft) return
 
+    resumeAppliedRef.current = true
+
     setOrgName(draft.orgName)
     setAdminName((current) => current || draft.adminName)
     setAdminEmail((current) => current || draft.adminEmail)
     setSelectedPlanKey((current) => current || draft.planKey)
-    setStep(2)
 
     if (isAuthenticated) {
-      setSuccessMsg('Sesión iniciada. Revisá el plan y continuá con la creación de la organización.')
+      // Authenticated users land at step 2 (plan selection). The org will be
+      // created or recovered automatically when they click "Continuar a Stripe".
+      setStep(2)
+      setSuccessMsg('Sesión iniciada. Seleccioná el plan para activar tu organización.')
+      console.info('[register/resume] authenticated user resumed draft', { orgName: draft.orgName })
+    } else {
+      // Unauthenticated: jump to plan confirmation step (same as before).
+      setStep(2)
     }
-  }, [isAuthenticated, searchParams])
+  }, [sessionLoading, isAuthenticated, searchParams])
 
   const selectedPlan = useMemo(
     () => plans.find((plan) => plan.key === selectedPlanKey) ?? null,
@@ -142,19 +166,20 @@ function RegisterPageContent() {
   }
 
   // ── Step 1 handler ──────────────────────────────────────────────────────────
-  // For authenticated users:  creates the org via POST /api/organizations and
-  // then advances to plan selection (step 2).
-  // For unauthenticated users: validates and advances to plan confirmation (step 2)
-  // without making any API call — the API call happens on step 2 submit.
+  // Authenticated: creates the org via POST /api/organizations, stores orgCreatedId,
+  //   then advances to step 2 (plan selection).
+  // Unauthenticated: validates and advances to plan confirmation without an API call.
+  //   The combined register+checkout call fires on step 2 submit.
   const handleNext = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
+    setLoginSuggestionUrl(null)
 
     if (!validateStepOne()) return
 
     if (isAuthenticated) {
-      // Authenticated path: create the org now, select plan in step 2.
       setLoading(true)
+      console.info('[register/handleNext] creating org via /api/organizations', { orgName })
       try {
         const response = await fetch('/api/organizations', {
           method: 'POST',
@@ -162,25 +187,27 @@ function RegisterPageContent() {
           body: JSON.stringify({ orgName, adminName }),
         })
         const data = await response.json()
+        console.info('[register/handleNext] /api/organizations response', {
+          status: response.status,
+          errorCode: data.errorCode,
+          organizationId: data.organizationId,
+        })
 
         if (!response.ok) {
           const code = data.errorCode as string | undefined
           if (code === 'organization_exists') {
             setError('Ya existe una organización con ese nombre. Elegí un nombre diferente.')
-            return
-          }
-          if (code === 'membership_exists') {
-            setError('Ya pertenecés a una organización activa. Ingresá al panel para administrarla.')
-            return
-          }
-          if (code === 'email_conflict') {
+          } else if (code === 'membership_exists') {
+            setError('Ya pertenecés a una organización activa. Ingresá a tu panel para administrarla.')
+          } else if (code === 'email_conflict') {
             setError('Ese email ya está en uso por otra cuenta.')
-            return
+          } else {
+            setError(data.error ?? 'No se pudo crear la organización.')
           }
-          setError(data.error ?? 'No se pudo crear la organización.')
           return
         }
 
+        console.info('[register/handleNext] org created', { organizationId: data.organizationId })
         setOrgCreatedId(data.organizationId)
         setStep(2)
       } catch {
@@ -189,22 +216,23 @@ function RegisterPageContent() {
         setLoading(false)
       }
     } else {
-      // Unauthenticated path: plan selection happens here in the sidebar; the
-      // combined register+checkout call fires on step 2 submit.
       setStep(2)
     }
   }
 
   // ── Step 2 handler ──────────────────────────────────────────────────────────
-  // For authenticated users (org already created): calls POST /api/billing/checkout
-  // with the organizationId from step 1 + the selected plan.
-  // For unauthenticated users: calls POST /api/register which creates user + org +
-  // Stripe checkout in one atomic operation.
+  // Authenticated: ensures an orgCreatedId exists (creates/recovers the org on the
+  //   fly when the user resumed from draft), then calls POST /api/billing/checkout.
+  // Unauthenticated: calls POST /api/register which creates user + org + checkout
+  //   atomically. On conflict errors, shows an INLINE error with a login link
+  //   instead of automatically redirecting — this is what prevents the
+  //   "failed registration → signIn → 401" cascade.
   const handleSubmit = async () => {
     if (loading) return
 
     setLoading(true)
     setError('')
+    setLoginSuggestionUrl(null)
 
     const pendingDraft: PendingDraft = {
       orgName,
@@ -214,50 +242,104 @@ function RegisterPageContent() {
     }
 
     try {
-      if (isAuthenticated && orgCreatedId) {
-        // ── Authenticated flow: create Stripe checkout for the org we just created ──
+      if (isAuthenticated) {
+        // ── Authenticated path ───────────────────────────────────────────────
         if (!selectedPlan) {
           setError('Seleccioná un plan para continuar.')
           return
         }
 
-        const response = await fetch('/api/billing/checkout', {
+        // Ensure we have an orgCreatedId.
+        // When the user resumed from a draft (came back after logging in), they land
+        // directly in step 2 without having gone through step 1 — so orgCreatedId
+        // is null. We create/recover the org here before creating the checkout.
+        // This is what prevents the fallthrough to /api/register that caused 409s.
+        let effectiveOrgId = orgCreatedId
+        if (!effectiveOrgId) {
+          console.info('[register/handleSubmit] no orgCreatedId — creating/recovering org for resumed user', {
+            orgName,
+            email: adminEmail,
+          })
+          const orgResponse = await fetch('/api/organizations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orgName, adminName }),
+          })
+          const orgData = await orgResponse.json()
+          console.info('[register/handleSubmit] /api/organizations (on-the-fly) response', {
+            status: orgResponse.status,
+            errorCode: orgData.errorCode,
+            organizationId: orgData.organizationId,
+          })
+
+          if (!orgResponse.ok) {
+            const code = orgData.errorCode as string | undefined
+            if (code === 'organization_exists') {
+              setError('Ya existe una organización con ese nombre. Volvé al paso anterior y elegí otro nombre.')
+              setStep(1)
+            } else if (code === 'membership_exists') {
+              setError('Ya pertenecés a una organización activa. Ingresá a tu panel para administrarla.')
+            } else {
+              setError(orgData.error ?? 'No se pudo crear la organización. Intentalo de nuevo.')
+            }
+            return
+          }
+
+          effectiveOrgId = orgData.organizationId as string
+          setOrgCreatedId(effectiveOrgId)
+        }
+
+        // Create Stripe checkout for the org
+        console.info('[register/handleSubmit] creating checkout', {
+          organizationId: effectiveOrgId,
+          planKey: selectedPlan.productKey,
+          interval: selectedPlan.interval,
+        })
+        const checkoutResponse = await fetch('/api/billing/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            organizationId: orgCreatedId,
+            organizationId: effectiveOrgId,
             planKey: selectedPlan.productKey,
             interval: selectedPlan.interval,
           }),
         })
-        const data = await response.json()
+        const checkoutData = await checkoutResponse.json()
+        console.info('[register/handleSubmit] /api/billing/checkout response', {
+          status: checkoutResponse.status,
+          errorCode: checkoutData.errorCode,
+          hasUrl: !!checkoutData.url,
+        })
 
-        if (!response.ok) {
-          if (data.errorCode === 'invalid_plan') {
+        if (!checkoutResponse.ok) {
+          if (checkoutData.errorCode === 'invalid_plan') {
             setError('El plan seleccionado no está disponible. Elegí otro plan.')
+          } else if (checkoutData.errorCode === 'forbidden') {
+            setError('No tenés permisos para gestionar esta organización.')
           } else {
-            setError(data.error ?? 'No se pudo iniciar el checkout.')
+            setError(checkoutData.error ?? 'No se pudo iniciar el checkout.')
           }
           return
         }
 
-        if (data.url) {
+        if (checkoutData.url) {
           writePendingDraft(pendingDraft)
-          window.location.href = data.url
+          console.info('[register/handleSubmit] redirecting to Stripe checkout')
+          window.location.href = checkoutData.url
           return
         }
 
-        // Stripe configured but returned no URL (shouldn't happen in practice)
         setError('No se pudo obtener la URL de Stripe. Intentalo de nuevo.')
         return
       }
 
-      // ── Unauthenticated flow: create user + org + checkout atomically ──
+      // ── Unauthenticated path ─────────────────────────────────────────────────
       if (!selectedPlanKey) {
         setError('Seleccioná un plan para continuar.')
         return
       }
 
+      console.info('[register/handleSubmit] calling /api/register', { orgName, email: adminEmail })
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,11 +352,18 @@ function RegisterPageContent() {
         }),
       })
       const data = await response.json()
+      console.info('[register/handleSubmit] /api/register response', {
+        status: response.status,
+        errorCode: data.errorCode,
+        hasCheckoutUrl: !!data.checkoutUrl,
+        requiresLogin: data.requiresLogin,
+      })
 
       if (!response.ok) {
-        // Redirect unauthenticated users to login when the conflict means "you
-        // already have an account — log in to resume."  Never redirect when already
-        // authenticated (would create an infinite loop).
+        // ── CRITICAL: show inline errors — do NOT redirect to login ──────────
+        // Automatically redirecting to login after a failed registration causes
+        // the signIn("credentials") → 401 cascade observed in the network tab.
+        // We instead surface the error in-place with a manual login CTA.
         if (
           data.errorCode === 'existing_user_requires_login' ||
           data.errorCode === 'incomplete_onboarding' ||
@@ -284,53 +373,65 @@ function RegisterPageContent() {
           const loginUrl =
             `/login?next=${encodeURIComponent('/register?resume=1')}&reason=org-create` +
             (adminEmail ? `&email=${encodeURIComponent(adminEmail)}` : '')
-          router.push(loginUrl)
+          console.warn('[register/handleSubmit] account conflict — showing login suggestion', {
+            errorCode: data.errorCode,
+            loginUrl,
+          })
+          setError(data.error ?? 'Ya existe una cuenta con esos datos.')
+          setLoginSuggestionUrl(loginUrl)
           return
         }
 
         setError(data.error ?? 'Error al registrar la organización.')
-        // Reset to step 1 for conflicts that require changing org name or email.
+        // Reset to step 1 for conflicts that require changing org name or email
         if (
           data.errorCode === 'organization_exists' ||
           data.errorCode === 'membership_exists' ||
           data.errorCode === 'email_conflict'
         ) {
+          console.warn('[register/handleSubmit] conflict requires step reset', { errorCode: data.errorCode })
           setStep(1)
         }
         return
       }
 
+      // Success
       if (data.checkoutUrl) {
         writePendingDraft(pendingDraft)
+        console.info('[register/handleSubmit] redirecting to Stripe checkout (unauthenticated)')
         window.location.href = data.checkoutUrl
         return
       }
 
       clearPendingDraft()
 
-      if (data.warning) setSuccessMsg(data.warning)
+      if (data.warning) {
+        setSuccessMsg(data.warning)
+      }
 
+      // Org was created but Stripe isn't configured: redirect to login so the
+      // user can access the dashboard directly
       if (data.requiresLogin) {
+        console.info('[register/handleSubmit] requiresLogin — redirecting to /login')
         router.push('/login?registered=1')
         return
       }
 
-      if (isAuthenticated) {
-        await update()
-      }
-
-      router.push('/app?onboarding=1')
+      // Unauthenticated users who reach this point just registered successfully
+      // (Stripe not configured). Send them to login so they can access the app.
+      router.push('/login?registered=1')
       router.refresh()
-    } catch {
+    } catch (err) {
+      console.error('[register/handleSubmit] unexpected error', err)
       setError('No se pudo conectar con el servidor.')
-      setStep(isAuthenticated ? 2 : 2)
     } finally {
       setLoading(false)
     }
   }
 
-  // The "Siguiente" / "Crear organización" button is disabled while the session
-  // status is still being resolved to avoid routing to the wrong endpoint.
+  // The step 1 submit button stays disabled while the session is resolving.
+  // This prevents the race condition where the form fires before isAuthenticated
+  // is known, routing to the wrong endpoint (/api/register instead of /api/organizations).
   const step1SubmitDisabled =
     sessionLoading ||
     !orgName ||
@@ -495,7 +596,16 @@ function RegisterPageContent() {
 
                     {error ? (
                       <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                        {error}
+                        <span>{error}</span>
+                        {loginSuggestionUrl ? (
+                          <Link
+                            href={loginSuggestionUrl}
+                            className="ml-1 font-bold underline"
+                            style={{ color: '#b91c1c' }}
+                          >
+                            Iniciá sesión aquí →
+                          </Link>
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -523,7 +633,7 @@ function RegisterPageContent() {
               ) : (
                 <>
                   <button
-                    onClick={() => { setStep(1); setError('') }}
+                    onClick={() => { setStep(1); setError(''); setLoginSuggestionUrl(null) }}
                     className="mb-4 flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-700"
                   >
                     ← Volver
@@ -534,7 +644,9 @@ function RegisterPageContent() {
                   </h2>
                   <p className="mb-6 text-sm text-slate-400">
                     {isAuthenticated
-                      ? 'Tu organización fue creada. Elegí el plan y te llevamos a Stripe para completar el pago.'
+                      ? orgCreatedId
+                        ? 'Tu organización fue creada. Elegí el plan y te llevamos a Stripe para completar el pago.'
+                        : 'Seleccioná el plan y creamos tu organización antes de ir a Stripe.'
                       : 'Crearemos la organización y luego te llevaremos a Stripe Checkout con el plan seleccionado.'}
                   </p>
 
@@ -559,9 +671,19 @@ function RegisterPageContent() {
                       {successMsg}
                     </div>
                   ) : null}
+
                   {error ? (
                     <div className="mb-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                      {error}
+                      <span>{error}</span>
+                      {loginSuggestionUrl ? (
+                        <Link
+                          href={loginSuggestionUrl}
+                          className="ml-1 font-bold underline"
+                          style={{ color: '#b91c1c' }}
+                        >
+                          Iniciá sesión aquí →
+                        </Link>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -582,7 +704,7 @@ function RegisterPageContent() {
               <h3 className="mt-2 text-2xl font-black text-slate-950">Catálogo conectado a Stripe</h3>
               <p className="mt-3 text-sm text-slate-600">
                 {isAuthenticated && step === 1
-                  ? 'Podés ver los planes antes de crear la organización. Seleccionás el plan en el paso siguiente.'
+                  ? 'Podés ver los planes antes de crear la organización. Los seleccionás en el paso siguiente.'
                   : 'Seleccioná el plan que querés activar durante el onboarding.'}
               </p>
 
@@ -599,7 +721,8 @@ function RegisterPageContent() {
                 <div className="mt-6 grid gap-3">
                   {plans.map((plan) => {
                     const selected = plan.key === selectedPlanKey
-                    // In step 1 for authenticated users, plan cards are informational only.
+                    // Plan cards are informational (non-interactive) in step 1 for
+                    // authenticated users; they become interactive in step 2.
                     const interactive = !(isAuthenticated && step === 1)
                     return (
                       <button
