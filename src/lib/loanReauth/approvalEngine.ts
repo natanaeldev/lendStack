@@ -527,11 +527,11 @@ export async function getPendingApprovalsForUser(
     .toArray() as LoanApproval[]
 
   // Enrich with loan + client info
-  const loanIds = [...new Set(tasks.map(t => t.loanId))]
+  const loanIds = Array.from(new Set(tasks.map(t => t.loanId)))
   const loans = loanIds.length
     ? await db.collection('loans').find({ _id: { $in: loanIds as any[] } }, { projection: { _id: 1, amount: 1, currency: 1, clientId: 1 } }).toArray()
     : []
-  const clientIds = [...new Set(loans.map(l => l.clientId))]
+  const clientIds = Array.from(new Set(loans.map(l => l.clientId)))
   const clients = clientIds.length
     ? await db.collection('clients').find({ _id: { $in: clientIds as any[] } }, { projection: { _id: 1, name: 1 } }).toArray()
     : []
