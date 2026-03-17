@@ -234,6 +234,83 @@ export async function handleRegisterOnboarding(
   }
 }
 
+/**
+ * Creates an organization for an already-authenticated user, without touching
+ * Stripe.  Checkout is created separately via POST /api/billing/checkout once
+ * the user has selected a plan.
+ *
+ * This keeps org creation idempotent and decouples it from billing so the user
+ * can see and change their plan before being redirected to Stripe.
+ */
+export async function handleCreateOrganization(
+  body: OrganizationRequestBody,
+  deps: Pick<AuthenticatedDeps, 'runSelfServiceOnboarding' | 'findPendingCheckoutByOrgId'>,
+  sessionUser: SessionUser,
+): Promise<ApiResult> {
+  const orgName = pickFirstString(body.orgName, body.organizationName).trim()
+  if (!orgName) {
+    return {
+      status: 400,
+      body: { error: 'El nombre de la organización es obligatorio.', errorCode: 'validation_error' },
+    }
+  }
+
+  const sessionEmail = String(sessionUser.email ?? '').trim().toLowerCase()
+  if (!sessionEmail) {
+    return {
+      status: 400,
+      body: { error: 'La sesión actual no tiene un email válido.', errorCode: 'validation_error' },
+    }
+  }
+
+  // ── Idempotency: user already has a pending-checkout org ──
+  // Covers the retry path: user created org → abandoned plan selection → comes back.
+  // We return the existing org so the frontend can resume at plan selection.
+  if (sessionUser.organizationId) {
+    const recovery = await deps.findPendingCheckoutByOrgId(sessionUser.organizationId)
+    if (recovery) {
+      console.info('[handleCreateOrganization] recovered pending org', {
+        userId: sessionUser.id,
+        organizationId: recovery.organizationId,
+      })
+      return {
+        status: 200,
+        body: {
+          success: true,
+          organizationId: recovery.organizationId,
+          recovered: true,
+          needsPlanSelection: true,
+        },
+      }
+    }
+  }
+
+  try {
+    const onboarding = await deps.runSelfServiceOnboarding({
+      fullName: pickFirstString(body.adminName, sessionUser.name) || 'Administrador',
+      email: sessionEmail,
+      organizationName: orgName,
+      // billingStatus will be 'pending_checkout' so the org is correctly
+      // flagged as incomplete until the user selects a plan and pays.
+      requiresCheckout: true,
+      authenticatedUserId: sessionUser.id,
+      strictOrganizationConflicts: true,
+    })
+
+    return {
+      status: 201,
+      body: {
+        success: true,
+        organizationId: onboarding.organizationId,
+        organizationSlug: onboarding.organizationSlug,
+        needsPlanSelection: true,
+      },
+    }
+  } catch (error: any) {
+    return mapOrganizationApiError(error, 'No se pudo crear la organización.')
+  }
+}
+
 export async function handleAuthenticatedOrganizationCreation(
   body: OrganizationRequestBody,
   deps: AuthenticatedDeps,
