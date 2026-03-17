@@ -39,7 +39,7 @@ export async function POST(
       return NextResponse.json({ error: 'El préstamo ya fue enviado para aprobación' }, { status: 400 })
     }
 
-    const approvalPolicy = await resolveApprovalPolicy(db, {
+    let approvalPolicy = await resolveApprovalPolicy(db, {
       organizationId: orgId,
       agentId:    session.user.id,
       agentRole:  session.user.role ?? 'user',

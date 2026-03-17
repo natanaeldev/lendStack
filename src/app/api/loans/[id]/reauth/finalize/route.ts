@@ -51,7 +51,7 @@ export async function POST(
       return NextResponse.json({ success: true, session: updatedSession, approvalSubmitted: false, reason: 'already_pending' })
     }
 
-    const approvalPolicy = await resolveApprovalPolicy(db, {
+    let approvalPolicy = await resolveApprovalPolicy(db, {
       organizationId: orgId,
       agentId:   session.user.id,
       agentRole: session.user.role ?? 'user',
