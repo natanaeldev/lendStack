@@ -417,11 +417,9 @@ function RegisterPageContent() {
         return
       }
 
-      if (isAuthenticated) {
-        await update()
-      }
-
-      router.push('/app?onboarding=1')
+      // Unauthenticated users who reach this point just registered successfully
+      // (Stripe not configured). Send them to login so they can access the app.
+      router.push('/login?registered=1')
       router.refresh()
     } catch (err) {
       console.error('[register/handleSubmit] unexpected error', err)
