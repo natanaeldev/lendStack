@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb, isDbConfigured } from '@/lib/mongodb'
 import { requireMaster, forbiddenResponse } from '@/lib/orgAuth'
 import { BRAND } from '@/config/branding'
+import { ensureRestructureIndexes } from '@/lib/restructure/indexes'
 
 const ORG_ID = 'org_001'
 const ORG_NAME = BRAND.company
@@ -41,6 +42,9 @@ export async function POST() {
       { organizationId: { $exists: false } },
       { $set: { organizationId: ORG_ID } },
     )
+
+    // Ensure restructure module indexes exist
+    await ensureRestructureIndexes(db)
 
     return NextResponse.json({
       success: true,

@@ -11,6 +11,7 @@ import { showToast }                        from '@/components/Toast'
 import { PaymentReceiptModal }              from '@/components/PaymentReceipt'
 import type { ReceiptData }                 from '@/components/PaymentReceipt'
 import type { Currency }                    from '@/lib/loan'
+import ModificationsPanel                  from '@/components/restructure/ModificationsPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -596,6 +597,16 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
                 Cobranza
               </button>
             )}
+            {canPay && (
+              <button
+                onClick={() => {
+                  const el = document.getElementById('modifications-panel')
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                className="px-4 py-2 text-sm font-bold rounded-xl border-2 border-slate-300 text-slate-600 hover:bg-slate-50">
+                🔀 Reestructurar
+              </button>
+            )}
           </div>
         </div>
 
@@ -850,6 +861,22 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
           )}
         </SectionCard>
 
+        {/* ── Restructuring & Rescheduling ──────────────────────────────────── */}
+        <div id="modifications-panel">
+          <ModificationsPanel
+            loanId={loanId}
+            loanStatus={loan.status}
+            currency={cur}
+            remainingBalance={loan.remainingBalance}
+            overdueInterest={delinquency?.overdueAmount ?? 0}
+            unpaidInstallments={installments.filter(i => i.status !== 'paid').map(i => ({
+              installmentNumber: i.installmentNumber,
+              dueDate: i.dueDate,
+              status: i.status,
+            }))}
+          />
+        </div>
+
         {/* ── Collections ────────────────────────────────────────────────────── */}
         <SectionCard title="Cobranza" emoji="📞"
           action={
@@ -913,6 +940,16 @@ export default function LoanDetailPanel({ loanId, onBack, onViewBorrower }: Prop
                 className="flex-1 py-3 rounded-xl text-sm font-bold text-white active:opacity-80"
                 style={{ background: 'linear-gradient(135deg,#F97316,#EA580C)' }}>
                 Cobranza
+              </button>
+            )}
+            {canPay && (
+              <button
+                onClick={() => {
+                  const el = document.getElementById('modifications-panel')
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-600 active:opacity-80 border-2 border-slate-200 bg-white">
+                🔀
               </button>
             )}
           </div>
