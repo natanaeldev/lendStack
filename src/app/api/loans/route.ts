@@ -5,6 +5,9 @@ import { inferLegacyInterestMethod, inferLegacyPaymentFrequency, type InterestMe
 import { buildLoanChargeDocs, normalizeLoanCharges, summarizeLoanCharges } from '@/lib/loanCharges'
 import { emitNotification }                 from '@/lib/notifications'
 import { v4 as uuidv4 }                      from 'uuid'
+import { evaluateThreshold }                from '@/lib/loanReauth/threshold'
+import { recordLoanAudit }                  from '@/lib/loanReauth/audit'
+import { ensureReauthIndexes }              from '@/lib/loanReauth/indexes'
 
 
 function inferLoanType(loan: any, clientLoan?: any): 'amortized' | 'weekly' | 'carrito' {
@@ -222,11 +225,80 @@ export async function POST(req: NextRequest) {
       notes:           notes ?? undefined,
     }
 
+    // ── Threshold evaluation for existing customers ───────────────────────────
+    // Only applies when clientId refers to an existing client (not a new intake)
+    let reauthRequired = false
+    let thresholdResult = null
+    const isExistingCustomer = Boolean(client)
+
+    if (isExistingCustomer) {
+      await ensureReauthIndexes(db)
+      thresholdResult = await evaluateThreshold(db, {
+        organizationId: orgId,
+        agentId:    session.user.id,
+        agentRole:  session.user.role ?? session.user.organizationRole ?? 'user',
+        requestedAmount: Number(amount),
+        currency:   String(currency),
+      })
+
+      // Safety net: if no threshold policy is configured for this org, apply a
+      // hardcoded fallback of RD$500,000 DOP for non-manager roles so that operators
+      // cannot bypass the approval flow simply because the DB has no policy yet.
+      const agentRole = (session.user.role ?? session.user.organizationRole ?? '').toLowerCase()
+      const isManagerOrAbove = ['master', 'manager', 'owner'].includes(agentRole) || session.user.isOrganizationOwner
+      if (
+        !thresholdResult.exceeded &&
+        !thresholdResult.applicablePolicy &&
+        !isManagerOrAbove &&
+        Number(amount) > 500_000 &&
+        String(currency).toUpperCase() === 'DOP'
+      ) {
+        thresholdResult = { ...thresholdResult, exceeded: true, thresholdAmount: 500_000 }
+      }
+
+      if (thresholdResult.exceeded) {
+        reauthRequired = true
+        Object.assign(loanDoc, {
+          requiresReauth:           true,
+          reauthStatus:             'REAUTH_REQUIRED',
+          status:                   'reauth_required',
+          disbursementLocked:       true,
+          triggeredPolicyId:        thresholdResult.applicablePolicy?._id ?? null,
+          triggeredThresholdAmount: thresholdResult.thresholdAmount,
+        })
+      }
+    }
+
     await db.collection('loans').insertOne(loanDoc as any)
     if (normalizedCharges.length > 0) {
       await db.collection('loan_charges').insertMany(
         buildLoanChargeDocs(loanId, orgId, normalizedCharges, now) as any[],
       )
+    }
+
+    // Audit: loan created
+    await recordLoanAudit(db, {
+      organizationId: orgId,
+      loanId,
+      customerId: String(client._id),
+      actor: { actorId: session.user.id, actorRole: session.user.role ?? 'user' },
+      eventType: 'loan_created',
+      eventPayload: { amount, currency, clientId },
+    })
+
+    if (reauthRequired && thresholdResult) {
+      await recordLoanAudit(db, {
+        organizationId: orgId,
+        loanId,
+        customerId: String(client._id),
+        actor: { actorId: session.user.id, actorRole: session.user.role ?? 'user' },
+        eventType: 'threshold_exceeded',
+        eventPayload: {
+          requestedAmount: thresholdResult.requestedAmount,
+          thresholdAmount: thresholdResult.thresholdAmount,
+          policyId:        thresholdResult.applicablePolicy?._id ?? null,
+        },
+      })
     }
 
     const amountLabel = new Intl.NumberFormat('es-DO', {
@@ -288,7 +360,13 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, loanId })
+    return NextResponse.json({
+      success: true,
+      loanId,
+      reauthRequired,
+      thresholdAmount: thresholdResult?.thresholdAmount ?? null,
+      thresholdExceeded: thresholdResult?.exceeded ?? false,
+    })
   } catch (err: any) {
     console.error('[POST /api/loans]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

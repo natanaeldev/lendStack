@@ -434,6 +434,12 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                 <a href="/admin/branches" className="min-h-12 rounded-xl border border-sky-200 bg-sky-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#0369A1' }}>
                   {'\u{1F3E2}'} Configurar sucursales
                 </a>
+                <a href="/admin/reauth-policies" className="min-h-12 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#5B21B6' }}>
+                  {'\u{1F510}'} Políticas de reautorización
+                </a>
+                <a href="/admin/loan-policy" className="min-h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#3730A3' }}>
+                  {'\u{1F4CB}'} Política de aprobación de crédito
+                </a>
               </div>
             </div>
           </div>
