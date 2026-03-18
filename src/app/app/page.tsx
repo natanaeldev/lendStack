@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import Link from 'next/link'
 import Header from '@/components/Header'
 import Dashboard from '@/components/Dashboard'
 import ClientsPanel from '@/components/ClientsPanel'
@@ -18,6 +19,8 @@ import MobileBottomNav from '@/components/app-shell/MobileBottomNav'
 import MoreScreen from '@/components/app-shell/MoreScreen'
 import LoanCalculatorPage from '@/components/calculator/LoanCalculatorPage'
 import { canAccessTab } from '@/lib/appAccess'
+import ReauthPoliciesContent from '@/components/admin/ReauthPoliciesContent'
+import LoanPolicyContent from '@/components/admin/LoanPolicyContent'
 import { isAdminTab } from '@/lib/premiumAccess'
 import {
   calculateCarritoLoan,
@@ -65,7 +68,7 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   admin: { title: 'Administración', description: 'Configuración de usuarios, sucursales y permisos.' },
 }
 
-export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) {
+export function HomeWithTab({ initialTab = 'dashboard', adminSection = null }: { initialTab?: Tab; adminSection?: 'reauth-policies' | 'loan-policy' | null }) {
   const { data: session } = useSession()
   const isMaster = session?.user?.role === 'master' || Boolean(session?.user?.isOrganizationOwner)
   const [dashboardSearch, setDashboardSearch] = useState('')
@@ -82,6 +85,14 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
   const [loanCreateRequestKey, setLoanCreateRequestKey] = useState(0)
   const [showPayment, setShowPayment] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+
+  const activeAdminSection = useMemo(() => {
+    if (adminSection) return adminSection
+    if (typeof window === 'undefined') return null
+    if (window.location.pathname.startsWith('/app/admin/reauth-policies')) return 'reauth-policies'
+    if (window.location.pathname.startsWith('/app/admin/loan-policy')) return 'loan-policy'
+    return null
+  }, [adminSection])
 
   const [amount, setAmount] = useState(100000)
   const [termUnit, setTermUnit] = useState<'years' | 'months'>('years')
@@ -421,7 +432,7 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
           />
         )}
 
-        {tab === 'admin' && canUseAdminFeatures && (
+        {tab === 'admin' && canUseAdminFeatures && !activeAdminSection && (
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5" style={{ boxShadow: '0 2px 18px rgba(0,0,0,.06)' }}>
               <p className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Administración</p>
@@ -434,16 +445,20 @@ export function HomeWithTab({ initialTab = 'dashboard' }: { initialTab?: Tab }) 
                 <a href="/admin/branches" className="min-h-12 rounded-xl border border-sky-200 bg-sky-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#0369A1' }}>
                   {'\u{1F3E2}'} Configurar sucursales
                 </a>
-                <a href="/admin/reauth-policies" className="min-h-12 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#5B21B6' }}>
+                <Link href="/app/admin/reauth-policies" className="min-h-12 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#5B21B6' }}>
                   {'\u{1F510}'} Políticas de reautorización
-                </a>
-                <a href="/admin/loan-policy" className="min-h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#3730A3' }}>
+                </Link>
+                <Link href="/app/admin/loan-policy" className="min-h-12 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-semibold flex items-center justify-center" style={{ color: '#3730A3' }}>
                   {'\u{1F4CB}'} Política de aprobación de crédito
-                </a>
+                </Link>
               </div>
             </div>
           </div>
         )}
+
+        {tab === 'admin' && canUseAdminFeatures && activeAdminSection === 'reauth-policies' && <ReauthPoliciesContent />}
+
+        {tab === 'admin' && canUseAdminFeatures && activeAdminSection === 'loan-policy' && <LoanPolicyContent />}
 
         {tab === 'branches' && (
           <BranchesPanel
