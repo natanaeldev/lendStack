@@ -150,38 +150,44 @@ export default function NotificationsPage() {
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),18rem]">
           <section className="space-y-4">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Centro de notificaciones</p>
-                  <h1 className="mt-2 text-2xl font-semibold text-slate-950">Alertas operativas del workspace</h1>
-                  <p className="mt-2 max-w-2xl text-sm text-slate-500">Seguimiento de préstamos, cobranzas, documentos y revisiones manuales. Cada alerta abre el flujo relacionado.</p>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Centro de notificaciones</p>
+                  <h1 className="mt-2 text-xl font-semibold leading-tight text-slate-950 sm:text-2xl">Alertas operativas del workspace</h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Seguimiento de préstamos, cobranzas, documentos y revisiones manuales. Cada alerta abre el flujo relacionado.</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                   <button onClick={markAllRead} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 disabled:text-slate-300" disabled={unreadCount === 0}>
                     Marcar todo leído
                   </button>
-                  <a href="/app" className="inline-flex min-h-11 items-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white">
+                  <a href="/app" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white">
                     Volver al dashboard
                   </a>
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                    <button key={key} onClick={() => setCategory(key)} className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${category === key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      {label}
-                    </button>
-                  ))}
+              <div className="mt-5 space-y-3">
+                <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex min-w-max gap-2">
+                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                      <button key={key} onClick={() => setCategory(key)} className={`min-h-10 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition ${category === key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-2 sm:ml-auto">
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end">
                   {[
                     { key: 'all', label: 'Todas' },
                     { key: 'unread', label: 'Sin leer' },
                     { key: 'read', label: 'Leídas' },
                   ].map((option) => (
-                    <button key={option.key} onClick={() => setState(option.key as 'all' | 'read' | 'unread')} className={`min-h-10 rounded-xl border px-3 text-sm font-semibold ${state === option.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500'}`}>
+                    <button
+                      key={option.key}
+                      onClick={() => setState(option.key as 'all' | 'read' | 'unread')}
+                      className={`min-h-10 rounded-xl border px-3 text-center text-sm font-semibold ${state === option.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500'}`}
+                    >
                       {option.label}
                     </button>
                   ))}
@@ -189,41 +195,41 @@ export default function NotificationsPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               {loading ? (
-                <div className="px-5 py-10 text-center text-sm text-slate-500">Cargando notificaciones…</div>
+                <div className="px-4 py-10 text-center text-sm text-slate-500 sm:px-5">Cargando notificaciones…</div>
               ) : sections.length === 0 ? (
-                <div className="px-5 py-12 text-center">
+                <div className="px-4 py-12 text-center sm:px-5">
                   <p className="text-base font-semibold text-slate-800">No se encontraron alertas</p>
                   <p className="mt-2 text-sm text-slate-500">Ajusta los filtros o espera nuevos eventos operativos.</p>
                 </div>
               ) : (
                 sections.map((section) => (
                   <div key={section.title} className="border-b border-slate-100 last:border-b-0">
-                    <div className="px-5 py-4">
-                      <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{section.title}</h2>
+                    <div className="px-4 py-4 sm:px-5">
+                      <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{section.title}</h2>
                     </div>
                     <div className="space-y-0">
                       {section.items.map((item) => (
-                        <div key={item._id} className={`px-5 py-4 ${item.isRead ? 'bg-white' : 'bg-sky-50/40'}`}>
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        <div key={item._id} className={`px-4 py-4 sm:px-5 ${item.isRead ? 'bg-white' : 'bg-sky-50/40'}`}>
+                          <div className="flex flex-col gap-3">
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                              <div className="flex flex-wrap items-start gap-2">
+                                <p className="min-w-0 flex-1 break-words text-sm font-semibold leading-5 text-slate-900">{item.title}</p>
                                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${PRIORITY_STYLES[item.priority]}`}>{item.priority}</span>
                                 {!item.isRead && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Nueva</span>}
                               </div>
-                              <p className="mt-2 text-sm text-slate-600">{item.message}</p>
+                              <p className="mt-2 break-words text-sm leading-6 text-slate-600">{item.message}</p>
                               <p className="mt-2 text-xs text-slate-400">{formatDate(item.createdAt)}</p>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:flex sm:flex-wrap">
                               {item.actionUrl && (
-                                <a href={item.actionUrl} className="inline-flex min-h-10 items-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white">
+                                <a href={item.actionUrl} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white">
                                   Abrir
                                 </a>
                               )}
                               {!item.isRead && (
-                                <button onClick={() => markRead(item._id)} className="min-h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">
+                                <button onClick={() => markRead(item._id)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">
                                   Marcar leída
                                 </button>
                               )}
@@ -238,24 +244,24 @@ export default function NotificationsPage() {
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Estado</p>
+          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Estado</p>
               <p className="mt-2 text-3xl font-semibold text-slate-950">{unreadCount}</p>
-              <p className="mt-1 text-sm text-slate-500">alertas sin leer en tu cola operativa.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">alertas sin leer en tu cola operativa.</p>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Preferencias in-app</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Preferencias in-app</p>
               <div className="mt-4 space-y-3">
                 {preferences ? (
                   Object.entries(preferences.categories).map(([key, value]) => (
-                    <label key={key} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-3 py-3">
-                      <div>
+                    <label key={key} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 px-3 py-3 sm:items-center">
+                      <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-800">{CATEGORY_LABELS[key] ?? key}</p>
-                        <p className="text-xs text-slate-500">Mostrar alertas de esta categoría en el centro.</p>
+                        <p className="text-xs leading-5 text-slate-500">Mostrar alertas de esta categoría en el centro.</p>
                       </div>
-                      <input type="checkbox" checked={!!value.inApp} onChange={(event) => toggleCategoryPreference(key, event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+                      <input type="checkbox" checked={!!value.inApp} onChange={(event) => toggleCategoryPreference(key, event.target.checked)} className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 sm:mt-0" />
                     </label>
                   ))
                 ) : (
