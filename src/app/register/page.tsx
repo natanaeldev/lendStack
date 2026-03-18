@@ -366,8 +366,7 @@ function RegisterPageContent() {
         // We instead surface the error in-place with a manual login CTA.
         if (
           data.errorCode === 'existing_user_requires_login' ||
-          data.errorCode === 'incomplete_onboarding' ||
-          data.errorCode === 'conflict'
+          data.errorCode === 'incomplete_onboarding'
         ) {
           writePendingDraft(pendingDraft)
           const loginUrl =

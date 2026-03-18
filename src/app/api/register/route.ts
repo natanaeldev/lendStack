@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getBillingPlanByCheckoutKey } from '@/lib/billingPlans'
-import type { BillingProductKey, BillingPlanInterval } from '@/lib/billingPlans'
+import { getBillingPlanByCheckoutKey, type BillingPlanInterval, type BillingProductKey } from '@/lib/billingPlans'
 import { createOrganizationCheckoutSession, isStripeConfigured } from '@/lib/stripeBilling'
 import { getDb, getMongoClient, isDbConfigured } from '@/lib/mongodb'
 import { runSelfServiceOnboarding } from '@/lib/selfServiceOnboarding'
@@ -10,13 +9,15 @@ import { handleRegisterOnboarding } from '@/lib/organizationApi'
 
 export async function POST(req: NextRequest) {
   if (!isDbConfigured()) {
-    return NextResponse.json({ error: 'Base de datos no configurada.' }, { status: 503 })
+    return NextResponse.json(
+      { error: 'Base de datos no configurada.' },
+      { status: 503 },
+    )
   }
 
   try {
     const body = await req.json()
     const session = await getServerSession(authOptions)
-
     const client = await getMongoClient()
     const db = await getDb()
 
@@ -25,26 +26,51 @@ export async function POST(req: NextRequest) {
       {
         getBillingPlanByCheckoutKey,
         isStripeConfigured,
-        runSelfServiceOnboarding: (input) => runSelfServiceOnboarding(client, db, input as any),
+        runSelfServiceOnboarding: (input) => runSelfServiceOnboarding(client, db, input),
         createOrganizationCheckoutSession,
-
-        // ── Idempotency: look up an existing pending-checkout org by email ──
-        // If this email already has a user + org in pending_checkout state, we skip
-        // creating a second user/org and issue a fresh Stripe checkout URL instead.
-        // This makes the endpoint safe to retry after a Stripe cancel without errors.
         findPendingCheckoutRecovery: async (email: string) => {
-          const user = await db.collection('users').findOne({ email })
-          if (!user) return null
-          const org = await db.collection('organizations').findOne({
-            _id: user.organizationId as any,
-            billingStatus: 'pending_checkout',
-          })
-          if (!org) return null
+          const normalizedEmail = String(email).trim().toLowerCase()
+          if (!normalizedEmail) return null
+
+          const pendingOrg = await db.collection('organizations').findOne(
+            {
+              ownerEmail: normalizedEmail,
+              billingStatus: 'pending_checkout',
+            },
+            {
+              sort: { updatedAt: -1 },
+              projection: {
+                _id: 1,
+                ownerUserId: 1,
+                billingPlan: 1,
+                billingInterval: 1,
+              },
+            },
+          )
+
+          if (!pendingOrg?._id) return null
+
+          const ownerUserId = pendingOrg.ownerUserId
+            ? String(pendingOrg.ownerUserId)
+            : null
+          const ownerUser =
+            ownerUserId
+              ? await db.collection('users').findOne(
+                  { _id: pendingOrg.ownerUserId as any },
+                  { projection: { _id: 1 } },
+                )
+              : await db.collection('users').findOne(
+                  { email: normalizedEmail },
+                  { projection: { _id: 1 } },
+                )
+
+          if (!ownerUser?._id) return null
+
           return {
-            organizationId: String(org._id),
-            userId: String(user._id),
-            planKey: (org.billingPlan ?? 'pro') as BillingProductKey,
-            interval: (org.billingInterval ?? 'month') as BillingPlanInterval,
+            organizationId: String(pendingOrg._id),
+            userId: String(ownerUser._id),
+            planKey: (pendingOrg.billingPlan ?? 'pro') as BillingProductKey,
+            interval: (pendingOrg.billingInterval ?? 'month') as BillingPlanInterval,
           }
         },
       },
@@ -53,27 +79,25 @@ export async function POST(req: NextRequest) {
             id: session.user.id,
             email: session.user.email,
             name: session.user.name,
+            organizationId: session.user.organizationId,
           }
         : null,
     )
 
-    if (result.status === 400 && result.body.errorCode === 'use_organization_creation_endpoint' && session?.user?.id) {
-      console.warn('[POST /api/register] authenticated user hit unauthenticated endpoint', {
-        userId: session.user.id,
-        email: session.user.email,
-        errorCode: result.body.errorCode,
-      })
-    }
-    if (result.status === 409) {
-      console.warn('[POST /api/register] conflict', {
+    if (result.status >= 400) {
+      console.warn('[POST /api/register] error', {
+        sessionUserId: session?.user?.id ?? null,
         errorCode: result.body.errorCode,
         message: result.body.error,
       })
     }
 
     return NextResponse.json(result.body, { status: result.status })
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /api/register]', error)
-    return NextResponse.json({ error: 'No se pudo completar el onboarding.' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'No se pudo completar el onboarding.' },
+      { status: 500 },
+    )
   }
 }

@@ -41,6 +41,7 @@ test('register onboarding rejects authenticated callers', async () => {
       isStripeConfigured: () => true,
       runSelfServiceOnboarding: async () => buildOnboardingResult(),
       createOrganizationCheckoutSession: async () => ({ url: 'https://checkout.test' }),
+      findPendingCheckoutRecovery: async () => null,
     },
     { id: 'user_1', email: 'owner@example.com', name: 'Owner' },
   )
@@ -67,6 +68,7 @@ test('register onboarding creates user and organization for unauthenticated flow
         return buildOnboardingResult()
       },
       createOrganizationCheckoutSession: async () => ({ url: 'https://checkout.test' }),
+      findPendingCheckoutRecovery: async () => null,
     },
     null,
   )
@@ -74,6 +76,47 @@ test('register onboarding creates user and organization for unauthenticated flow
   assert.equal(result.status, 200)
   assert.equal(result.body.createdUser, true)
   assert.equal(result.body.requiresLogin, true)
+})
+
+test('register onboarding recovers pending checkout organizations by email', async () => {
+  let onboardingCalled = false
+  const result = await handleRegisterOnboarding(
+    {
+      adminName: 'Alice',
+      adminEmail: 'alice@example.com',
+      orgName: 'Acme Lending',
+      password: 'supersecret',
+      planKey: 'pro_monthly',
+    },
+    {
+      getBillingPlanByCheckoutKey: () => activePlan,
+      isStripeConfigured: () => true,
+      runSelfServiceOnboarding: async () => {
+        onboardingCalled = true
+        return buildOnboardingResult()
+      },
+      createOrganizationCheckoutSession: async (input) => {
+        assert.equal(input.organizationId, 'org_pending')
+        assert.equal(input.userId, 'user_pending')
+        return { url: 'https://checkout.test/pending' }
+      },
+      findPendingCheckoutRecovery: async (email) => {
+        assert.equal(email, 'alice@example.com')
+        return {
+          organizationId: 'org_pending',
+          userId: 'user_pending',
+          planKey: 'pro',
+          interval: 'month',
+        }
+      },
+    },
+    null,
+  )
+
+  assert.equal(onboardingCalled, false)
+  assert.equal(result.status, 200)
+  assert.equal(result.body.recovered, true)
+  assert.equal(result.body.checkoutUrl, 'https://checkout.test/pending')
 })
 
 test('authenticated organization creation uses current session and returns checkout url', async () => {
