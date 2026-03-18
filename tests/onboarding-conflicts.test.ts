@@ -11,7 +11,7 @@ test('maps duplicate user email conflict to sign-in flow', () => {
   })
 
   assert.ok(conflict)
-  assert.equal(conflict?.code, 'existing_user_requires_login')
+  assert.equal(conflict?.code, 'email_conflict')
 })
 
 test('maps duplicate organization slug conflict to organization_exists', () => {
