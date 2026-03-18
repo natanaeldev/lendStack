@@ -249,9 +249,9 @@ export default function LoanPolicyPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <AdminModuleHeader
+        eyebrow="Configuración"
         title="Política de aprobación de crédito"
-        subtitle="Configura los criterios automáticos para evaluar solicitudes de préstamo"
-        backHref="/app/admin"
+        description="Configura los criterios automáticos para evaluar solicitudes de préstamo"
       />
 
       <div className="mx-auto max-w-3xl px-4 py-6 space-y-4">
